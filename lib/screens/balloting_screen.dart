@@ -94,7 +94,9 @@ class _BallotingScreenState extends State<BallotingScreen> {
             date: '10 Jul 2026, 11:00 AM',
             status: 'To Be Run',
             statusColor: AdminColors.primary,
-            imageIcon: Icons.villa_rounded,
+            imagePath: 'assets/images/Green_Valley_Villa.png',
+            eligibleLabel: 'Eligible',
+            plotsLabel: 'Plots',
             onStart: () => Navigator.pushNamed(context, AdminRoutes.ballotingProcessing,
                 arguments: {
                   'name': 'Green Valley Villas',
@@ -112,7 +114,9 @@ class _BallotingScreenState extends State<BallotingScreen> {
             date: '25 Jul 2026, 11:00 AM',
             status: 'To Be Run',
             statusColor: AdminColors.primary,
-            imageIcon: Icons.apartment_rounded,
+            imagePath: 'assets/images/Sunshine Residency.png',
+            eligibleLabel: 'Eligible',
+            plotsLabel: 'Plots',
             onStart: () => Navigator.pushNamed(context, AdminRoutes.ballotingProcessing,
                 arguments: {
                   'name': 'Sunshine Residency',
@@ -191,7 +195,9 @@ class _BallotingSchemeCard extends StatelessWidget {
   final String date;
   final String status;
   final Color statusColor;
-  final IconData imageIcon;
+  final String imagePath;
+  final String eligibleLabel;
+  final String plotsLabel;
   final VoidCallback onStart;
 
   const _BallotingSchemeCard({
@@ -202,8 +208,10 @@ class _BallotingSchemeCard extends StatelessWidget {
     required this.date,
     required this.status,
     required this.statusColor,
-    required this.imageIcon,
+    required this.imagePath,
     required this.onStart,
+    this.eligibleLabel = 'Eligible Applicants',
+    this.plotsLabel = 'Available Plots',
   });
 
   @override
@@ -211,57 +219,107 @@ class _BallotingSchemeCard extends StatelessWidget {
     return PremiumCard(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+        // ── Top row: image + name/size/status ──────────────────────────
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Scheme image placeholder
-          Container(
-            height: 70, width: 80,
-            decoration: BoxDecoration(
-              color: AdminColors.primary.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(14),
+          // Real property image
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.asset(
+              imagePath,
+              height: 72, width: 82,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                height: 72, width: 82,
+                decoration: BoxDecoration(
+                  color: AdminColors.primary.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.villa_rounded, color: AdminColors.primary, size: 32),
+              ),
             ),
-            child: Icon(imageIcon, color: AdminColors.primary, size: 32),
           ),
           const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Text(name,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 15))),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
+          // Name + size + status pill — Expanded prevents overflow
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: Text(name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: AdminColors.darkText,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          height: 1.2)),
                 ),
-                child: Text(status,
-                    style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 10)),
-              ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(status,
+                      style: TextStyle(
+                          color: statusColor, fontWeight: FontWeight.w800, fontSize: 10)),
+                ),
+              ]),
+              const SizedBox(height: 5),
+              Text(size,
+                  style: const TextStyle(
+                      color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 12)),
             ]),
-            const SizedBox(height: 4),
-            Text(size, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 12)),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(child: _MiniStat(icon: Icons.groups_rounded, label: 'Eligible Applicants', value: '$eligibleApplicants')),
-              const SizedBox(width: 8),
-              Expanded(child: _MiniStat(icon: Icons.home_work_rounded, label: 'Available Plots', value: '$availablePlots')),
-            ]),
-          ])),
+          ),
         ]),
+
+        const SizedBox(height: 14),
+
+        // ── Mini stats row — OUTSIDE the constrained inner column ──────
+        Row(children: [
+          Expanded(
+            child: _MiniStat(
+                icon: Icons.groups_rounded,
+                label: eligibleLabel,
+                value: '$eligibleApplicants'),
+          ),
+          Container(width: 1, height: 36, color: AdminColors.border),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: _MiniStat(
+                  icon: Icons.home_work_rounded,
+                  label: plotsLabel,
+                  value: '$availablePlots'),
+            ),
+          ),
+        ]),
+
         const SizedBox(height: 12),
+
+        // ── Balloting date ─────────────────────────────────────────────
         Row(children: [
           const Icon(Icons.calendar_today_rounded, color: AdminColors.primary, size: 13),
           const SizedBox(width: 6),
-          Text('Balloting Date', style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11)),
+          const Text('Balloting Date',
+              style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11)),
         ]),
         const SizedBox(height: 3),
-        Text(date, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 12)),
+        Text(date,
+            style: const TextStyle(
+                color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 12)),
+
         const SizedBox(height: 14),
+
+        // ── Start button ───────────────────────────────────────────────
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
             onPressed: onStart,
             icon: const Icon(Icons.play_circle_rounded, size: 18),
-            label: const Text('Start Balloting', style: TextStyle(fontWeight: FontWeight.w900)),
+            label: const Text('Start Balloting',
+                style: TextStyle(fontWeight: FontWeight.w900)),
             style: FilledButton.styleFrom(
               backgroundColor: AdminColors.primary,
               padding: const EdgeInsets.symmetric(vertical: 13),
@@ -311,10 +369,20 @@ class _HistoryCard extends StatelessWidget {
       onTap: onTap,
       padding: const EdgeInsets.all(14),
       child: Row(children: [
-        Container(
-          height: 56, width: 64,
-          decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.10), borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.domain_rounded, color: AdminColors.primary, size: 26),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.asset(
+            'assets/images/Royal Enclave.png',
+            height: 56, width: 64,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              height: 56, width: 64,
+              decoration: BoxDecoration(
+                  color: AdminColors.primary.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.domain_rounded, color: AdminColors.primary, size: 26),
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

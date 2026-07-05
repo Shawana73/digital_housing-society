@@ -261,7 +261,7 @@ class _HeroCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         image: const DecorationImage(
-          image: AssetImage('assets/images/admin_realestate.png'),
+          image: AssetImage('assets/images/admin_purple.png'),
           fit: BoxFit.cover,
           alignment: Alignment.centerRight,
         ),

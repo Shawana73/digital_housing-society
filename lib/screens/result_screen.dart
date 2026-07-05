@@ -57,41 +57,136 @@ class _ResultScreenState extends State<ResultScreen> {
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
         children: [
-          // ── Completed celebration hero ─────────────────────────────────
+          // ── Completed celebration hero (white card, centred) ──────────
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
             decoration: BoxDecoration(
               color: AdminColors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 10))],
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                    color: AdminColors.primary.withOpacity(0.10),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10)),
+              ],
             ),
-            child: Column(children: [
-              // Confetti dots decoration
-              SizedBox(
-                height: 120,
-                child: Stack(alignment: Alignment.center, children: [
-                  // Scattered colored dots
-                  ..._confettiDots(),
-                  // Green check circle
-                  Container(
-                    height: 82, width: 82,
-                    decoration: BoxDecoration(
-                      color: AdminColors.success,
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: AdminColors.success.withOpacity(0.30), blurRadius: 20, offset: const Offset(0, 8))],
-                    ),
-                    child: const Icon(Icons.check_rounded, color: Colors.white, size: 44),
+            padding: const EdgeInsets.fromLTRB(16, 28, 16, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Confetti + green tick — uses LayoutBuilder so confetti spreads to card width
+                LayoutBuilder(builder: (context, constraints) {
+                  final w = constraints.maxWidth;
+                  final cx = w / 2;
+                  const h = 140.0;
+                  final confetti = [
+                    (Colors.yellow,     cx - 110, 22.0,  11.0, 10.0,  0.5),
+                    (Colors.pink,       cx - 90,  55.0,   9.0, 12.0, -0.4),
+                    (Colors.cyan,       cx - 120, 80.0,   8.0, 13.0,  0.6),
+                    (Colors.orange,     cx - 70,  12.0,  10.0,  9.0, -0.3),
+                    (Colors.green,      cx + 100, 18.0,  11.0, 10.0, -0.5),
+                    (Colors.red,        cx + 80,  58.0,   9.0, 12.0,  0.4),
+                    (Colors.blue,       cx + 112, 82.0,   8.0, 11.0, -0.6),
+                    (Colors.purple,     cx + 65,  10.0,  10.0,  9.0,  0.3),
+                    (Colors.amber,      cx - 40,   8.0,   9.0,  7.0, -0.5),
+                    (Colors.teal,       cx + 38,   6.0,   8.0,  9.0,  0.4),
+                    (const Color(0xFFFF6B6B), cx - 50, 105.0, 10.0, 7.0,  0.6),
+                    (const Color(0xFF4ECDC4), cx + 45, 108.0,  7.0, 10.0, -0.4),
+                    (Colors.indigo,     cx - 100, 105.0,  9.0,  7.0,  0.3),
+                    (Colors.deepOrange, cx + 95,  105.0,  8.0,  9.0, -0.5),
+                  ];
+                  return SizedBox(
+                    height: h, width: w,
+                    child: Stack(clipBehavior: Clip.none, alignment: Alignment.topCenter, children: [
+                      // Confetti pieces
+                      ...confetti.map((c) {
+                        final (color, x, y, cw, ch, angle) = c;
+                        return Positioned(
+                          left: x - cw / 2,
+                          top: y,
+                          child: Transform.rotate(
+                            angle: angle,
+                            child: Container(
+                              width: cw, height: ch,
+                              decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(3)),
+                            ),
+                          ),
+                        );
+                      }),
+                      // Outer glow ring — centred in top area
+                      Positioned(
+                        left: cx - 52, top: 18,
+                        child: Container(
+                          height: 104, width: 104,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AdminColors.success.withOpacity(0.08),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: AdminColors.success.withOpacity(0.18),
+                                  blurRadius: 28,
+                                  spreadRadius: 6),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Green check circle
+                      Positioned(
+                        left: cx - 41, top: 29,
+                        child: Container(
+                          height: 82, width: 82,
+                          decoration: BoxDecoration(
+                            color: AdminColors.success,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                  color: AdminColors.success.withOpacity(0.38),
+                                  blurRadius: 22,
+                                  offset: const Offset(0, 8)),
+                            ],
+                          ),
+                          child: const Icon(Icons.check_rounded,
+                              color: Colors.white, size: 46),
+                        ),
+                      ),
+                    ]),
+                  );
+                }),
+                const SizedBox(height: 14),
+                const Text(
+                  'Balloting Completed!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: AdminColors.darkText,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
+                      letterSpacing: -.5),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AdminColors.primary.withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                ]),
-              ),
-              const SizedBox(height: 4),
-              const Text('Balloting Completed!',
-                  style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: -.4)),
-              const SizedBox(height: 6),
-              const Text('10 Jul 2026, 11:02 AM',
-                  style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 13)),
-            ]),
+                  child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.calendar_today_rounded,
+                            color: AdminColors.primary, size: 13),
+                        SizedBox(width: 7),
+                        Text('10 Jul 2026, 11:02 AM',
+                            style: TextStyle(
+                                color: AdminColors.primary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13)),
+                      ]),
+                ),
+              ],
+            ),
           ),
 
           const SizedBox(height: 20),
@@ -254,27 +349,6 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  List<Widget> _confettiDots() {
-    final colors = [Colors.blue, Colors.red, Colors.green, Colors.orange, Colors.purple, Colors.pink];
-    const positions = [
-      Offset(-80, -20), Offset(-65, 20), Offset(-90, 40),
-      Offset(75, -25), Offset(85, 15), Offset(60, 45),
-      Offset(-40, -38), Offset(40, -35), Offset(0, -45),
-    ];
-    return List.generate(positions.length, (i) {
-      return Positioned(
-        left: 80 + positions[i].dx,
-        top: 20 + positions[i].dy,
-        child: Container(
-          width: 8, height: 8,
-          decoration: BoxDecoration(
-            color: colors[i % colors.length],
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      );
-    });
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -285,40 +359,67 @@ class _ResultSummaryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tiles = [
-      ('Total\nApplicants', '1,284', AdminColors.primary, Icons.groups_rounded),
-      ('Successful',        '120',   AdminColors.success,  Icons.verified_rounded),
-      ('Unsuccessful',      '1,164', AdminColors.rejected, Icons.cancel_rounded),
-      ('Success\nRate',     '9.3%',  AdminColors.warning,  Icons.percent_rounded),
+      ('Total', '1,284', AdminColors.primary, Icons.groups_rounded),
+      ('Successful', '120', AdminColors.success, Icons.verified_rounded),
+      ('Unsuccessful', '1,164', AdminColors.rejected, Icons.cancel_rounded),
+      ('Success Rate', '9.3%', AdminColors.warning, Icons.percent_rounded),
     ];
 
-    return Row(children: tiles.asMap().entries.map((e) {
-      final i = e.key;
-      final (label, value, color, icon) = e.value;
-      return Expanded(
-        child: Container(
-          margin: EdgeInsets.only(right: i < 3 ? 8 : 0),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AdminColors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.07), blurRadius: 14, offset: const Offset(0, 6))],
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              height: 34, width: 34,
-              decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: color, size: 17),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: tiles.asMap().entries.map((e) {
+        final i = e.key;
+        final (label, value, color, icon) = e.value;
+        return Expanded(
+          child: Container(
+            margin: EdgeInsets.only(right: i < 3 ? 8 : 0),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AdminColors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                    color: AdminColors.primary.withOpacity(0.07),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6))
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(label, maxLines: 2,
-                style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 9.5, height: 1.2)),
-            const SizedBox(height: 3),
-            Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: -.3)),
-          ]),
-        ),
-      );
-    }).toList());
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 32, width: 32,
+                  decoration: BoxDecoration(
+                      color: color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: Icon(icon, color: color, size: 16),
+                ),
+                const SizedBox(height: 8),
+                Text(label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: AdminColors.greyText,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 9.0,
+                        height: 1.25)),
+                const SizedBox(height: 3),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(value,
+                      style: const TextStyle(
+                          color: AdminColors.darkText,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                          letterSpacing: -.3)),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 }
 
@@ -370,13 +471,17 @@ class _WinnerRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
             decoration: BoxDecoration(
-              color: result.selected ? AdminColors.success.withOpacity(0.12) : AdminColors.greyText.withOpacity(0.10),
+              color: result.selected
+                  ? AdminColors.success.withOpacity(0.12)
+                  : AdminColors.warning.withOpacity(0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               result.selected ? 'Successful' : 'Not Selected',
               style: TextStyle(
-                  color: result.selected ? AdminColors.success : AdminColors.greyText,
+                  color: result.selected
+                      ? AdminColors.success
+                      : AdminColors.warning,
                   fontWeight: FontWeight.w800,
                   fontSize: 9.5),
             ),
