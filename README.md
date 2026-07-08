@@ -1,17 +1,51 @@
-# my_app
+#  Digital Housing Society
 
-A new Flutter project.
+A Flutter-based mobile application for modern housing society management.
 
-## Getting Started
+![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)
+![Dart](https://img.shields.io/badge/Dart-3.x-blue?logo=dart)
+![Status](https://img.shields.io/badge/Status-In%20Progress-orange)
 
-This project is a starting point for a Flutter application.
+##  Features
 
-A few resources to get you started if this is your first Flutter project:
+- Secure user authentication
+- Applicant management
+- Plot management
+- Plot visualization
+- Digital balloting system
+- Admin dashboard
+- Reports and analytics
+- Responsive and modern UI
+  
+  ##  Tech Stack
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Flutter
+- Dart
+- Firebase (In Progress)
+- Git
+- GitHub
+- Android Studio
+  
+  ##  Future Enhancements
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Push notifications
+- Payment integration
+- Google Maps integration
+- Resident portal
+- Complaint management
+- Visitor management
+- Enhanced reporting and analytics
+  
+  ##  Team
+
+This project is being developed as a Final Year Project by a team of BS Information Technology students.
+
+### Team Members
+
+- Shawana Gohar
+- Sonia Saleem
+- Memoona Akram
+  
+  ##  Project Status
+
+ This project is currently under development as part of a BS Information Technology Final Year Project.
