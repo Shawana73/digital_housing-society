@@ -61,16 +61,16 @@ class AdminTheme {
         backgroundColor: AdminColors.white,
         surfaceTintColor: Colors.transparent,
         indicatorColor: AdminColors.primary.withOpacity(0.12),
-        labelTextStyle: MaterialStateProperty.resolveWith(
+        labelTextStyle: WidgetStateProperty.resolveWith(
               (states) => TextStyle(
-            color: states.contains(MaterialState.selected) ? AdminColors.primary : AdminColors.greyText,
+            color: states.contains(WidgetState.selected) ? AdminColors.primary : AdminColors.greyText,
             fontWeight: FontWeight.w800,
             fontSize: 11,
           ),
         ),
-        iconTheme: MaterialStateProperty.resolveWith(
+        iconTheme: WidgetStateProperty.resolveWith(
               (states) => IconThemeData(
-            color: states.contains(MaterialState.selected) ? AdminColors.primary : AdminColors.greyText,
+            color: states.contains(WidgetState.selected) ? AdminColors.primary : AdminColors.greyText,
           ),
         ),
       ),

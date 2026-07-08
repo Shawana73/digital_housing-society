@@ -112,7 +112,7 @@ class _ApplicantVerificationScreenState
             ),
             GestureDetector(
               onTap: () => showAdminSnack(context, 'Sort clicked'),
-              child: Row(mainAxisSize: MainAxisSize.min, children: const [
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
                 Text('Sort',
                     style: TextStyle(
                         color: AdminColors.primary,
@@ -238,21 +238,21 @@ class _StatsBanner extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Positioned(right: -34, top: -34, child: _Glow(110, opacity: 0.08)),
-                    Positioned(left: -46, bottom: -46, child: _Glow(120, opacity: 0.05)),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+                    const Positioned(right: -34, top: -34, child: _Glow(110, opacity: 0.08)),
+                    const Positioned(left: -46, bottom: -46, child: _Glow(120, opacity: 0.05)),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 22, 20, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Applicant Verification',
+                          Text('Applicant Verification',
                               style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w900,
                                   fontSize: 22,
                                   letterSpacing: -.5)),
-                          const SizedBox(height: 4),
-                          const Text('Review and verify applicant documents',
+                          SizedBox(height: 4),
+                          Text('Review and verify applicant documents',
                               style: TextStyle(
                                   color: Colors.white70,
                                   fontWeight: FontWeight.w600,

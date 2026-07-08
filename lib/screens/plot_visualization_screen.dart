@@ -66,10 +66,10 @@ class _PlotVisualizationScreenState extends State<PlotVisualizationScreen> {
                 ]),
               ]),
               const SizedBox(height: 12),
-              Wrap(
+              const Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: const [
+                children: [
                   StatusPill(label: 'Available', color: AdminColors.success),
                   StatusPill(label: 'Booked', color: AdminColors.warning),
                   StatusPill(label: 'Allocated', color: AdminColors.primary),

@@ -39,11 +39,26 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
     return null;
   }
 
-  void _save() {
-    if (_formKey.currentState!.validate()) {
-      showAdminSnack(context, 'Plot ${_viewModel.plotId.text.trim()} saved locally');
-    } else {
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) {
       showAdminSnack(context, 'Please fill all required fields');
+      return;
+    }
+
+    try {
+      await _viewModel.savePlot();
+
+      showAdminSnack(
+        context,
+        'Plot ${_viewModel.plotId.text.trim()} saved successfully!',
+      );
+
+      _viewModel.reset();
+    } catch (e) {
+      showAdminSnack(
+        context,
+        'Error: ${e.toString()}',
+      );
     }
   }
 
@@ -88,9 +103,9 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          PremiumCard(
+          const PremiumCard(
             child: Row(
-              children: const [
+              children: [
                 GradientIconBox(icon: Icons.info_rounded, color: AdminColors.warning),
                 SizedBox(width: 12),
                 Expanded(child: Text('This form saves dummy data message only. Firebase/backend is not required for UI testing.', style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, height: 1.35))),

@@ -63,13 +63,13 @@ class _BallotingScreenState extends State<BallotingScreen> {
           PremiumCard(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
-              Expanded(child: _OverviewTile(icon: Icons.domain_rounded,    label: 'Schemes',          value: '05', color: AdminColors.primary)),
+              const Expanded(child: _OverviewTile(icon: Icons.domain_rounded,    label: 'Schemes',          value: '05', color: AdminColors.primary)),
               _VDivider(),
-              Expanded(child: _OverviewTile(icon: Icons.hourglass_top_rounded, label: 'To Be Run',   value: '02', color: AdminColors.warning)),
+              const Expanded(child: _OverviewTile(icon: Icons.hourglass_top_rounded, label: 'To Be Run',   value: '02', color: AdminColors.warning)),
               _VDivider(),
-              Expanded(child: _OverviewTile(icon: Icons.check_circle_rounded,  label: 'Completed',   value: '02', color: AdminColors.success)),
+              const Expanded(child: _OverviewTile(icon: Icons.check_circle_rounded,  label: 'Completed',   value: '02', color: AdminColors.success)),
               _VDivider(),
-              Expanded(child: _OverviewTile(icon: Icons.description_rounded,   label: 'Results\nDeclared', value: '02', color: AdminColors.rejected)),
+              const Expanded(child: _OverviewTile(icon: Icons.description_rounded,   label: 'Results\nDeclared', value: '02', color: AdminColors.rejected)),
             ]),
           ),
 
@@ -299,10 +299,10 @@ class _BallotingSchemeCard extends StatelessWidget {
         const SizedBox(height: 12),
 
         // ── Balloting date ─────────────────────────────────────────────
-        Row(children: [
-          const Icon(Icons.calendar_today_rounded, color: AdminColors.primary, size: 13),
-          const SizedBox(width: 6),
-          const Text('Balloting Date',
+        const Row(children: [
+          Icon(Icons.calendar_today_rounded, color: AdminColors.primary, size: 13),
+          SizedBox(width: 6),
+          Text('Balloting Date',
               style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11)),
         ]),
         const SizedBox(height: 3),

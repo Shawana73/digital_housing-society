@@ -147,7 +147,7 @@ class _LuxuryDropdown extends StatelessWidget {
           child: Text(label.toUpperCase(), style: const TextStyle(color: AppColors.primaryPurple, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
         ),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: onChanged,
           decoration: const InputDecoration(prefixIcon: Icon(Icons.home_work_rounded, color: AppColors.primaryPurple)),

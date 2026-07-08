@@ -138,8 +138,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [
-                    const Expanded(
+                  const Row(children: [
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -284,8 +284,8 @@ class _HeroCard extends StatelessWidget {
           ),
         ),
         // Decorative glow circles
-        Positioned(right: -36, top: -36, child: _Glow(130)),
-        Positioned(left: -50, bottom: -50, child: _Glow(140, opacity: 0.09)),
+        const Positioned(right: -36, top: -36, child: _Glow(130)),
+        const Positioned(left: -50, bottom: -50, child: _Glow(140, opacity: 0.09)),
 
         Padding(
           padding: const EdgeInsets.all(22),

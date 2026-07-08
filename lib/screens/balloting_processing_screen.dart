@@ -37,12 +37,12 @@ class _BallotingProcessingScreenState
   void initState() {
     super.initState();
     _steps = [
-      _Step(1, 'Initializing Balloting',         'Preparing system and data',         completed: true),
-      _Step(2, 'Validating Eligible Applicants',  'Checking applicant eligibility',    completed: true),
-      _Step(3, 'Shuffling Applicants Securely',   'Randomizing applicants list',       completed: false, pending: true,  inProgress: true),
-      _Step(4, 'Selecting Successful Applicants', 'Based on available plots',          completed: false, pending: true),
-      _Step(5, 'Assigning Plot Numbers',          'Allocating plots to winners',       completed: false, pending: true),
-      _Step(6, 'Finalizing Results',              'Saving results and updating status',completed: false, pending: true),
+      const _Step(1, 'Initializing Balloting',         'Preparing system and data',         completed: true),
+      const _Step(2, 'Validating Eligible Applicants',  'Checking applicant eligibility',    completed: true),
+      const _Step(3, 'Shuffling Applicants Securely',   'Randomizing applicants list',       completed: false, pending: true,  inProgress: true),
+      const _Step(4, 'Selecting Successful Applicants', 'Based on available plots',          completed: false, pending: true),
+      const _Step(5, 'Assigning Plot Numbers',          'Allocating plots to winners',       completed: false, pending: true),
+      const _Step(6, 'Finalizing Results',              'Saving results and updating status',completed: false, pending: true),
     ];
 
     _pulseController = AnimationController(
@@ -389,10 +389,10 @@ class _BallotingProcessingScreenState
                         color: AdminColors.primary, size: 22),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text('Secure  •  Transparent  •  Fair',
                               style: TextStyle(
                                   color: AdminColors.primary,

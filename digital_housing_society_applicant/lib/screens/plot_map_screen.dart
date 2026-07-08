@@ -214,7 +214,7 @@ class _PlotMapScreenState extends State<PlotMapScreen> {
   }
 
   List<PlotModel> _demoPlots(String uid) {
-    final types = AppConstants.plotTypes;
+    const types = AppConstants.plotTypes;
     return List.generate(24, (index) {
       final type = types[index % types.length];
       final status = index % 7 == 0 ? 'booked' : index % 11 == 0 ? 'reserved' : 'available';

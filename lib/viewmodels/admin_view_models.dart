@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../data/dummy_data.dart';
 import '../models/admin_models.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/plot_model.dart';
+import '../services/firestore_service.dart';
 class BaseAdminViewModel extends ChangeNotifier {
   bool isLoading = true;
   String query = '';
@@ -152,11 +155,27 @@ class PlotManagementViewModel extends BaseAdminViewModel {
 }
 
 class AddPlotViewModel extends ChangeNotifier {
+  final FirestoreService _firestoreService = FirestoreService();
   final plotId = TextEditingController();
   final plotSize = TextEditingController();
   final price = TextEditingController();
   final location = TextEditingController();
   final description = TextEditingController();
+
+  Future<void> savePlot() async {
+    final plot = PlotModel(
+      plotId: plotId.text.trim(),
+      plotSize: plotSize.text.trim(),
+      price: double.tryParse(price.text.trim()) ?? 0,
+      location: location.text.trim(),
+      description: description.text.trim(),
+      status: "Available",
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    );
+
+    await _firestoreService.addPlot(plot);
+  }
 
   void reset() {
     plotId.clear();

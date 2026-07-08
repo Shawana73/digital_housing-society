@@ -116,7 +116,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     child: Text('PAYMENT PURPOSE', style: TextStyle(color: AppColors.primaryPurple, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
                   ),
                   DropdownButtonFormField<String>(
-                    value: _purpose,
+                    initialValue: _purpose,
                     items: const ['Application Fee', 'Plot Installment'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                     onChanged: (v) => setState(() {
                       _purpose = v!;
@@ -141,7 +141,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     child: Text('PAYMENT METHOD', style: TextStyle(color: AppColors.primaryPurple, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
                   ),
                   DropdownButtonFormField<String>(
-                    value: 'Stripe Test Mode',
+                    initialValue: 'Stripe Test Mode',
                     items: const ['Stripe Test Mode'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                     onChanged: (_) {},
                     decoration: const InputDecoration(prefixIcon: Icon(Icons.credit_card_rounded, color: AppColors.primaryPurple)),

@@ -223,18 +223,18 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 2),
                   child: Column(
                     children: [
-                      Row(children: [
+                      const Row(children: [
                         Expanded(
                             child: _MetaTile(
                                 label: 'Applied On', value: '28 Jun 2026')),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                             child: _MetaTile(
                                 label: 'Last Updated', value: '28 Jun 2026')),
                       ]),
                       const SizedBox(height: 12),
                       Row(children: [
-                        Expanded(
+                        const Expanded(
                             child: _MetaTile(
                                 label: 'Application Type',
                                 value: 'Residential')),
@@ -282,10 +282,10 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
+                    const CircleAvatar(
                       radius: 16,
                       backgroundColor: AdminColors.primary,
-                      child: const Text('AK',
+                      child: Text('AK',
                           style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
@@ -576,10 +576,10 @@ class _DocTile extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   fontSize: 12.5)),
           const SizedBox(height: 4),
-          Text('Uploaded on 28 Jun 2026',
+          const Text('Uploaded on 28 Jun 2026',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                   color: AdminColors.greyText,
                   fontWeight: FontWeight.w600,
                   fontSize: 10.5)),
@@ -647,11 +647,11 @@ class _PersonalInfoTab extends StatelessWidget {
 class _PaymentInfoTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return PremiumCard(
-      padding: const EdgeInsets.all(18),
+    return const PremiumCard(
+      padding: EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           InfoRow(icon: Icons.receipt_long_rounded, label: 'Transaction ID', value: 'DH-882913'),
           InfoRow(icon: Icons.payments_rounded, label: 'Amount Paid', value: 'PKR 450,000'),
           InfoRow(icon: Icons.account_balance_rounded, label: 'Payment Method', value: 'Bank Transfer'),
@@ -669,11 +669,11 @@ class _PaymentInfoTab extends StatelessWidget {
 class _ReferencesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return PremiumCard(
-      padding: const EdgeInsets.all(18),
+    return const PremiumCard(
+      padding: EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           InfoRow(icon: Icons.person_rounded, label: 'Reference Name', value: 'Tariq Mehmood'),
           InfoRow(icon: Icons.phone_rounded, label: 'Reference Phone', value: '+92 301 9988776'),
           InfoRow(icon: Icons.badge_rounded, label: 'Relationship', value: 'Colleague'),

@@ -172,9 +172,9 @@ class _ResultScreenState extends State<ResultScreen> {
                     color: AdminColors.primary.withOpacity(0.07),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Row(
+                  child: const Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
+                      children: [
                         Icon(Icons.calendar_today_rounded,
                             color: AdminColors.primary, size: 13),
                         SizedBox(width: 7),
@@ -234,7 +234,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6))],
                   ),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
+                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(Icons.tune_rounded, color: AdminColors.primary, size: 16),
                     SizedBox(width: 3),
                     Text('Filter', style: TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 10)),

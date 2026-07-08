@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-import '../models/admin_models.dart';
 import '../theme/admin_theme.dart';
 
 class PremiumCard extends StatelessWidget {
@@ -546,7 +545,7 @@ class _MiniLineChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (values.length < 2) return;
     final maxV = values.reduce(math.max) + 8;
-    final minV = 0.0;
+    const minV = 0.0;
     final height = size.height - 22;
     final step = size.width / (values.length - 1);
 

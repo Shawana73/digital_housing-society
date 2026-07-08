@@ -187,7 +187,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ]),
                 const SizedBox(height: 6),
                 // Legend
-                Row(children: const [
+                const Row(children: [
                   _LegendDot(color: AdminColors.primary, label: 'Total'),
                   SizedBox(width: 14),
                   _LegendDot(color: AdminColors.success, label: 'Verified'),
@@ -217,7 +217,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
             GestureDetector(
               onTap: () => showAdminSnack(context, 'View all reports'),
-              child: Row(mainAxisSize: MainAxisSize.min, children: const [
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
                 Text('View All',
                     style: TextStyle(
                         color: AdminColors.primary,
@@ -345,7 +345,7 @@ class _FilterChip extends StatelessWidget {
                   offset: const Offset(0, 8)),
             ],
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: const [
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.tune_rounded, color: AdminColors.primary, size: 16),
             SizedBox(width: 7),
             Text('Filter',
@@ -603,7 +603,7 @@ class _TrendChartState extends State<_TrendChart> {
     final step = width / (_months.length - 1);
     final x = step * i;
     // Keep tooltip inside bounds
-    final tooltipWidth = 150.0;
+    const tooltipWidth = 150.0;
     double left = x - tooltipWidth / 2;
     left = left.clamp(0, width - tooltipWidth);
 
@@ -687,7 +687,7 @@ class _TrendChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const labelSpace = 22.0;
     final chartHeight = size.height - labelSpace;
-    final maxV = 1500.0;
+    const maxV = 1500.0;
     final step = size.width / (months.length - 1);
 
     // Grid lines + y-axis labels
