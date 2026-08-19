@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-
+import '../models/plot_model.dart';
 import '../app_routes.dart';
-import '../models/admin_models.dart';
 import '../theme/admin_theme.dart';
 import '../viewmodels/admin_view_models.dart';
 import '../widgets/admin_shell.dart';
@@ -36,48 +35,87 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
     super.dispose();
   }
 
-  void _openEditSheet(SocietyPlot plot) {
+  void _openEditSheet(PlotModel plot) {
+    final statuses = ['Available', 'Booked', 'Allocated'];
+
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
       backgroundColor: AdminColors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(30),
+        ),
+      ),
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SectionHeader(title: 'Edit ${plot.id}', subtitle: 'Change local plot status'),
-            ...PlotStatus.values.map((status) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: PremiumCard(
-                    onTap: () {
-                      Navigator.pop(context);
-                      _viewModel.updateStatus(plot, status);
-                      showAdminSnack(context, '${plot.id} marked ${status.label}');
-                    },
-                    padding: const EdgeInsets.all(14),
-                    child: Row(children: [
-                      GradientIconBox(icon: Icons.circle_rounded, color: status.color),
+            SectionHeader(
+              title: 'Edit ${plot.plotId}',
+              subtitle: 'Change plot status',
+            ),
+
+            ...statuses.map(
+                  (status) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: PremiumCard(
+                  onTap: () async {
+                    Navigator.pop(context);
+
+                    await _viewModel.updateStatus(
+                      plot,
+                      status,
+                    );
+
+                    if (mounted) {
+                      showAdminSnack(
+                        context,
+                        '${plot.plotId} marked $status',
+                      );
+                    }
+                  },
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      const GradientIconBox(
+                        icon: Icons.circle_rounded,
+                        color: AdminColors.primary,
+                      ),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(status.label, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900))),
-                      if (plot.status == status) const Icon(Icons.check_circle_rounded, color: AdminColors.primary),
-                    ]),
+                      Expanded(
+                        child: Text(
+                          status,
+                          style: const TextStyle(
+                            color: AdminColors.darkText,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      if (plot.status == status)
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: AdminColors.primary,
+                        ),
+                    ],
                   ),
-                )),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _deletePlot(SocietyPlot plot) async {
+  Future<void> _deletePlot(PlotModel plot) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AdminColors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminColors.radius)),
-        title: Text('Delete ${plot.id}?'),
+        title: Text('Delete ${plot.plotId}?'),
         content: const Text('This will remove the plot from local dummy list.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -87,7 +125,7 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
     );
     if (ok == true) {
       _viewModel.deletePlot(plot);
-      if (mounted) showAdminSnack(context, '${plot.id} deleted');
+      if (mounted) showAdminSnack(context, '${plot.plotId} deleted');
     }
   }
 
@@ -134,49 +172,160 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
 }
 
 class _PlotCard extends StatelessWidget {
-  final SocietyPlot plot;
+  final PlotModel plot;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _PlotCard({required this.plot, required this.onEdit, required this.onDelete});
+  const _PlotCard({
+    required this.plot,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  Color _statusColor() {
+    switch (plot.status.toLowerCase()) {
+      case 'available':
+        return AdminColors.success;
+      case 'booked':
+        return AdminColors.warning;
+      case 'allocated':
+        return AdminColors.primary;
+      default:
+        return AdminColors.greyText;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = _statusColor();
+
     return PremiumCard(
       onTap: onEdit,
       padding: const EdgeInsets.all(15),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            GradientIconBox(icon: Icons.home_work_rounded, color: plot.status.color, size: 42),
-            const Spacer(),
-            PopupMenuButton<String>(
-              color: AdminColors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              onSelected: (value) { if (value == 'edit') onEdit(); if (value == 'delete') onDelete(); },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'edit', child: PopupMenuRow(icon: Icons.edit_rounded, text: 'Edit Plot')),
-                PopupMenuItem(value: 'delete', child: PopupMenuRow(icon: Icons.delete_rounded, text: 'Delete Plot')),
-              ],
+          Row(
+            children: [
+              GradientIconBox(
+                icon: Icons.home_work_rounded,
+                color: statusColor,
+                size: 42,
+              ),
+              const Spacer(),
+              PopupMenuButton<String>(
+                color: AdminColors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                  BorderRadius.circular(18),
+                ),
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    onEdit();
+                  }
+
+                  if (value == 'delete') {
+                    onDelete();
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: PopupMenuRow(
+                      icon: Icons.edit_rounded,
+                      text: 'Edit Plot',
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: PopupMenuRow(
+                      icon: Icons.delete_rounded,
+                      text: 'Delete Plot',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Text(
+            plot.plotId,
+            style: const TextStyle(
+              color: AdminColors.darkText,
+              fontWeight: FontWeight.w900,
+              fontSize: 21,
+              letterSpacing: -0.6,
             ),
-          ]),
-          const SizedBox(height: 12),
-          Text(plot.id, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 21, letterSpacing: -0.6)),
+          ),
+
           const SizedBox(height: 8),
-          StatusPill(label: plot.status.label, color: plot.status.color),
+
+          StatusPill(
+            label: plot.status,
+            color: statusColor,
+          ),
+
           const SizedBox(height: 12),
-          Text(plot.size, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 15)),
+
+          Text(
+            plot.plotSize,
+            style: const TextStyle(
+              color: AdminColors.darkText,
+              fontWeight: FontWeight.w900,
+              fontSize: 15,
+            ),
+          ),
+
           const SizedBox(height: 4),
-          Text(plot.location, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 12, height: 1.25)),
+
+          Text(
+            plot.location,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AdminColors.greyText,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              height: 1.25,
+            ),
+          ),
+
           const Spacer(),
-          Text(plot.price, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w900, fontSize: 16)),
+
+          Text(
+            'PKR ${plot.price.toStringAsFixed(0)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AdminColors.primary,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+
           const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: OutlinedButton(onPressed: onEdit, child: const Text('Edit'))),
-            const SizedBox(width: 8),
-            IconButton.filledTonal(onPressed: onDelete, icon: const Icon(Icons.delete_rounded), color: AdminColors.rejected),
-          ]),
+
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onEdit,
+                  child: const Text('Edit'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                onPressed: onDelete,
+                icon: const Icon(
+                  Icons.delete_rounded,
+                ),
+                color: AdminColors.rejected,
+              ),
+            ],
+          ),
         ],
       ),
     );

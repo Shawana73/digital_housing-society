@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-
 import '../data/dummy_data.dart';
 import '../models/admin_models.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../models/plot_model.dart';
 import '../services/firestore_service.dart';
 class BaseAdminViewModel extends ChangeNotifier {
@@ -121,21 +119,68 @@ class PaymentVerificationViewModel extends BaseAdminViewModel {
 }
 
 class PlotManagementViewModel extends BaseAdminViewModel {
-  final List<SocietyPlot> plots = DummyData.plots();
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  List<PlotModel> plots = [];
+
   String selectedFilter = 'All';
 
-  List<String> get filters => ['All', 'Available', 'Booked', 'Allocated'];
+  List<String> get filters => [
+    'All',
+    'Available',
+    'Booked',
+    'Allocated',
+  ];
 
-  List<SocietyPlot> get filteredPlots {
+  List<PlotModel> get filteredPlots {
     return plots.where((plot) {
-      final matchesQuery = query.isEmpty ||
-          plot.id.toLowerCase().contains(query) ||
-          plot.size.toLowerCase().contains(query) ||
-          plot.location.toLowerCase().contains(query) ||
-          plot.price.toLowerCase().contains(query);
-      final matchesFilter = selectedFilter == 'All' || plot.status.label == selectedFilter;
+      final matchesQuery =
+          query.isEmpty ||
+              plot.plotId.toLowerCase().contains(query) ||
+              plot.plotSize.toLowerCase().contains(query) ||
+              plot.location.toLowerCase().contains(query) ||
+              plot.price.toString().contains(query);
+
+      final matchesFilter =
+          selectedFilter == 'All' ||
+              plot.status.toLowerCase() ==
+                  selectedFilter.toLowerCase();
+
       return matchesQuery && matchesFilter;
     }).toList();
+  }
+
+  @override
+  Future<void> load() async {
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      final snapshot =
+      await _firestore.collection('plots').get();
+
+      print('TOTAL PLOTS FROM FIRESTORE: ${snapshot.docs.length}');
+
+      for (final doc in snapshot.docs) {
+        print('DOCUMENT ID: ${doc.id}');
+        print('DOCUMENT DATA: ${doc.data()}');
+      }
+
+      plots = snapshot.docs.map((doc) {
+        return PlotModel.fromMap(
+          doc.data(),
+          doc.id,
+        );
+      }).toList();
+
+      print('PLOTS LIST LENGTH: ${plots.length}');
+    } catch (e) {
+      print('ERROR LOADING PLOTS: $e');
+    }
+
+    isLoading = false;
+    notifyListeners();
   }
 
   void setFilter(String value) {
@@ -143,14 +188,40 @@ class PlotManagementViewModel extends BaseAdminViewModel {
     notifyListeners();
   }
 
-  void updateStatus(SocietyPlot plot, PlotStatus status) {
-    plot.status = status;
-    notifyListeners();
+  Future<void> updateStatus(
+      PlotModel plot,
+      String status,
+      ) async {
+    try {
+      await _firestore
+          .collection('plots')
+          .doc(plot.documentId)
+          .update({
+        'status': status,
+        'updatedAt': Timestamp.now(),
+      });
+
+      await load();
+    } catch (e) {
+      print('Error updating plot: $e');
+    }
   }
 
-  void deletePlot(SocietyPlot plot) {
-    plots.remove(plot);
-    notifyListeners();
+  Future<void> deletePlot(PlotModel plot) async {
+    try {
+      await _firestore
+          .collection('plots')
+          .doc(plot.documentId)
+          .delete();
+
+      plots.removeWhere(
+            (item) => item.documentId == plot.documentId,
+      );
+
+      notifyListeners();
+    } catch (e) {
+      print('Error deleting plot: $e');
+    }
   }
 }
 
@@ -164,6 +235,7 @@ class AddPlotViewModel extends ChangeNotifier {
 
   Future<void> savePlot() async {
     final plot = PlotModel(
+      documentId: '',
       plotId: plotId.text.trim(),
       plotSize: plotSize.text.trim(),
       price: double.tryParse(price.text.trim()) ?? 0,
