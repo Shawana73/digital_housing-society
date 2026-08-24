@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-
+import 'package:flutter/material.dart'; //flutter's core UI Toolkit (buttons, text, layout )
 import '../app_routes.dart';
 import '../models/admin_models.dart';
 import '../theme/admin_theme.dart';
@@ -11,16 +10,23 @@ import '../widgets/premium_widgets.dart';
 // Colourful icon colours for Quick Action items
 const List<Color> _kActionColors = [
   Color(0xFF7B4DFF), // violet
-  Color(0xFF22C55E), // green
+  Color(0xFF7B4DFF),
+  Color(0xFF7B4DFF),
+  Color(0xFF7B4DFF),
+  Color(0xFF7B4DFF),
+  Color(0xFF7B4DFF),
+  Color(0xFF7B4DFF),
+  Color(0xFF7B4DFF),
+  /*Color(0xFF22C55E), // green
   Color(0xFFF59E0B), // amber
   Color(0xFF3B82F6), // blue
   Color(0xFFEC4899), // pink
   Color(0xFF8B5CF6), // purple
   Color(0xFF06B6D4), // cyan
-  Color(0xFF10B981), // emerald
+  Color(0xFF10B981), // emerald*/
 ];
 
-class AdminDashboardScreen extends StatefulWidget {
+class AdminDashboardScreen extends StatefulWidget { //meaning this screen's content can change while it's on screen (e.g., after a network refresh). It just hands off the real work to _AdminDashboardScreenState.
   const AdminDashboardScreen({super.key});
 
   @override
@@ -28,22 +34,22 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  final AdminDashboardViewModel _viewModel = AdminDashboardViewModel();
-  final TextEditingController _searchController = TextEditingController();
+  final AdminDashboardViewModel _viewModel = AdminDashboardViewModel(); //holds all the dashboard's data (stats, activities, notifications) and knows how to load/refresh it.
+  final TextEditingController _searchController = TextEditingController(); //tracks what the user types into the search bar.
 
   @override
-  void initState() {
+  void initState() { //runs once when the screen first appears — it starts "listening" to the view model (so the UI rebuilds when data changes) and tells it to load data.
     super.initState();
     _viewModel.addListener(_refresh);
     _viewModel.load();
   }
 
-  void _refresh() {
+  void _refresh() { //called whenever the view model's data changes; it re-draws the screen (setState).
     if (mounted) setState(() {});
   }
 
   @override
-  void dispose() {
+  void dispose() { //cleanup when the screen is closed — stops listening and frees memory. Important to avoid memory leaks.
     _viewModel.removeListener(_refresh);
     _viewModel.dispose();
     _searchController.dispose();
@@ -76,7 +82,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) { //This draws the actual UI, piece by piece, inside a scrollable ListView:
     return AdminShell(
       title: 'Admin Dashboard',
       selectedIndex: 0,
@@ -161,7 +167,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
             const SizedBox(height: 24),
 
-            // ── Recent Activities ───────────────────────────────────────
+            // ── Recent Activities =>recent admin actions, or an "empty state" message if none match the search. ───────────────────────────────────────
             const _Label(title: 'Recent Activities', subtitle: 'Latest admin movement'),
             const SizedBox(height: 12),
 
@@ -195,7 +201,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared micro-widgets
+// Shared micro-widgets  are all reusable "building blocks" — each one is responsible for drawing one small visual piece (a button, a card, a label), keeping the main build() method clean and readable instead of one giant messy widget tree.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Two-line section label.

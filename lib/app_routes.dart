@@ -1,4 +1,5 @@
 class AdminRoutes {
+  static const String login = '/login';
   static const String ballotingProcessing = '/balloting-processing';
   static const String results             = '/balloting-result';
   static const String dashboard = '/';
@@ -13,11 +14,11 @@ class AdminRoutes {
   static const String plotVisualization = '/plot-visualization';
   static const String notifications = '/notifications';
   static const String profile = '/profile';
-
   static const List<String> bottomRoutes = [
     dashboard,
     applicants,
     balloting,
+    reports,
     reports,
     profile,
   ];

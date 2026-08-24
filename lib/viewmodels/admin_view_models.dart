@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../models/report_model.dart';
 import '../data/dummy_data.dart';
 import '../models/admin_models.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/plot_model.dart';
 import '../services/firestore_service.dart';
 class BaseAdminViewModel extends ChangeNotifier {
@@ -166,7 +168,6 @@ class PlotManagementViewModel extends BaseAdminViewModel {
         print('DOCUMENT ID: ${doc.id}');
         print('DOCUMENT DATA: ${doc.data()}');
       }
-
       plots = snapshot.docs.map((doc) {
         return PlotModel.fromMap(
           doc.data(),
@@ -348,12 +349,52 @@ class ResultViewModel extends BaseAdminViewModel {
 }
 
 class ReportsViewModel extends BaseAdminViewModel {
-  final reports = DummyData.reports();
-  final chartValues = const [65.0, 82.0, 44.0, 72.0, 91.0, 76.0, 88.0];
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  List<ReportCardModel> get filteredReports {
-    if (query.isEmpty) return reports;
-    return reports.where((r) => r.title.toLowerCase().contains(query) || r.fileType.toLowerCase().contains(query)).toList();
+  List<ReportModel> reports = [];
+
+  final chartValues = const [
+    65.0,
+    82.0,
+    44.0,
+    72.0,
+    91.0,
+    76.0,
+    88.0,
+  ];
+
+  List<ReportModel> get filteredReports {
+    return reports.where((report) {
+      final matchesQuery =
+          query.isEmpty ||
+              report.title.toLowerCase().contains(query) ||
+              report.fileType.toLowerCase().contains(query);
+
+      return matchesQuery;
+    }).toList();
+  }
+
+  @override
+  Future<void> load() async {
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      final snapshot =
+      await _firestore.collection('reports').get();
+
+      reports = snapshot.docs.map((doc) {
+        return ReportModel.fromMap(
+          doc.data(),
+          doc.id,
+        );
+      }).toList();
+    } catch (e) {
+      print('Error loading reports: $e');
+    }
+
+    isLoading = false;
+    notifyListeners();
   }
 }
 
@@ -412,36 +453,183 @@ class PlotVisualizationViewModel extends BaseAdminViewModel {
 }
 
 class NotificationsViewModel extends BaseAdminViewModel {
-  final List<AdminNotification> notifications = DummyData.notifications();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  List<AdminNotification> notifications = [];
+
+  @override
+  Future<void> load() async {
+    isLoading = true;
+    notifyListeners();
+    try {
+      final snapshot =
+      await _firestore.collection('notifications').get();
+      print('Notifications found: ${snapshot.docs.length}');
+      notifications = snapshot.docs.map((doc) {
+        final data = doc.data();
+
+        return AdminNotification(
+          id: doc.id,
+          title: data['title'] ?? '',
+          message: data['message'] ?? '',
+          time: data['time'] ?? '',
+          icon: Icons.notifications_rounded,
+          unread: data['unread'] ?? true,
+        );
+      }).toList();
+    } catch (e) {
+      print('Error loading notifications: $e');
+    }
+
+    isLoading = false;
+    notifyListeners();
+  }
 
   List<AdminNotification> get filteredNotifications {
     if (query.isEmpty) return notifications;
-    return notifications.where((n) => n.title.toLowerCase().contains(query) || n.message.toLowerCase().contains(query)).toList();
+
+    return notifications.where((notification) {
+      return notification.title.toLowerCase().contains(query) ||
+          notification.message.toLowerCase().contains(query);
+    }).toList();
   }
 
-  int get unreadCount => notifications.where((n) => n.unread).length;
+  int get unreadCount =>
+      notifications.where((notification) => notification.unread).length;
 
-  void markAllRead() {
-    for (final notification in notifications) {
-      notification.unread = false;
+  Future<void> markAllRead() async {
+    try {
+      for (final notification in notifications) {
+        await _firestore
+            .collection('notifications')
+            .doc(notification.id)
+            .update({
+          'unread': false,
+        });
+
+        notification.unread = false;
+      }
+
+      notifyListeners();
+    } catch (e) {
+      print('Error marking all notifications read: $e');
     }
-    notifyListeners();
   }
 
-  void markRead(AdminNotification notification) {
-    notification.unread = false;
-    notifyListeners();
+  Future<void> markRead(AdminNotification notification) async {
+    try {
+      await _firestore
+          .collection('notifications')
+          .doc(notification.id)
+          .update({
+        'unread': false,
+      });
+
+      notification.unread = false;
+
+      notifyListeners();
+    } catch (e) {
+      print('Error marking notification read: $e');
+    }
   }
 
-  void delete(AdminNotification notification) {
-    notifications.remove(notification);
-    notifyListeners();
+  Future<void> delete(AdminNotification notification) async {
+    try {
+      await _firestore
+          .collection('notifications')
+          .doc(notification.id)
+          .delete();
+
+      notifications.removeWhere(
+            (item) => item.id == notification.id,
+      );
+
+      notifyListeners();
+    } catch (e) {
+      print('Error deleting notification: $e');
+    }
   }
 }
 
 class ProfileViewModel extends BaseAdminViewModel {
-  String name = 'Ayesha Khan';
-  String email = 'admin@digitalhousing.com';
-  String phone = '+92 300 1234567';
-  String role = 'Super Admin';
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  String name = '';
+  String email = '';
+  String phone = '';
+  String role = '';
+
+  @override
+  Future<void> load() async {
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        print('No admin is currently logged in.');
+        return;
+      }
+
+      final doc = await _firestore
+          .collection('admins')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+
+        name = data['name'] ?? '';
+        email = data['email'] ?? '';
+        phone = data['phone'] ?? '';
+        role = data['role'] ?? '';
+
+        print('Admin profile loaded successfully.');
+      } else {
+        print('Admin profile document not found.');
+      }
+    } catch (e) {
+      print('Error loading admin profile: $e');
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateProfile({
+    required String newName,
+    required String newEmail,
+    required String newPhone,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        print('No admin is currently logged in.');
+        return false;
+      }
+
+      await _firestore
+          .collection('admins')
+          .doc(user.uid)
+          .update({
+        'name': newName.trim(),
+        'email': newEmail.trim(),
+        'phone': newPhone.trim(),
+      });
+
+      name = newName.trim();
+      email = newEmail.trim();
+      phone = newPhone.trim();
+
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      print('Error updating admin profile: $e');
+      return false;
+    }
+  }
 }

@@ -98,7 +98,7 @@ class _PlotVisualizationScreenState extends State<PlotVisualizationScreen> {
                         crossAxisCount: 3,
                         mainAxisSpacing: 10,
                         crossAxisSpacing: 10,
-                        childAspectRatio: 0.95,
+                        childAspectRatio: 0.65,
                       ),
                       itemBuilder: (context, index) {
                         final plot = _viewModel.filteredPlots[index];

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
+import '../app_routes.dart';
 import '../theme/admin_theme.dart';
 import '../viewmodels/admin_view_models.dart';
 import '../widgets/admin_shell.dart';
@@ -55,39 +56,321 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 12),
           TextField(controller: phone, decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_rounded))),
           const SizedBox(height: 16),
-          SizedBox(width: double.infinity, child: FilledButton(onPressed: () { setState(() { _viewModel.name = name.text; _viewModel.email = email.text; _viewModel.phone = phone.text; }); Navigator.pop(context); showAdminSnack(context, 'Profile updated'); }, child: const Text('Save Changes'))),
+          SizedBox(width: double.infinity, child:
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () async {
+                final success = await _viewModel.updateProfile(
+                  newName: name.text,
+                  newEmail: email.text,
+                  newPhone: phone.text,
+                );
+
+                if (!mounted) return;
+
+                if (success) {
+                  Navigator.pop(context);
+
+                  showAdminSnack(
+                    context,
+                    'Profile updated successfully',
+                  );
+                } else {
+                  showAdminSnack(
+                    context,
+                    'Failed to update profile',
+                  );
+                }
+              },
+              child: const Text('Save Changes'),
+            ),
+          ),
+          ),
         ]),
       ),
     );
   }
 
   void _changePassword() {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool isChanging = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AdminColors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminColors.radius)),
-        title: const Text('Change password'),
-        content: const Text('Password change option clicked. Connect backend later for real password update.'),
-        actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
-      ),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AdminColors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  AdminColors.radius,
+                ),
+              ),
+              title: const Text('Change Password'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: currentPasswordController,
+                      obscureText: obscureCurrent,
+                      decoration: InputDecoration(
+                        labelText: 'Current Password',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setDialogState(() {
+                              obscureCurrent = !obscureCurrent;
+                            });
+                          },
+                          icon: Icon(
+                            obscureCurrent
+                                ? Icons.visibility_rounded
+                                : Icons.visibility_off_rounded,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: newPasswordController,
+                      obscureText: obscureNew,
+                      decoration: InputDecoration(
+                        labelText: 'New Password',
+                        prefixIcon: const Icon(Icons.lock_rounded),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setDialogState(() {
+                              obscureNew = !obscureNew;
+                            });
+                          },
+                          icon: Icon(
+                            obscureNew
+                                ? Icons.visibility_rounded
+                                : Icons.visibility_off_rounded,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: confirmPasswordController,
+                      obscureText: obscureConfirm,
+                      decoration: InputDecoration(
+                        labelText: 'Confirm New Password',
+                        prefixIcon: const Icon(Icons.lock_rounded),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setDialogState(() {
+                              obscureConfirm = !obscureConfirm;
+                            });
+                          },
+                          icon: Icon(
+                            obscureConfirm
+                                ? Icons.visibility_rounded
+                                : Icons.visibility_off_rounded,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isChanging
+                      ? null
+                      : () {
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('Cancel'),
+                ),
+
+                FilledButton(
+                  onPressed: isChanging
+                      ? null
+                      : () async {
+                    final currentPassword =
+                    currentPasswordController.text.trim();
+
+                    final newPassword =
+                    newPasswordController.text.trim();
+
+                    final confirmPassword =
+                    confirmPasswordController.text.trim();
+
+                    if (currentPassword.isEmpty ||
+                        newPassword.isEmpty ||
+                        confirmPassword.isEmpty) {
+                      showAdminSnack(
+                        context,
+                        'Please fill all password fields',
+                      );
+                      return;
+                    }
+
+                    if (newPassword.length < 6) {
+                      showAdminSnack(
+                        context,
+                        'New password must be at least 6 characters',
+                      );
+                      return;
+                    }
+
+                    if (newPassword != confirmPassword) {
+                      showAdminSnack(
+                        context,
+                        'New passwords do not match',
+                      );
+                      return;
+                    }
+
+                    setDialogState(() {
+                      isChanging = true;
+                    });
+
+                    try {
+                      final user =
+                          FirebaseAuth.instance.currentUser;
+
+                      if (user == null || user.email == null) {
+                        throw FirebaseAuthException(
+                          code: 'no-user',
+                          message: 'No admin is currently logged in.',
+                        );
+                      }
+
+                      final credential =
+                      EmailAuthProvider.credential(
+                        email: user.email!,
+                        password: currentPassword,
+                      );
+
+                      await user.reauthenticateWithCredential(
+                        credential,
+                      );
+
+                      await user.updatePassword(newPassword);
+
+                      if (!mounted) return;
+
+                      Navigator.pop(dialogContext);
+
+                      showAdminSnack(
+                        context,
+                        'Password changed successfully',
+                      );
+                    } on FirebaseAuthException catch (e) {
+                      setDialogState(() {
+                        isChanging = false;
+                      });
+
+                      String message =
+                          'Unable to change password';
+
+                      if (e.code == 'wrong-password' ||
+                          e.code == 'invalid-credential') {
+                        message = 'Current password is incorrect.';
+                      } else if (e.code == 'weak-password') {
+                        message =
+                        'New password is too weak.';
+                      } else if (e.code == 'requires-recent-login') {
+                        message =
+                        'Please login again and try changing the password.';
+                      }
+
+                      showAdminSnack(
+                        context,
+                        message,
+                      );
+                    } catch (e) {
+                      setDialogState(() {
+                        isChanging = false;
+                      });
+
+                      showAdminSnack(
+                        context,
+                        'Something went wrong. Please try again.',
+                      );
+                    }
+                  },
+                  child: isChanging
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Text('Change Password'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
-  void _logout() {
-    showDialog(
+  Future<void> _logout() async {
+    final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AdminColors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminColors.radius)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(
+            AdminColors.radius,
+          ),
+        ),
         title: const Text('Logout?'),
-        content: const Text('This is a dummy logout action.'),
+        content: const Text(
+          'Are you sure you want to sign out from the admin panel?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () { Navigator.pop(context); showAdminSnack(context, 'Logout clicked'); }, child: const Text('Logout')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout'),
+          ),
         ],
       ),
     );
+
+    if (shouldLogout != true) return;
+
+    try {
+      await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AdminRoutes.login,
+            (route) => false,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      showAdminSnack(
+        context,
+        'Logout failed: ${e.message ?? 'Please try again'}',
+      );
+    }
   }
 
   @override
