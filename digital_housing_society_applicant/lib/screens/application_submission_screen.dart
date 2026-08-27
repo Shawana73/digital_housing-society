@@ -221,7 +221,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
                   AppTextField(label: 'Permanent Address', hint: 'Enter permanent address', controller: _address, prefixIcon: Icons.location_on_rounded, maxLines: 3, validator: (v) => Validators.required(v, 'Address')),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
-                    value: _city,
+                    initialValue: _city,
                     decoration: const InputDecoration(labelText: 'City', prefixIcon: Icon(Icons.location_city_rounded)),
                     items: AppConstants.pakistaniCities.map((city) => DropdownMenuItem(value: city, child: Text(city))).toList(),
                     onChanged: (value) => setState(() => _city = value),

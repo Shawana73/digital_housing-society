@@ -190,7 +190,7 @@ class _UpcomingState extends StatelessWidget {
       const SizedBox(height: 18),
       _InfoPanel(
         title: 'Before the Draw',
-        rows: {
+        rows: const {
           'Application': 'Submitted and verified',
           'Documents': 'Submitted for review',
           'Payment': 'Submitted / verified',

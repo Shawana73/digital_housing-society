@@ -15,7 +15,6 @@ import '../utils/app_constants.dart';
 import '../utils/app_text_styles.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/header_actions.dart';
-import '../widgets/illustrations.dart';
 import '../widgets/notification_card.dart';
 import '../widgets/status_badge.dart';
 

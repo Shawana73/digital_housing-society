@@ -375,7 +375,7 @@ class _DocumentSlotCard extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: AppColors.pageBackground, borderRadius: BorderRadius.circular(16)),
             child: Row(children: [
-              Icon(record!.type == 'pdf' ? Icons.picture_as_pdf_rounded : Icons.image_rounded, color: AppColors.deepPurple),
+              Icon(record.type == 'pdf' ? Icons.picture_as_pdf_rounded : Icons.image_rounded, color: AppColors.deepPurple),
               const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(record.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.labelBold),
