@@ -8,26 +8,26 @@ import '../utils/app_constants.dart';
 import '../utils/app_text_styles.dart';
 import '../widgets/notification_card.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  final service = FirestoreService();
+  String _filter = 'all';
 
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    final service = FirestoreService();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
-          TextButton(
-            onPressed: uid == null
-                ? null
-                : () async {
-                    await service.markAllNotificationsRead(uid);
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All notifications marked as read.')));
-                  },
-            child: Text('Mark all read', style: AppTextStyles.captionText.copyWith(color: AppColors.white, fontWeight: FontWeight.w700)),
-          ),
+          IconButton(tooltip: 'Mark all read', onPressed: uid == null ? null : () async { await service.markAllNotificationsRead(uid); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All notifications marked as read.'))); }, icon: const Icon(Icons.done_all_rounded)),
+          IconButton(tooltip: 'Clear all', onPressed: uid == null ? null : () => _clearAll(context, uid), icon: const Icon(Icons.delete_sweep_rounded)),
         ],
       ),
       body: uid == null
@@ -36,6 +36,7 @@ class NotificationsScreen extends StatelessWidget {
               stream: service.getNotifications(uid),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple));
+                if (snapshot.hasError) return const _EmptyNotifications(message: 'Notifications could not be loaded. Pull down to refresh later.');
                 final docs = [...?snapshot.data?.docs];
                 docs.sort((a, b) {
                   final ad = (a.data() as Map<String, dynamic>)['createdAt'];
@@ -44,72 +45,83 @@ class NotificationsScreen extends StatelessWidget {
                   final bt = bd is Timestamp ? bd.toDate() : DateTime.fromMillisecondsSinceEpoch(0);
                   return bt.compareTo(at);
                 });
-                final notifications = docs.map(NotificationModel.fromFirestore).toList();
-                final unread = notifications.where((n) => !n.isRead).length;
-                if (notifications.isEmpty) return const _EmptyNotifications();
-                return Column(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.all(18),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: AppColors.lightPurpleBackground, borderRadius: BorderRadius.circular(18)),
-                      child: Text('$unread unread notifications', style: AppTextStyles.labelBold.copyWith(color: AppColors.deepPurple)),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                        itemCount: notifications.length,
-                        itemBuilder: (context, index) {
-                          final n = notifications[index];
-                          return Dismissible(
-                            key: ValueKey(n.id),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              margin: const EdgeInsets.only(bottom: 14),
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 22),
-                              decoration: BoxDecoration(color: AppColors.errorRed, borderRadius: BorderRadius.circular(24)),
-                              child: const Icon(Icons.delete_rounded, color: AppColors.white),
-                            ),
-                            onDismissed: (_) => service.deleteNotification(n.id),
-                            child: TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0, end: 1),
-                              duration: Duration(milliseconds: 260 + index * 40),
-                              builder: (context, value, child) => Transform.translate(offset: Offset(24 * (1 - value), 0), child: Opacity(opacity: value, child: child)),
-                              child: NotificationCard(
-                                title: n.title,
-                                message: n.message,
-                                type: n.type,
-                                timestamp: n.createdAt,
-                                isRead: n.isRead,
-                                onTap: () async {
-                                  await service.markNotificationRead(n.id);
-                                  if (!context.mounted) return;
-                                  _navigateByType(context, n.type);
-                                },
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                );
+                final all = docs.map(NotificationModel.fromFirestore).toList();
+                if (all.isEmpty) return const _EmptyNotifications();
+                final unread = all.where((n) => !n.isRead).length;
+                final matches = all.where((n) => n.type.toLowerCase().contains('match') || n.type.toLowerCase().contains('result')).length;
+                final verification = all.where((n) => n.type.toLowerCase().contains('verification') || n.type.toLowerCase().contains('application')).length;
+                final filtered = all.where((n) {
+                  final t = n.type.toLowerCase();
+                  if (_filter == 'unread') return !n.isRead;
+                  if (_filter == 'match') return t.contains('match') || t.contains('result');
+                  if (_filter == 'verification') return t.contains('verification') || t.contains('application');
+                  return true;
+                }).toList();
+                return Column(children: [
+                  Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Wrap(spacing: 8, runSpacing: 8, children: [
+                      _chip('all', 'All ${all.length}'),
+                      _chip('unread', 'Unread $unread'),
+                      _chip('match', 'Match/Result $matches'),
+                      _chip('verification', 'Verification $verification'),
+                    ]),
+                  ),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const _EmptyNotifications(message: 'No notifications in this filter.')
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                            itemCount: filtered.length,
+                            itemBuilder: (context, index) {
+                              final n = filtered[index];
+                              return Dismissible(
+                                key: ValueKey(n.id),
+                                direction: DismissDirection.endToStart,
+                                background: Container(margin: const EdgeInsets.only(bottom: 14), alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 22), decoration: BoxDecoration(color: AppColors.errorRed, borderRadius: BorderRadius.circular(24)), child: const Icon(Icons.delete_rounded, color: AppColors.white)),
+                                onDismissed: (_) => service.deleteNotification(n.id),
+                                child: NotificationCard(
+                                  title: n.title,
+                                  message: n.message,
+                                  type: n.type,
+                                  timestamp: n.createdAt,
+                                  isRead: n.isRead,
+                                  onTap: () async {
+                                    await service.markNotificationRead(n.id);
+                                    if (!context.mounted) return;
+                                    _navigateByType(context, n);
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ]);
               },
             ),
     );
   }
 
-  void _navigateByType(BuildContext context, String type) {
-    final t = type.toLowerCase();
+  Widget _chip(String key, String label) => ChoiceChip(label: Text(label), selected: _filter == key, selectedColor: AppColors.lightPurpleBackground, labelStyle: AppTextStyles.captionText.copyWith(color: _filter == key ? AppColors.deepPurple : AppColors.secondaryText, fontWeight: FontWeight.w700), onSelected: (_) => setState(() => _filter = key));
+
+  Future<void> _clearAll(BuildContext context, String uid) async {
+    final ok = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: const Text('Clear notifications?'), content: const Text('This will remove all your notifications.'), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Clear'))]));
+    if (ok == true) await service.clearNotifications(uid);
+  }
+
+  void _navigateByType(BuildContext context, NotificationModel n) {
+    if (n.actionRoute.isNotEmpty) {
+      Navigator.pushNamed(context, n.actionRoute);
+      return;
+    }
+    final t = n.type.toLowerCase();
     if (t.contains('payment')) {
       Navigator.pushNamed(context, AppConstants.paymentRoute);
-    } else if (t.contains('application')) {
-      Navigator.pushNamed(context, AppConstants.applicationRoute);
+    } else if (t.contains('application') || t.contains('verification')) {
+      Navigator.pushNamed(context, AppConstants.myReportsRoute);
     } else if (t.contains('ballot')) {
       Navigator.pushNamed(context, AppConstants.ballotingRoute);
-    } else if (t.contains('result')) {
+    } else if (t.contains('result') || t.contains('match')) {
       Navigator.pushNamed(context, AppConstants.resultRoute);
     } else {
       Navigator.pushNamed(context, AppConstants.dashboardRoute);
@@ -118,23 +130,21 @@ class NotificationsScreen extends StatelessWidget {
 }
 
 class _EmptyNotifications extends StatelessWidget {
-  const _EmptyNotifications();
+  const _EmptyNotifications({this.message = 'No notifications yet'});
+  final String message;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.notifications_none_rounded, size: 86, color: AppColors.hintText),
-            const SizedBox(height: 14),
-            Text('No notifications yet', style: AppTextStyles.headingSmall, textAlign: TextAlign.center),
-            const SizedBox(height: 6),
-            Text('You will receive updates on your application here.', style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
-          ],
-        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.notifications_none_rounded, size: 86, color: AppColors.hintText),
+          const SizedBox(height: 14),
+          Text(message, style: AppTextStyles.headingSmall, textAlign: TextAlign.center),
+          const SizedBox(height: 6),
+          Text('Unread, result and verification updates will appear here.', style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+        ]),
       ),
     );
   }

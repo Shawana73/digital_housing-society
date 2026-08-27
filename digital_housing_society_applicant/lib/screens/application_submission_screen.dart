@@ -4,12 +4,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/applicant_model.dart';
+import '../models/application_model.dart';
 import '../services/firestore_service.dart';
+import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../utils/app_text_styles.dart';
 import '../utils/formatters_validators.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/branded_background.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/header_actions.dart';
@@ -36,6 +39,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
   bool _loading = false;
   bool _profileLoading = true;
   ApplicantModel? _applicant;
+  ApplicationModel? _existingApplication;
 
   @override
   void initState() {
@@ -57,6 +61,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
     if (uid == null) return;
     try {
       final doc = await _firestoreService.getApplicant(uid);
+      final appDoc = await _firestoreService.getApplication(uid);
       if (doc.exists) {
         final applicant = ApplicantModel.fromFirestore(doc);
         setState(() {
@@ -66,6 +71,11 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
           _contact.text = applicant.phone;
           _address.text = applicant.address;
           _city = AppConstants.pakistaniCities.contains(applicant.city) ? applicant.city : 'Other';
+          _existingApplication = appDoc == null ? null : ApplicationModel.fromFirestore(appDoc);
+        });
+      } else {
+        setState(() {
+          _existingApplication = appDoc == null ? null : ApplicationModel.fromFirestore(appDoc);
         });
       }
     } catch (e) {
@@ -93,6 +103,13 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
     setState(() => _loading = true);
     try {
       final serial = _generateSerial();
+      await _firestoreService.updateApplicant(uid, {
+        'fullName': _fullName.text.trim(),
+        'cnic': _cnic.text.trim(),
+        'phone': _contact.text.trim(),
+        'address': _address.text.trim(),
+        'city': _city,
+      });
       await _firestoreService.saveApplication({
         'applicantId': uid,
         'fullName': _fullName.text.trim(),
@@ -133,7 +150,12 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
       bottomNavigationBar: const AppBottomNavBar(currentIndex: 1),
       body: _profileLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple))
-          : Form(
+          : _existingApplication != null
+              ? _SubmittedApplicationView(application: _existingApplication!)
+              : BrandedImageBackground(
+              imagePath: AppAssets.applyBackground,
+              overlayOpacity: .22,
+              child: Form(
               key: _formKey,
               onChanged: () => setState(() {}),
               child: ListView(
@@ -199,7 +221,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
                   AppTextField(label: 'Permanent Address', hint: 'Enter permanent address', controller: _address, prefixIcon: Icons.location_on_rounded, maxLines: 3, validator: (v) => Validators.required(v, 'Address')),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
-                    initialValue: _city,
+                    value: _city,
                     decoration: const InputDecoration(labelText: 'City', prefixIcon: Icon(Icons.location_city_rounded)),
                     items: AppConstants.pakistaniCities.map((city) => DropdownMenuItem(value: city, child: Text(city))).toList(),
                     onChanged: (value) => setState(() => _city = value),
@@ -220,6 +242,75 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
                 ],
               ),
             ),
+          ),
+    );
+  }
+}
+
+
+class _SubmittedApplicationView extends StatelessWidget {
+  const _SubmittedApplicationView({required this.application});
+  final ApplicationModel application;
+
+  @override
+  Widget build(BuildContext context) {
+    return BrandedImageBackground(
+      imagePath: AppAssets.applyBackground,
+      overlayOpacity: .20,
+      child: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: AppColors.premiumShadow(),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                const CircleAvatar(radius: 28, backgroundColor: AppColors.white, child: Icon(Icons.check_rounded, color: AppColors.successGreen, size: 34)),
+                const SizedBox(width: 14),
+                Expanded(child: Text('Application Submitted', style: AppTextStyles.headingMedium.copyWith(color: AppColors.white))),
+                StatusBadge(text: application.status.toUpperCase(), type: badgeTypeFromStatus(application.status)),
+              ]),
+              const SizedBox(height: 12),
+              Text('Your application is saved in the system. You can continue with documents and payment.', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.white.withValues(alpha: .86))),
+            ]),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderColor), boxShadow: AppColors.premiumShadow(opacity: .22)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Application Details', style: AppTextStyles.headingSmall),
+              const SizedBox(height: 14),
+              _detail('Application No.', application.serialNumber),
+              _detail('Full Name', application.fullName),
+              _detail('CNIC', application.cnic),
+              _detail('Plot Type', application.plotType),
+              _detail('City', application.city),
+              _detail('Fee', NumberFormat.currency(locale: 'en_PK', symbol: 'PKR ', decimalDigits: 0).format(application.fee)),
+            ]),
+          ),
+          const SizedBox(height: 18),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(onPressed: () => Navigator.pushReplacementNamed(context, AppConstants.uploadRoute), icon: const Icon(Icons.upload_file_rounded), label: const Text('Documents'))),
+            const SizedBox(width: 12),
+            Expanded(child: FilledButton.icon(onPressed: () => Navigator.pushReplacementNamed(context, AppConstants.paymentRoute), icon: const Icon(Icons.payment_rounded), label: const Text('Payment'))),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _detail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(width: 115, child: Text(label, style: AppTextStyles.captionText)),
+        Expanded(child: Text(value.isEmpty ? '-' : value, textAlign: TextAlign.right, style: AppTextStyles.labelBold)),
+      ]),
     );
   }
 }

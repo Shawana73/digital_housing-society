@@ -14,6 +14,11 @@ class AppConstants {
   static const String notificationsRoute = '/notifications';
   static const String mapRoute = '/map';
   static const String profileRoute = '/profile';
+  static const String contactRoute = '/contact';
+  static const String faqRoute = '/faq';
+  static const String privacyRoute = '/privacy';
+  static const String termsRoute = '/terms';
+  static const String myReportsRoute = '/my-reports';
 
   static const Map<String, int> plotFeeMap = {
     '3 Marla': 50000,
@@ -41,6 +46,7 @@ class AppConstants {
     applicationRoute,
     uploadRoute,
     paymentRoute,
+    ballotingRoute,
     profileRoute,
   ];
 }

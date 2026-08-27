@@ -45,7 +45,7 @@ class _ApplicantDashboardScreenState extends State<ApplicantDashboardScreen> {
     final applicant = provider.currentApplicant;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hello', style: AppTextStyles.headingSmall.copyWith(color: AppColors.white)),
+        title: Text('Digital Housing Society', style: AppTextStyles.headingSmall.copyWith(color: AppColors.white)),
         actions: [
           const NotificationBell(),
           Padding(
@@ -95,9 +95,13 @@ class _WelcomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final name = applicant?.fullName.isNotEmpty == true ? applicant!.fullName : 'Applicant';
+    final dateText = DateFormat('EEE, d MMM yyyy').format(DateTime.now());
+    final compact = MediaQuery.of(context).size.width < 380;
+
     return Container(
-      height: 190,
-      padding: const EdgeInsets.all(22),
+      constraints: const BoxConstraints(minHeight: 188),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         boxShadow: AppColors.premiumShadow(),
@@ -113,29 +117,58 @@ class _WelcomeCard extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    AppColors.infoBlue.withValues(alpha: .72),
-                    AppColors.primaryPurple.withValues(alpha: .68),
-                    AppColors.deepPurple.withValues(alpha: .62),
+                    AppColors.infoBlue.withValues(alpha: .76),
+                    AppColors.primaryPurple.withValues(alpha: .70),
+                    AppColors.deepPurple.withValues(alpha: .66),
                   ],
                 ),
               ),
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              StatusBadge(text: applicant?.profileStatus.toUpperCase() ?? 'ACTIVE', type: StatusBadgeType.success),
-              const Spacer(),
-              Text('Hello,', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.white.withValues(alpha: .86))),
-              Text(
-                applicant?.fullName.isNotEmpty == true ? applicant!.fullName : 'Applicant',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.headingMedium.copyWith(color: AppColors.white),
-              ),
-              const SizedBox(height: 6),
-              Text(DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()), style: AppTextStyles.bodyMedium.copyWith(color: AppColors.white.withValues(alpha: .85))),
-            ],
+          Padding(
+            padding: const EdgeInsets.all(4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(child: StatusBadge(text: applicant?.profileStatus.toUpperCase() ?? 'ACTIVE', type: StatusBadgeType.success)),
+                  ],
+                ),
+                SizedBox(height: compact ? 44 : 52),
+                Text(
+                  'Welcome! Your Opportunities Await',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.white.withValues(alpha: .90), fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.headingMedium.copyWith(color: AppColors.white, height: 1.08),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withValues(alpha: .16),
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(color: AppColors.white.withValues(alpha: .32)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.calendar_month_rounded, color: AppColors.white, size: 16),
+                      const SizedBox(width: 6),
+                      Flexible(child: Text(dateText, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.captionText.copyWith(color: AppColors.white, fontWeight: FontWeight.w800))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -229,6 +262,22 @@ class _StatusGrid extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: uid == null ? null : FirebaseFirestore.instance.collection('ballot_results').where('applicantId', isEqualTo: uid).snapshots(),
       builder: (context, resultSnap) {
+        if (resultSnap.hasError) {
+          return GridView.count(
+            crossAxisCount: 2,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: MediaQuery.of(context).size.width > 650 ? 2.7 : 1.95,
+            children: [
+              _StatusTile(title: 'Application Status', value: application?.status ?? 'Not submitted', icon: Icons.description_rounded),
+              _StatusTile(title: 'Payment Status', value: payment?.status ?? 'Not paid', icon: Icons.payments_rounded),
+              _StatusTile(title: 'Balloting Status', value: 'Pending', icon: Icons.casino_rounded),
+              _StatusTile(title: 'Result', value: 'Not available', icon: Icons.emoji_events_rounded),
+            ],
+          );
+        }
         final resultDoc = resultSnap.data?.docs.isNotEmpty == true ? resultSnap.data!.docs.first.data() as Map<String, dynamic> : null;
         final selected = resultDoc?['isSelected'] == true;
         return GridView.count(
@@ -237,7 +286,7 @@ class _StatusGrid extends StatelessWidget {
           mainAxisSpacing: 14,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: .98,
+          childAspectRatio: MediaQuery.of(context).size.width > 650 ? 2.7 : 1.95,
           children: [
             _StatusTile(title: 'Application Status', value: application?.status ?? 'Not submitted', icon: Icons.description_rounded),
             _StatusTile(title: 'Payment Status', value: payment?.status ?? 'Not paid', icon: Icons.payments_rounded),
@@ -259,17 +308,27 @@ class _StatusTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _PremiumCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(14),
+      child: Row(
         children: [
-          CircleAvatar(backgroundColor: AppColors.lightPurpleBackground, child: Icon(icon, color: AppColors.deepPurple)),
-          const Spacer(),
-          Text(title, style: AppTextStyles.captionText),
-          const SizedBox(height: 6),
-          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.labelBold),
-          const SizedBox(height: 8),
-          StatusBadge(text: value.toUpperCase(), type: badgeTypeFromStatus(value)),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(color: AppColors.lightPurpleBackground, borderRadius: BorderRadius.circular(14)),
+            child: Icon(icon, color: AppColors.deepPurple, size: 22),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.captionText),
+                const SizedBox(height: 4),
+                Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.labelBold),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -283,37 +342,45 @@ class _QuickActions extends StatelessWidget {
       (Icons.home_work_rounded, 'Apply', AppConstants.applicationRoute),
       (Icons.drive_folder_upload_rounded, 'Upload', AppConstants.uploadRoute),
       (Icons.account_balance_wallet_rounded, 'Pay', AppConstants.paymentRoute),
+      (Icons.casino_rounded, 'Balloting', AppConstants.ballotingRoute),
       (Icons.emoji_events_rounded, 'Result', AppConstants.resultRoute),
+      (Icons.support_agent_rounded, 'Contact', AppConstants.contactRoute),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Quick Actions', style: AppTextStyles.headingSmall),
         const SizedBox(height: 14),
-        Row(
-          children: actions.map((action) {
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () => Navigator.pushNamed(context, action.$3),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 240),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(color: AppColors.lightPurpleBackground, borderRadius: BorderRadius.circular(20)),
-                    child: Column(
-                      children: [
-                        Icon(action.$1, color: AppColors.deepPurple),
-                        const SizedBox(height: 8),
-                        Text(action.$2, style: AppTextStyles.captionText.copyWith(color: AppColors.deepPurple, fontWeight: FontWeight.w700)),
-                      ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth < 390 ? (constraints.maxWidth - 10) / 2 : constraints.maxWidth < 640 ? (constraints.maxWidth - 18) / 3 : (constraints.maxWidth - 24) / 4;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 10,
+              children: actions.map((action) {
+                return SizedBox(
+                  width: width,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => Navigator.pushNamed(context, action.$3),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 240),
+                      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 6),
+                      decoration: BoxDecoration(color: AppColors.lightPurpleBackground, borderRadius: BorderRadius.circular(18)),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(action.$1, color: AppColors.deepPurple),
+                          const SizedBox(height: 7),
+                          Text(action.$2, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: AppTextStyles.captionText.copyWith(color: AppColors.deepPurple, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              }).toList(),
             );
-          }).toList(),
+          },
         ),
       ],
     );
@@ -342,6 +409,7 @@ class _RecentNotifications extends StatelessWidget {
           stream: firestoreService.getNotifications(uid!),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple));
+            if (snapshot.hasError) return _EmptyMessage(icon: Icons.notifications_none_rounded, text: 'Notifications could not be loaded.');
             final docs = [...?snapshot.data?.docs];
             docs.sort((a, b) {
               final ad = (a.data() as Map<String, dynamic>)['createdAt'];

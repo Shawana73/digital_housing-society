@@ -15,6 +15,10 @@ import 'screens/payment_screen.dart';
 import 'screens/plot_map_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/contact_us_screen.dart';
+import 'screens/faq_screen.dart';
+import 'screens/legal_screen.dart';
+import 'screens/my_reports_screen.dart';
 import 'screens/result_checking_screen.dart';
 import 'screens/splash_screen.dart';
 import 'utils/app_constants.dart';
@@ -61,6 +65,11 @@ class DigitalHousingSocietyApp extends StatelessWidget {
           AppConstants.notificationsRoute: (_) => const NotificationsScreen(),
           AppConstants.mapRoute: (_) => const PlotMapScreen(),
           AppConstants.profileRoute: (_) => const ProfileScreen(),
+          AppConstants.contactRoute: (_) => const ContactUsScreen(),
+          AppConstants.faqRoute: (_) => const FaqScreen(),
+          AppConstants.privacyRoute: (_) => const LegalScreen(isPrivacy: true),
+          AppConstants.termsRoute: (_) => const LegalScreen(isPrivacy: false),
+          AppConstants.myReportsRoute: (_) => const MyReportsScreen(),
         },
       ),
     );

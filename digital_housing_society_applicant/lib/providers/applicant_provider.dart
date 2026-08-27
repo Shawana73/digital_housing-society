@@ -22,7 +22,7 @@ class ApplicantProvider extends ChangeNotifier {
       if (doc.exists) currentApplicant = ApplicantModel.fromFirestore(doc);
       error = null;
     } catch (e) {
-      error = e.toString();
+      error = 'Some records could not be loaded. Pull down to refresh.';
     } finally {
       setLoading(false);
     }
@@ -35,7 +35,7 @@ class ApplicantProvider extends ChangeNotifier {
       currentApplication = doc == null ? null : ApplicationModel.fromFirestore(doc);
       error = null;
     } catch (e) {
-      error = e.toString();
+      error = 'Some records could not be loaded. Pull down to refresh.';
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,7 @@ class ApplicantProvider extends ChangeNotifier {
       currentPayment = doc == null ? null : PaymentModel.fromFirestore(doc);
       error = null;
     } catch (e) {
-      error = e.toString();
+      error = 'Some records could not be loaded. Pull down to refresh.';
     } finally {
       setLoading(false);
     }
@@ -65,7 +65,7 @@ class ApplicantProvider extends ChangeNotifier {
       currentPayment = paymentDoc == null ? null : PaymentModel.fromFirestore(paymentDoc);
       error = null;
     } catch (e) {
-      error = e.toString();
+      error = 'Some records could not be loaded. Pull down to refresh.';
     } finally {
       setLoading(false);
     }

@@ -1,20 +1,18 @@
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../models/application_model.dart';
 import '../models/payment_model.dart';
 import '../services/firestore_service.dart';
-import '../services/storage_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../utils/app_text_styles.dart';
+import '../utils/formatters_validators.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/custom_text_field.dart';
 import '../widgets/header_actions.dart';
-import '../widgets/illustrations.dart';
 import '../widgets/status_badge.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -26,15 +24,14 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   final _firestoreService = FirestoreService();
-  final _storageService = StorageService();
-  final _picker = ImagePicker();
+  final _formKey = GlobalKey<FormState>();
+  final _reference = TextEditingController();
+  final _cardLast4 = TextEditingController(text: '4242');
+  static const String _method = 'Stripe Test Mode';
   ApplicationModel? _application;
   PaymentModel? _payment;
-  Map<String, dynamic>? _bankConfig;
-  String? _method;
-  File? _receipt;
-  bool _loading = false;
-  bool _pageLoading = true;
+  bool _loading = true;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -42,59 +39,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _reference.dispose();
+    _cardLast4.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
-      final appDoc = await _firestoreService.getApplication(uid);
+      final applicationDoc = await _firestoreService.getApplication(uid);
       final paymentDoc = await _firestoreService.getPayment(uid);
-      final config = await _firestoreService.getPaymentConfig();
       setState(() {
-        _application = appDoc == null ? null : ApplicationModel.fromFirestore(appDoc);
+        _application = applicationDoc == null ? null : ApplicationModel.fromFirestore(applicationDoc);
         _payment = paymentDoc == null ? null : PaymentModel.fromFirestore(paymentDoc);
-        _bankConfig = config.exists ? (config.data() as Map<String, dynamic>) : FirestoreService.defaultPaymentConfig;
+        if (_payment != null) {
+          _reference.text = _payment!.transactionId;
+          if (_payment!.transactionId.length >= 4) {
+            _cardLast4.text = _payment!.transactionId.substring(_payment!.transactionId.length - 4);
+          }
+        }
       });
-    } catch (e) {
-      _showSnack(e.toString());
-    } finally {
-      if (mounted) setState(() => _pageLoading = false);
-    }
-  }
-
-  Future<void> _pickReceipt() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 82);
-    if (picked == null) return;
-    final file = File(picked.path);
-    if (await file.length() > 5 * 1024 * 1024) return _showSnack('Maximum receipt size is 5MB.');
-    setState(() => _receipt = file);
-  }
-
-  Future<void> _submit() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return _showSnack('Please login again.');
-    if (_application == null) return _showSnack('Submit your application first.');
-    if (_method == null || _receipt == null) return _showSnack('Select method and upload receipt.');
-    setState(() => _loading = true);
-    try {
-      final stamp = DateTime.now().millisecondsSinceEpoch;
-      final receiptUrl = await _storageService.uploadImage(_receipt!, 'payments/$uid/receipt_$stamp.jpg');
-      final transactionId = 'TXN-$stamp';
-      await _firestoreService.savePayment({
-        'applicantId': uid,
-        'applicationId': _application!.id,
-        'amount': _application!.fee,
-        'plotType': _application!.plotType,
-        'paymentMethod': _method,
-        'receiptUrl': receiptUrl,
-        'submittedAt': FieldValue.serverTimestamp(),
-        'status': 'pending',
-        'transactionId': transactionId,
-      });
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment submitted for verification.')));
-      await _load();
-      if (!mounted) return;
-      Navigator.pushNamed(context, AppConstants.ballotingRoute);
     } catch (e) {
       _showSnack(e.toString());
     } finally {
@@ -102,168 +69,202 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return _showSnack('Please login again.');
+    if (_application == null) return _showSnack('Submit an application first.');
+    setState(() => _submitting = true);
+    try {
+      final ref = _reference.text.trim().isEmpty ? 'STRIPE-TEST-${DateTime.now().millisecondsSinceEpoch}' : _reference.text.trim();
+      await _firestoreService.savePayment({
+        'applicantId': uid,
+        'applicationId': _application!.id,
+        'amount': _application!.fee,
+        'plotType': _application!.plotType,
+        'paymentMethod': _method,
+        'transactionId': ref,
+        'cardLast4': _cardLast4.text.trim(),
+        'receiptUrl': '',
+        'status': 'submitted',
+        'submittedAt': FieldValue.serverTimestamp(),
+        'mode': 'test',
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment submitted successfully.')));
+      Navigator.pushReplacementNamed(context, AppConstants.ballotingRoute);
+    } catch (e) {
+      _showSnack('Payment record could not be saved. Please try again.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   void _showSnack(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 
   @override
   Widget build(BuildContext context) {
+    final amount = _application?.fee ?? 0;
     return Scaffold(
-      appBar: AppBar(title: const Text('Payment'), actions: const [NotificationBell(), SizedBox(width: 8)]),
+      appBar: AppBar(title: const Text('Fee Payment'), actions: const [NotificationBell(), SizedBox(width: 8)]),
       bottomNavigationBar: const AppBottomNavBar(currentIndex: 3),
-      body: _pageLoading
+      body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple))
-          : ListView(
-              padding: const EdgeInsets.all(18),
-              children: [
-                _FeeSummary(application: _application, payment: _payment),
-                const SizedBox(height: 18),
-                Text('Payment Method', style: AppTextStyles.headingSmall),
-                const SizedBox(height: 12),
-                _MethodTile(title: 'Bank Transfer', subtitle: _bankSubtitle(), icon: Icons.account_balance_rounded, selected: _method == 'Bank Transfer', color: AppColors.primaryPurple, onTap: () => setState(() => _method = 'Bank Transfer')),
-                if (_method == 'Bank Transfer') _BankDetails(config: _bankConfig),
-                _MethodTile(title: 'JazzCash', subtitle: 'Upload JazzCash transaction receipt', icon: Icons.phone_android_rounded, selected: _method == 'JazzCash', color: AppColors.warningOrange, onTap: () => setState(() => _method = 'JazzCash')),
-                _MethodTile(title: 'EasyPaisa', subtitle: 'Upload EasyPaisa transaction receipt', icon: Icons.phone_iphone_rounded, selected: _method == 'EasyPaisa', color: AppColors.successGreen, onTap: () => setState(() => _method = 'EasyPaisa')),
-                const SizedBox(height: 14),
-                _ReceiptSection(receipt: _receipt, onTap: _pickReceipt),
-                const SizedBox(height: 18),
-                _Timeline(status: _payment?.status ?? 'awaiting'),
-                const SizedBox(height: 18),
-                PrimaryGradientButton(text: 'Submit Payment', onPressed: _method != null && _receipt != null ? _submit : null, isLoading: _loading),
-              ],
+          : Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(18),
+                children: [
+                  _AmountCard(amount: amount, status: _payment?.status ?? 'not paid'),
+                  const SizedBox(height: 16),
+                  if (_application == null)
+                    _NoApplicationCard()
+                  else if (_payment != null)
+                    _PaymentSubmittedCard(payment: _payment!, application: _application!)
+                  else ...[
+                    _StripeCard(),
+                    const SizedBox(height: 14),
+                    AppTextField(
+                      label: 'Stripe Test Reference',
+                      hint: 'STRIPE-TEST-123456',
+                      controller: _reference,
+                      prefixIcon: Icons.receipt_long_rounded,
+                      validator: (v) => Validators.required(v, 'Stripe reference'),
+                    ),
+                    const SizedBox(height: 14),
+                    AppTextField(
+                      label: 'Test Card Last 4',
+                      hint: '4242',
+                      controller: _cardLast4,
+                      prefixIcon: Icons.credit_card_rounded,
+                      keyboardType: TextInputType.number,
+                      validator: (v) => Validators.required(v, 'Card last 4'),
+                    ),
+                    const SizedBox(height: 14),
+                    _StripeHelp(),
+                    const SizedBox(height: 18),
+                    PrimaryGradientButton(text: 'Submit Payment', icon: Icons.lock_rounded, isLoading: _submitting, onPressed: _submit),
+                  ],
+                ],
+              ),
             ),
     );
   }
-
-  String _bankSubtitle() {
-    if (_bankConfig == null) return 'HBL • Digital Housing Society';
-    return '${_bankConfig!['bankName'] ?? 'HBL'} • ${_bankConfig!['accountTitle'] ?? 'Official Account'}';
-  }
 }
 
-class _FeeSummary extends StatelessWidget {
-  const _FeeSummary({required this.application, required this.payment});
-  final ApplicationModel? application;
-  final PaymentModel? payment;
+class _AmountCard extends StatelessWidget {
+  const _AmountCard({required this.amount, required this.status});
+  final int amount;
+  final String status;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: AppColors.deepPurple, borderRadius: BorderRadius.circular(28), boxShadow: AppColors.premiumShadow()),
-      child: Stack(
-        children: [
-          Positioned(right: -6, top: -6, child: SizedBox(width: 105, height: 105, child: CustomPaint(painter: ReceiptPainter()))),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              StatusBadge(text: payment?.status.toUpperCase() ?? 'AWAITING PAYMENT', type: badgeTypeFromStatus(payment?.status ?? 'awaiting')),
-              const SizedBox(height: 18),
-              Text('Fee Amount', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.white.withValues(alpha: .8))),
-              Text(NumberFormat.currency(locale: 'en_PK', symbol: 'PKR ', decimalDigits: 0).format(application?.fee ?? 0), style: AppTextStyles.headingLarge.copyWith(color: AppColors.gold)),
-              const SizedBox(height: 8),
-              Text('${application?.plotType ?? 'No plot selected'} • ${application?.serialNumber ?? 'No serial'}', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.white.withValues(alpha: .85))),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MethodTile extends StatelessWidget {
-  const _MethodTile({required this.title, required this.subtitle, required this.icon, required this.selected, required this.color, required this.onTap});
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: selected ? AppColors.primaryPurple : AppColors.borderColor, width: selected ? 1.8 : 1), boxShadow: selected ? AppColors.premiumShadow(opacity: .24) : null),
-      child: RadioListTile<String>(
-        value: title,
-        groupValue: selected ? title : null,
-        onChanged: (_) => onTap(),
-        activeColor: AppColors.primaryPurple,
-        secondary: CircleAvatar(backgroundColor: color.withValues(alpha: .12), child: Icon(icon, color: color)),
-        title: Text(title, style: AppTextStyles.labelBold),
-        subtitle: Text(subtitle, style: AppTextStyles.captionText),
-      ),
-    );
-  }
-}
-
-class _BankDetails extends StatelessWidget {
-  const _BankDetails({required this.config});
-  final Map<String, dynamic>? config;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.lightPurpleBackground, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(28), boxShadow: AppColors.premiumShadow()),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('HBL Bank Details', style: AppTextStyles.labelBold),
+        Row(children: [
+          const Icon(Icons.payments_rounded, color: AppColors.white, size: 34),
+          const Spacer(),
+          StatusBadge(text: status.toUpperCase(), type: badgeTypeFromStatus(status)),
+        ]),
+        const SizedBox(height: 16),
+        Text('Application Fee', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.white.withValues(alpha: .86))),
+        const SizedBox(height: 4),
+        Text(NumberFormat.currency(locale: 'en_PK', symbol: 'PKR ', decimalDigits: 0).format(amount), style: AppTextStyles.headingLarge.copyWith(color: AppColors.white)),
         const SizedBox(height: 8),
-        Text('Account Title: ${config?['accountTitle'] ?? FirestoreService.defaultPaymentConfig['accountTitle']}', style: AppTextStyles.bodyMedium),
-        Text('Account Number: ${config?['accountNumber'] ?? FirestoreService.defaultPaymentConfig['accountNumber']}', style: AppTextStyles.bodyMedium),
-        Text('IBAN: ${config?['iban'] ?? FirestoreService.defaultPaymentConfig['iban']}', style: AppTextStyles.bodyMedium),
+        Text('Stripe test mode is enabled for this applicant module.', style: AppTextStyles.captionText.copyWith(color: AppColors.white.withValues(alpha: .82))),
       ]),
     );
   }
 }
 
-class _ReceiptSection extends StatelessWidget {
-  const _ReceiptSection({required this.receipt, required this.onTap});
-  final File? receipt;
-  final VoidCallback onTap;
-
+class _StripeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderColor), boxShadow: AppColors.premiumShadow(opacity: .2)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(width: 54, height: 54, decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.credit_card_rounded, color: AppColors.white)),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Stripe Test Mode', style: AppTextStyles.headingSmall),
+          const SizedBox(height: 6),
+          Text('Use test card 4242 4242 4242 4242, any future expiry date and any CVC.', style: AppTextStyles.bodyMedium),
+        ])),
+      ]),
+    );
+  }
+}
+
+class _StripeHelp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.infoLightBackground, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.infoBlue.withValues(alpha: .18))),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.info_rounded, color: AppColors.infoBlue),
+        const SizedBox(width: 10),
+        Expanded(child: Text('After submission, payment status will be reviewed by society administration.', style: AppTextStyles.bodyMedium)),
+      ]),
+    );
+  }
+}
+
+class _PaymentSubmittedCard extends StatelessWidget {
+  const _PaymentSubmittedCard({required this.payment, required this.application});
+  final PaymentModel payment;
+  final ApplicationModel application;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderColor), boxShadow: AppColors.premiumShadow(opacity: .22)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Upload Payment Receipt', style: AppTextStyles.headingSmall),
-        const SizedBox(height: 12),
-        InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: receipt == null
-              ? IllustrationBox(painter: ReceiptPainter(), height: 130, backgroundColor: AppColors.warningLightBackground)
-              : ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.file(receipt!, height: 160, width: double.infinity, fit: BoxFit.cover)),
-        ),
+        Row(children: [
+          const CircleAvatar(backgroundColor: AppColors.successLightBackground, child: Icon(Icons.check_rounded, color: AppColors.successGreen)),
+          const SizedBox(width: 12),
+          Expanded(child: Text('Payment Submitted', style: AppTextStyles.headingSmall)),
+          StatusBadge(text: payment.status.toUpperCase(), type: badgeTypeFromStatus(payment.status)),
+        ]),
+        const SizedBox(height: 14),
+        _row('Method', payment.paymentMethod.isEmpty ? 'Stripe Test Mode' : payment.paymentMethod),
+        _row('Reference', payment.transactionId),
+        _row('Plot Type', application.plotType),
+        _row('Amount', NumberFormat.currency(locale: 'en_PK', symbol: 'PKR ', decimalDigits: 0).format(application.fee)),
+        const SizedBox(height: 16),
+        PrimaryGradientButton(text: 'Go to Balloting', icon: Icons.casino_rounded, onPressed: () => Navigator.pushReplacementNamed(context, AppConstants.ballotingRoute)),
       ]),
     );
   }
+
+  Widget _row(String label, String value) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(width: 110, child: Text(label, style: AppTextStyles.captionText)),
+          Expanded(child: Text(value.isEmpty ? '-' : value, textAlign: TextAlign.right, style: AppTextStyles.labelBold)),
+        ]),
+      );
 }
 
-class _Timeline extends StatelessWidget {
-  const _Timeline({required this.status});
-  final String status;
-
+class _NoApplicationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final s = status.toLowerCase();
-    final verified = s.contains('verified');
-    final submitted = s.contains('pending') || verified;
-    return Row(
-      children: [
-        _timeStep('Submitted', submitted, AppColors.successGreen),
-        _line(submitted),
-        _timeStep('Under Review', submitted && !verified, AppColors.warningOrange),
-        _line(verified),
-        _timeStep('Verified', verified, AppColors.successGreen),
-      ],
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderColor)),
+      child: Column(children: [
+        const Icon(Icons.description_outlined, size: 58, color: AppColors.hintText),
+        const SizedBox(height: 12),
+        Text('No application found', style: AppTextStyles.headingSmall),
+        const SizedBox(height: 8),
+        Text('Submit your application first, then add your payment record.', style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+        const SizedBox(height: 14),
+        PrimaryGradientButton(text: 'Submit Application', onPressed: () => Navigator.pushReplacementNamed(context, AppConstants.applicationRoute)),
+      ]),
     );
   }
-
-  Widget _line(bool active) => Expanded(child: Container(height: 3, color: active ? AppColors.primaryPurple : AppColors.borderColor));
-
-  Widget _timeStep(String label, bool active, Color color) => Column(children: [CircleAvatar(radius: 14, backgroundColor: active ? color : AppColors.borderColor, child: Icon(active ? Icons.check_rounded : Icons.more_horiz_rounded, size: 14, color: AppColors.white)), const SizedBox(height: 6), Text(label, style: AppTextStyles.captionText)]);
 }

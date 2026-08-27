@@ -13,6 +13,7 @@ class ApplicantModel {
   final String profileStatus;
   final bool notificationsEnabled;
   final bool ballotingRegistered;
+  final String profilePhotoBase64;
 
   const ApplicantModel({
     required this.uid,
@@ -27,6 +28,7 @@ class ApplicantModel {
     required this.profileStatus,
     this.notificationsEnabled = true,
     this.ballotingRegistered = false,
+    this.profilePhotoBase64 = '',
   });
 
   factory ApplicantModel.fromFirestore(DocumentSnapshot doc) {
@@ -44,6 +46,7 @@ class ApplicantModel {
       profileStatus: data['profileStatus']?.toString() ?? 'active',
       notificationsEnabled: data['notificationsEnabled'] is bool ? data['notificationsEnabled'] as bool : true,
       ballotingRegistered: data['ballotingRegistered'] is bool ? data['ballotingRegistered'] as bool : false,
+      profilePhotoBase64: data['profilePhotoBase64']?.toString() ?? '',
     );
   }
 
@@ -61,6 +64,7 @@ class ApplicantModel {
       'profileStatus': profileStatus,
       'notificationsEnabled': notificationsEnabled,
       'ballotingRegistered': ballotingRegistered,
+      'profilePhotoBase64': profilePhotoBase64,
     };
   }
 
@@ -76,6 +80,7 @@ class ApplicantModel {
     String? profileStatus,
     bool? notificationsEnabled,
     bool? ballotingRegistered,
+    String? profilePhotoBase64,
   }) {
     return ApplicantModel(
       uid: uid,
@@ -90,6 +95,7 @@ class ApplicantModel {
       profileStatus: profileStatus ?? this.profileStatus,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       ballotingRegistered: ballotingRegistered ?? this.ballotingRegistered,
+      profilePhotoBase64: profilePhotoBase64 ?? this.profilePhotoBase64,
     );
   }
 
