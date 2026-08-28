@@ -368,18 +368,29 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
   Map<String, dynamic>? applicantData;
   Map<String, dynamic>? applicationData;
 
+  // Backend not connected yet.
   List<ApplicantDocument> documents = [];
 
+  // Backend not connected yet.
   List<Map<String, dynamic>> notes = [];
 
   bool get hasApplication => applicationData != null;
 
+  // ─────────────────────────────────────────────────────────────
+  // Applicant information
+  // ─────────────────────────────────────────────────────────────
+
   String get fullName =>
-      (applicantData?['fullName'] ?? applicant?.name ?? 'Not available')
+      (applicantData?['fullName'] ??
+          applicant?.name ??
+          'Not available')
           .toString();
 
   String get cnic =>
-      (applicantData?['cnic'] ?? applicant?.cnic ?? 'Not available').toString();
+      (applicantData?['cnic'] ??
+          applicant?.cnic ??
+          'Not available')
+          .toString();
 
   String get phone =>
       (applicantData?['phone'] ??
@@ -389,11 +400,16 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
           .toString();
 
   String get email =>
-      (applicantData?['email'] ?? applicant?.email ?? 'Not available')
+      (applicantData?['email'] ??
+          applicant?.email ??
+          'Not available')
           .toString();
 
   String get address =>
-      (applicantData?['address'] ?? applicant?.address ?? 'Not available')
+      (applicantData?['address'] ??
+          applicationData?['address'] ??
+          applicant?.address ??
+          'Not available')
           .toString();
 
   String get city =>
@@ -402,8 +418,18 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
   String get dateOfBirth =>
       _formatDateValue(applicantData?['dateOfBirth']);
 
+  String get profileCreatedOn =>
+      _formatDateValue(applicantData?['createdAt']);
+
+  // ─────────────────────────────────────────────────────────────
+  // Application information
+  // ─────────────────────────────────────────────────────────────
+
   String get applicationId =>
-      (applicationData?['ApplicationId'] ?? 'Not available').toString();
+      (applicationData?['ApplicationId'] ??
+          applicant?.id ??
+          'Not available')
+          .toString();
 
   String get applicationType =>
       (applicationData?['plotType'] ?? 'Not available').toString();
@@ -415,18 +441,23 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
       (applicationData?['fee'] ?? 'Not available').toString();
 
   String get applicationStatus =>
-      (applicationData?['status'] ?? 'Not available').toString();
+      (applicationData?['status'] ?? 'Pending').toString();
 
   String get appliedOn =>
       _formatDateValue(applicationData?['submittedAt']);
 
-  String get profileCreatedOn =>
-      _formatDateValue(applicantData?['createdAt']);
+  // ─────────────────────────────────────────────────────────────
+  // Base load
+  // ─────────────────────────────────────────────────────────────
 
   @override
   Future<void> load() async {
-    // We will call loadApplicant() instead.
+    // Applicant Details screen uses loadApplicant()
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // Load selected applicant
+  // ─────────────────────────────────────────────────────────────
 
   Future<void> loadApplicant(Applicant selectedApplicant) async {
     isLoading = true;
@@ -434,69 +465,207 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
 
     applicant = selectedApplicant;
 
+    // Clear old data before loading new applicant.
+    applicantData = null;
+    applicationData = null;
+    documents = [];
+    notes = [];
+
     try {
-      // ---------------------------------------------------------
-      // 1. Find applicant document using uid
-      // ---------------------------------------------------------
-      final applicantSnapshot = await _firestore
-          .collection('applicants')
-          .where('uid', isEqualTo: selectedApplicant.id)
-          .limit(1)
-          .get();
+      // =========================================================
+      // 1. Find applicant
+      // =========================================================
+      //
+      // IMPORTANT:
+      // ApplicantVerificationViewModel stores ApplicationId
+      // inside Applicant.id.
+      //
+      // Therefore we CANNOT search:
+      //
+      // where('uid', isEqualTo: selectedApplicant.id)
+      //
+      // Instead, CNIC is available in Applicant and is reliable
+      // for finding the applicant document.
+      // =========================================================
 
-      if (applicantSnapshot.docs.isNotEmpty) {
-        applicantData = applicantSnapshot.docs.first.data();
-      }
+      QuerySnapshot<Map<String, dynamic>> applicantSnapshot;
 
-      // ---------------------------------------------------------
-      // 2. Find corresponding application
-      // ---------------------------------------------------------
-      if (selectedApplicant.id.isNotEmpty) {
-        final applicationSnapshot = await _firestore
-            .collection('applications')
+      if (selectedApplicant.cnic.trim().isNotEmpty) {
+        applicantSnapshot = await _firestore
+            .collection('applicants')
             .where(
-          'applicantId',
+          'cnic',
+          isEqualTo: selectedApplicant.cnic.trim(),
+        )
+            .limit(1)
+            .get();
+      } else {
+        applicantSnapshot = await _firestore
+            .collection('applicants')
+            .where(
+          'uid',
           isEqualTo: selectedApplicant.id,
         )
             .limit(1)
             .get();
+      }
 
-        if (applicationSnapshot.docs.isNotEmpty) {
-          applicationData = applicationSnapshot.docs.first.data();
+      if (applicantSnapshot.docs.isNotEmpty) {
+        final applicantDoc = applicantSnapshot.docs.first;
+
+        applicantData = applicantDoc.data();
+
+        final uid = applicantData?['uid']?.toString().trim();
+
+        // =======================================================
+        // 2. Find corresponding application
+        // =======================================================
+        //
+        // Existing backend relationship:
+        //
+        // applications.applicantId == applicants.uid
+        // =======================================================
+
+        if (uid != null && uid.isNotEmpty) {
+          final applicationSnapshot = await _firestore
+              .collection('applications')
+              .where(
+            'applicantId',
+            isEqualTo: uid,
+          )
+              .limit(1)
+              .get();
+
+          if (applicationSnapshot.docs.isNotEmpty) {
+            applicationData =
+                applicationSnapshot.docs.first.data();
+          }
         }
       }
 
       // ---------------------------------------------------------
-      // 3. Documents
-      // ---------------------------------------------------------
-      //
-      // Your current applicants/applications schema has no
-      // document fields, so we deliberately keep this empty.
-      //
+// 3. Load uploaded documents
+// ---------------------------------------------------------
+
       documents = [];
 
-      // ---------------------------------------------------------
-      // 4. Verification notes
-      // ---------------------------------------------------------
+      final uploadSnapshot = await _firestore
+          .collection('uploads')
+          .where(
+        'applicantId',
+        isEqualTo: applicantData?['uid'] ?? selectedApplicant.id,
+      )
+          .limit(1)
+          .get();
+
+      if (uploadSnapshot.docs.isNotEmpty) {
+        final uploadData = uploadSnapshot.docs.first.data();
+
+        final rawDocuments = uploadData['documents'];
+
+        if (rawDocuments is List) {
+          documents = rawDocuments.map<ApplicantDocument>((item) {
+            if (item is Map<String, dynamic>) {
+              final fileName =
+                  item['fileName']?.toString() ?? 'Unknown Document';
+
+              final fileType =
+                  item['fileType']?.toString().toLowerCase() ?? '';
+
+              final fileSize =
+                  item['fileSize']?.toString() ?? '';
+
+              final serialNumber =
+                  item['serialNumber']?.toString() ?? '';
+
+              final status =
+                  item['status']?.toString() ?? 'pending';
+
+              return ApplicantDocument(
+                title: fileName,
+                number: serialNumber,
+                fileSize: fileSize,
+                fileType: fileType,
+                status: status,
+                icon: _getDocumentIcon(fileType),
+                verified: status.toLowerCase() == 'verified',
+              );
+            }
+
+            return const ApplicantDocument(
+              title: 'Unknown Document',
+              number: '',
+              fileSize: '',
+              fileType: '',
+              status: 'pending',
+              icon: Icons.insert_drive_file_rounded,
+              verified: false,
+            );
+          }).toList();
+        }
+      }
+
+      // =========================================================
+      // 4. Notes
+      // =========================================================
       //
-      // We will NOT read notes yet because there is currently
-      // no notes collection/backend structure.
-      //
+      // SKIPPED FOR NOW.
+      // No notes collection/backend has been provided yet.
+      // =========================================================
+
       notes = [];
-    } catch (e) {
-      print('Error loading applicant details: $e');
+
+      debugPrint(
+        'Applicant Details loaded: ${selectedApplicant.name}',
+      );
+
+      debugPrint(
+        'Applicant data found: ${applicantData != null}',
+      );
+
+      debugPrint(
+        'Application data found: ${applicationData != null}',
+      );
+    } catch (e, stackTrace) {
+      debugPrint(
+        'Error loading applicant details: $e',
+      );
+
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
     }
 
     isLoading = false;
     notifyListeners();
   }
+  IconData _getDocumentIcon(String fileType) {
+    switch (fileType.toLowerCase()) {
+      case 'pdf':
+        return Icons.picture_as_pdf_rounded;
 
-  // -------------------------------------------------------------
-  // Verify / Reject
-  // -------------------------------------------------------------
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return Icons.image_rounded;
 
-  Future<void> updateStatus(VerificationStatus status) async {
-    if (applicationData == null || applicant == null) {
+      case 'doc':
+      case 'docx':
+        return Icons.description_rounded;
+
+      default:
+        return Icons.insert_drive_file_rounded;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Verify / Reject Applicant
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> updateStatus(
+      VerificationStatus status,
+      ) async {
+    if (applicant == null) {
       return;
     }
 
@@ -512,40 +681,117 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
           firestoreStatus = 'Rejected';
           break;
 
-        default:
+        case VerificationStatus.pending:
           firestoreStatus = 'Pending';
+          break;
       }
 
-      final applicationSnapshot = await _firestore
-          .collection('applications')
+      // =========================================================
+      // 1. Find applicant using CNIC
+      // =========================================================
+
+      final applicantQuery = await _firestore
+          .collection('applicants')
           .where(
-        'applicantId',
-        isEqualTo: applicant!.id,
+        'cnic',
+        isEqualTo: applicant!.cnic,
       )
           .limit(1)
           .get();
 
-      if (applicationSnapshot.docs.isEmpty) {
-        print('Application not found.');
-        return;
+      if (applicantQuery.docs.isEmpty) {
+        throw Exception(
+          'Applicant not found for ${applicant!.name}',
+        );
       }
 
-      await applicationSnapshot.docs.first.reference.update({
-        'status': firestoreStatus,
-      });
+      final applicantDoc = applicantQuery.docs.first;
+      final applicantFirestoreData = applicantDoc.data();
+
+      final uid =
+      applicantFirestoreData['uid']?.toString().trim();
+
+      if (uid == null || uid.isEmpty) {
+        throw Exception(
+          'Applicant UID not found for ${applicant!.name}',
+        );
+      }
+
+      // =========================================================
+      // 2. Find corresponding application
+      // =========================================================
+
+      final applicationQuery = await _firestore
+          .collection('applications')
+          .where(
+        'applicantId',
+        isEqualTo: uid,
+      )
+          .limit(1)
+          .get();
+
+      if (applicationQuery.docs.isEmpty) {
+        throw Exception(
+          'Application not found for ${applicant!.name}',
+        );
+      }
+
+      final applicationDoc = applicationQuery.docs.first;
+
+      // =========================================================
+      // 3. Update both collections
+      // =========================================================
+
+      final batch = _firestore.batch();
+
+      batch.update(
+        applicationDoc.reference,
+        {
+          'status': firestoreStatus,
+        },
+      );
+
+      batch.update(
+        applicantDoc.reference,
+        {
+          'profileStatus': firestoreStatus,
+        },
+      );
+
+      await batch.commit();
+
+      // =========================================================
+      // 4. Update local state
+      // =========================================================
 
       applicant!.status = status;
 
       applicationData = {
-        ...applicationData!,
+        ...?applicationData,
         'status': firestoreStatus,
       };
 
       notifyListeners();
-    } catch (e) {
-      print('Error updating applicant status: $e');
+
+      debugPrint(
+        '${applicant!.name} status updated to $firestoreStatus',
+      );
+    } catch (e, stackTrace) {
+      debugPrint(
+        'Error updating applicant status: $e',
+      );
+
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
+
+      rethrow;
     }
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // Date formatter
+  // ─────────────────────────────────────────────────────────────
 
   String _formatDateValue(dynamic value) {
     if (value == null) {
