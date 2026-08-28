@@ -8,6 +8,7 @@ class NotificationModel {
   final String type;
   final bool isRead;
   final DateTime createdAt;
+  final String actionRoute;
 
   const NotificationModel({
     required this.id,
@@ -17,6 +18,7 @@ class NotificationModel {
     required this.type,
     required this.isRead,
     required this.createdAt,
+    this.actionRoute = '',
   });
 
   factory NotificationModel.fromFirestore(DocumentSnapshot doc) {
@@ -29,6 +31,7 @@ class NotificationModel {
       type: data['type']?.toString() ?? 'general',
       isRead: data['isRead'] is bool ? data['isRead'] as bool : false,
       createdAt: _date(data['createdAt']),
+      actionRoute: data['actionRoute']?.toString() ?? '',
     );
   }
 
@@ -40,6 +43,7 @@ class NotificationModel {
       'type': type,
       'isRead': isRead,
       'createdAt': Timestamp.fromDate(createdAt),
+      'actionRoute': actionRoute,
     };
   }
 

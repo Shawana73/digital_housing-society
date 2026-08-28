@@ -92,6 +92,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+
+  Future<void> _sendVerificationEmail(User user) async {
+    await user.sendEmailVerification();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Email Verification Required'),
+        content: Text('A verification link has been sent to ${user.email}. Please verify your email first, then login to continue.'),
+        actions: [
+          FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Go to Login')),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     if (!_declaration) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please confirm the declaration.')));
@@ -100,8 +117,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _loading = true);
     try {
       final credential = await _authService.register(_email.text, _password.text);
-      final uid = credential.user!.uid;
-      await credential.user!.updateDisplayName(_fullName.text.trim());
+      final user = credential.user!;
+      final uid = user.uid;
+      await user.updateDisplayName(_fullName.text.trim());
       await _firestoreService.saveApplicant({
         'uid': uid,
         'fullName': _fullName.text.trim(),
@@ -112,13 +130,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'address': _address.text.trim(),
         'city': _city.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
-        'profileStatus': 'active',
+        'profileStatus': 'email verification pending',
         'notificationsEnabled': true,
         'ballotingRegistered': false,
+        'emailVerified': false,
       });
+      await _sendVerificationEmail(user);
+      await _authService.logout();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Registration completed successfully.')));
-      Navigator.pushNamedAndRemoveUntil(context, AppConstants.dashboardRoute, (_) => false);
+      Navigator.pushNamedAndRemoveUntil(context, AppConstants.loginRoute, (_) => false);
     } on FirebaseAuthException catch (e) {
       _showError(e.message ?? e.code);
     } catch (e) {

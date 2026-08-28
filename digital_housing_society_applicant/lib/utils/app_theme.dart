@@ -43,7 +43,8 @@ class AppTheme {
         fillColor: AppColors.lightPurpleBackground,
         labelStyle: GoogleFonts.poppins(color: AppColors.secondaryText),
         hintStyle: GoogleFonts.inter(color: AppColors.hintText),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.borderColor),

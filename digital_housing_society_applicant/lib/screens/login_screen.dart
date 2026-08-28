@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
@@ -22,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
+  final _firestoreService = FirestoreService();
   bool _obscure = true;
   bool _loading = false;
 
@@ -37,7 +39,22 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      await _authService.login(_emailController.text, _passwordController.text);
+      final credential = await _authService.login(_emailController.text, _passwordController.text);
+      final user = credential.user;
+      await user?.reload();
+      final refreshedUser = FirebaseAuth.instance.currentUser;
+      if (refreshedUser?.emailVerified != true) {
+        await refreshedUser?.sendEmailVerification();
+        await _authService.logout();
+        if (!mounted) return;
+        _showError('Please verify your email first. A new verification link has been sent to your inbox.');
+        return;
+      }
+      final uid = refreshedUser?.uid;
+      if (uid != null) {
+        await _firestoreService.ensureCoreCollections(uid);
+        await _firestoreService.updateApplicant(uid, {'emailVerified': true, 'profileStatus': 'active'});
+      }
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, AppConstants.dashboardRoute, (_) => false);
     } on FirebaseAuthException catch (e) {
