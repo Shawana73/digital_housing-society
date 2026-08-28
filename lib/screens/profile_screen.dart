@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'notification_preferences_screen.dart';
+import 'admin_settings_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../app_routes.dart';
 import '../theme/admin_theme.dart';
@@ -422,8 +424,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ]),
           ),
           const SizedBox(height: 16),
-          _SettingsTile(icon: Icons.settings_rounded, title: 'Settings', subtitle: 'Account, security and preferences', onTap: () => showAdminSnack(context, 'Settings clicked')),
-          _SettingsTile(icon: Icons.notifications_rounded, title: 'Notification Preferences', subtitle: 'Manage alerts and reminders', onTap: () => showAdminSnack(context, 'Notification settings clicked')),
+          _SettingsTile(
+            icon: Icons.settings_rounded,
+            title: 'Settings',
+            subtitle: 'Account, security and preferences',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AdminSettingsScreen(),
+                ),
+              );
+            },
+          ),
+          _SettingsTile(icon: Icons.notifications_rounded, title: 'Notification Preferences', subtitle: 'Manage alerts and reminders',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationPreferencesScreen(),
+                ),
+              );
+            },
+          ),
           _SettingsTile(icon: Icons.lock_rounded, title: 'Change Password', subtitle: 'Update admin password', onTap: _changePassword),
           _SettingsTile(icon: Icons.logout_rounded, title: 'Logout', subtitle: 'Sign out from admin panel', color: AdminColors.rejected, onTap: _logout),
         ],

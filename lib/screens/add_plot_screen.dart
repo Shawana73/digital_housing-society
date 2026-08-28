@@ -1,28 +1,27 @@
 import 'package:flutter/material.dart';
-
 import '../theme/admin_theme.dart';
 import '../viewmodels/admin_view_models.dart';
 import '../widgets/admin_shell.dart';
 import '../widgets/app_snack.dart';
 import '../widgets/premium_widgets.dart';
 
-class AddPlotScreen extends StatefulWidget {
+class AddPlotScreen extends StatefulWidget { //This widget represents configuration/identity
   const AddPlotScreen({super.key});
 
   @override
-  State<AddPlotScreen> createState() => _AddPlotScreenState();
+  State<AddPlotScreen> createState()  => _AddPlotScreenState(); //createState() tells the corresponding state object of that widget.
 }
 
-class _AddPlotScreenState extends State<AddPlotScreen> {
+class _AddPlotScreenState extends State<AddPlotScreen> {  //state class ,state management of mutable state of widget AddPlotScreen
   final AddPlotViewModel _viewModel = AddPlotViewModel();
   final TextEditingController _searchController = TextEditingController();
-  bool _isLoading = true;
+  bool _isLoading = true; //show loading spinner
 
   @override
-  void initState() {
+  void initState() {  //Jab _AddPlotScreenState pehli baar create/mount hoti hai, tab initial setup start karna.
     super.initState();
     Future.delayed(const Duration(milliseconds: 350), () {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false); //check state is alive or not
     });
   }
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -43,7 +42,9 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
     if (!_formKey.currentState!.validate()) {
       showAdminSnack(context, 'Please fill all required fields');
       return;
+
     }
+
 
     try {
       await _viewModel.savePlot();
@@ -62,8 +63,8 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  @override   //BuildContext basically widget tree mein kisi widget ki location/reference hota hai.
+  Widget build(BuildContext context) {  //build() ka primary kaam screen ki UI widget tree ke structure ko describe/create karna hai
     return AdminShell(
       title: 'Add Plot',
       selectedIndex: 0,
@@ -102,16 +103,7 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          const PremiumCard(
-            child: Row(
-              children: [
-                GradientIconBox(icon: Icons.info_rounded, color: AdminColors.warning),
-                SizedBox(width: 12),
-                Expanded(child: Text('This form saves dummy data message only. Firebase/backend is not required for UI testing.', style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, height: 1.35))),
-              ],
-            ),
-          ),
+
         ],
       ),
     );

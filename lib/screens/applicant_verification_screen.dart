@@ -66,8 +66,12 @@ class _ApplicantVerificationScreenState
         ],
       ),
     );
-    if (result == true) {
-      approve ? _viewModel.approve(applicant) : _viewModel.reject(applicant);
+    if (result == true)  {
+      if (approve) {
+        await _viewModel.approve(applicant);
+      } else {
+        await _viewModel.reject(applicant);
+      }
       if (mounted) {
         showAdminSnack(
             context, '${applicant.name} ${approve ? 'approved' : 'rejected'}');
@@ -87,9 +91,6 @@ class _ApplicantVerificationScreenState
         _searchController.clear();
         _viewModel.clearSearch();
       },
-      onFabTap: () => showAdminSnack(context, 'Add applicant clicked'),
-      fabLabel: 'Applicant',
-      fabIcon: Icons.person_add_alt_1_rounded,
       isLoading: _viewModel.isLoading,
       body: ListView(
         physics: const BouncingScrollPhysics(),
@@ -507,21 +508,38 @@ class _ApplicantRow extends StatelessWidget {
                   label: applicant.status.label,
                   color: applicant.status.color),
               const SizedBox(height: 8),
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                _RoundIconButton(
-                  icon: Icons.visibility_outlined,
-                  background: AdminColors.background,
-                  iconColor: AdminColors.darkText,
-                  onTap: onTap,
-                ),
-                const SizedBox(width: 6),
-                _RoundIconButton(
-                  icon: Icons.edit_rounded,
-                  background: AdminColors.primary,
-                  iconColor: AdminColors.white,
-                  onTap: onTap,
-                ),
-              ]),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // View Applicant Details
+                  _RoundIconButton(
+                    icon: Icons.visibility_outlined,
+                    background: AdminColors.background,
+                    iconColor: AdminColors.darkText,
+                    onTap: onTap,
+                  ),
+
+                  const SizedBox(width: 6),
+
+                  // Approve Applicant
+                  _RoundIconButton(
+                    icon: Icons.check_rounded,
+                    background: AdminColors.success,
+                    iconColor: AdminColors.white,
+                    onTap: onApprove,
+                  ),
+
+                  const SizedBox(width: 6),
+
+                  // Reject Applicant
+                  _RoundIconButton(
+                    icon: Icons.close_rounded,
+                    background: AdminColors.rejected,
+                    iconColor: AdminColors.white,
+                    onTap: onReject,
+                  ),
+                ],
+              ),
             ],
           ),
         ],

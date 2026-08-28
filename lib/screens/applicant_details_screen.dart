@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../viewmodels/admin_view_models.dart';
 import '../models/admin_models.dart';
 import '../theme/admin_theme.dart';
 import '../widgets/admin_shell.dart';
@@ -19,7 +19,9 @@ class ApplicantDetailsScreen extends StatefulWidget {
 class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
-  bool _isLoading = true;
+  final ApplicantDetailsViewModel _viewModel =
+  ApplicantDetailsViewModel();
+
   int _tabIndex = 0;
 
   final List<String> _tabs = const [
@@ -31,17 +33,30 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
   ];
 
   @override
+  @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 350), () {
-      if (mounted) setState(() => _isLoading = false);
-    });
+
+    _viewModel.addListener(_refresh);
+
+    _viewModel.loadApplicantDetails(widget.applicant);
+  }
+
+  void _refresh() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
+  @override
   void dispose() {
+    _viewModel.removeListener(_refresh);
+    _viewModel.dispose();
+
     _searchController.dispose();
     _noteController.dispose();
+
     super.dispose();
   }
 
@@ -101,7 +116,22 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final applicant = widget.applicant;
+    final applicant = _viewModel.applicant;
+
+    if (applicant == null) {
+      return AdminShell(
+        title: 'Applicant Details',
+        selectedIndex: 1,
+        searchController: _searchController,
+        searchHint: 'Search inside applicant profile...',
+        onSearchClear: () => _searchController.clear(),
+        isLoading: _viewModel.isLoading,
+        body: const Center(
+          child: Text('Unable to load applicant details'),
+        ),
+      );
+    }
+
     return AdminShell(
       title: 'Applicant Details',
       selectedIndex: 1,
@@ -112,7 +142,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
       onFabTap: () => _showFullImage('Profile Picture', Icons.person_rounded),
       fabLabel: 'View Image',
       fabIcon: Icons.image_rounded,
-      isLoading: _isLoading,
+      isLoading: _viewModel.isLoading,
       body: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 150),
@@ -618,8 +648,11 @@ class _RoundGhostIcon extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PersonalInfoTab extends StatelessWidget {
-  final Applicant applicant;
-  const _PersonalInfoTab({required this.applicant});
+  final ApplicantDetailsViewModel viewModel;
+
+  const _PersonalInfoTab({
+    required this.viewModel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -628,12 +661,59 @@ class _PersonalInfoTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InfoRow(icon: Icons.badge_rounded, label: 'Applicant ID', value: applicant.id),
-          InfoRow(icon: Icons.credit_card_rounded, label: 'CNIC', value: applicant.cnic),
-          InfoRow(icon: Icons.phone_rounded, label: 'Phone', value: applicant.phone),
-          InfoRow(icon: Icons.email_rounded, label: 'Email', value: applicant.email),
-          InfoRow(icon: Icons.location_on_rounded, label: 'Address', value: applicant.address),
-          InfoRow(icon: Icons.work_rounded, label: 'Occupation', value: applicant.occupation),
+          InfoRow(
+            icon: Icons.badge_rounded,
+            label: 'Applicant ID',
+            value: viewModel.applicant?.id ?? 'Not available',
+          ),
+
+          InfoRow(
+            icon: Icons.credit_card_rounded,
+            label: 'CNIC',
+            value: viewModel.cnic,
+          ),
+
+          InfoRow(
+            icon: Icons.phone_rounded,
+            label: 'Phone',
+            value: viewModel.phone,
+          ),
+
+          InfoRow(
+            icon: Icons.email_rounded,
+            label: 'Email',
+            value: viewModel.email,
+          ),
+
+          InfoRow(
+            icon: Icons.location_on_rounded,
+            label: 'Address',
+            value: viewModel.address,
+          ),
+
+          InfoRow(
+            icon: Icons.location_city_rounded,
+            label: 'City',
+            value: viewModel.city,
+          ),
+
+          InfoRow(
+            icon: Icons.cake_rounded,
+            label: 'Date of Birth',
+            value: viewModel.dateOfBirth,
+          ),
+
+          InfoRow(
+            icon: Icons.category_rounded,
+            label: 'Application Type',
+            value: viewModel.applicationType,
+          ),
+
+          InfoRow(
+            icon: Icons.confirmation_number_rounded,
+            label: 'Serial Number',
+            value: viewModel.serialNumber,
+          ),
         ],
       ),
     );
