@@ -5,14 +5,14 @@ import 'app_routes.dart';  //routes names defined
 import 'models/admin_models.dart';
 import 'screens/admin_login_screen.dart';
 import 'screens/add_plot_screen.dart';
-import 'screens/admin_dashboard_screen.dart';
+import '../screens/dashboard/admin_dashboard_screen.dart';
 import 'screens/applicant_details_screen.dart';
 import 'screens/applicant_verification_screen.dart';
 import 'screens/balloting_screen.dart';
 import 'screens/dealer_verification_screen.dart';
 import 'screens/notification_screen.dart';
 import 'screens/payment_verification_screen.dart';
-import 'screens/plot_management_screen.dart';
+import '../screens/plot_management/plot_management_screen.dart';
 import 'screens/plot_visualization_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/reports_screen.dart';

@@ -94,7 +94,7 @@ class _NotificationPreferencesScreenState
           'notificationsEnabled': notificationsEnabled,
           'applicantUpdates': applicantUpdates,
           'paymentUpdates': paymentUpdates,
-          'ballotingAlerts': ballotingAlerts,
+          // 'ballotingAlerts': ballotingAlerts,
           'systemAlerts': systemAlerts,
         },
       }, SetOptions(merge: true));

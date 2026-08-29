@@ -9,6 +9,7 @@ class FirestoreService {
 
   Future<void> addPlot(PlotModel plot) async {
     try {
+    //  final normalizedPlotId = plot.plotId.trim().toUpperCase();
       final docRef = _firestore.collection('plots').doc(plot.plotId);
 
       final doc = await docRef.get();

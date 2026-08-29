@@ -30,29 +30,7 @@ class BaseAdminViewModel extends ChangeNotifier {
   }
 }
 
-class AdminDashboardViewModel extends BaseAdminViewModel {
-  final stats = DummyData.dashboardStats();
-  final quickActions = DummyData.quickActions();
-  final activities = DummyData.activities();
-  final notifications = DummyData.notifications();
-  final chartValues = const [18.0, 24.0, 21.0, 32.0, 38.0, 45.0, 58.0];
 
-  List<ActivityItem> get filteredActivities {
-    if (query.isEmpty) return activities;
-    return activities
-        .where((a) => a.title.toLowerCase().contains(query) || a.subtitle.toLowerCase().contains(query))
-        .toList();
-  }
-
-  int get unreadCount => notifications.where((n) => n.unread).length;
-
-  void markAllRead() {
-    for (final notification in notifications) {
-      notification.unread = false;
-    }
-    notifyListeners();
-  }
-}
 
 class ApplicantVerificationViewModel extends BaseAdminViewModel {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -873,111 +851,7 @@ class PaymentVerificationViewModel extends BaseAdminViewModel {
   }
 }
 
-class PlotManagementViewModel extends BaseAdminViewModel {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
 
-  List<PlotModel> plots = [];
-
-  String selectedFilter = 'All';
-
-  List<String> get filters => [
-    'All',
-    'Available',
-    'Booked',
-    'Allocated',
-  ];
-
-  List<PlotModel> get filteredPlots {
-    return plots.where((plot) {
-      final matchesQuery =
-          query.isEmpty ||
-              plot.plotId.toLowerCase().contains(query) ||
-              plot.plotSize.toLowerCase().contains(query) ||
-              plot.location.toLowerCase().contains(query) ||
-              plot.price.toString().contains(query);
-
-      final matchesFilter =
-          selectedFilter == 'All' ||
-              plot.status.toLowerCase() ==
-                  selectedFilter.toLowerCase();
-
-      return matchesQuery && matchesFilter;
-    }).toList();
-  }
-
-  @override
-  Future<void> load() async {
-    isLoading = true;
-    notifyListeners();
-
-    try {
-      final snapshot =
-      await _firestore.collection('plots').get();
-
-      print('TOTAL PLOTS FROM FIRESTORE: ${snapshot.docs.length}');
-
-      for (final doc in snapshot.docs) {
-        print('DOCUMENT ID: ${doc.id}');
-        print('DOCUMENT DATA: ${doc.data()}');
-      }
-      plots = snapshot.docs.map((doc) {
-        return PlotModel.fromMap(
-          doc.data(),
-          doc.id,
-        );
-      }).toList();
-
-      print('PLOTS LIST LENGTH: ${plots.length}');
-    } catch (e) {
-      print('ERROR LOADING PLOTS: $e');
-    }
-
-    isLoading = false;
-    notifyListeners();
-  }
-
-  void setFilter(String value) {
-    selectedFilter = value;
-    notifyListeners();
-  }
-
-  Future<void> updateStatus(
-      PlotModel plot,
-      String status,
-      ) async {
-    try {
-      await _firestore
-          .collection('plots')
-          .doc(plot.documentId)
-          .update({
-        'status': status,
-        'updatedAt': Timestamp.now(),
-      });
-
-      await load();
-    } catch (e) {
-      print('Error updating plot: $e');
-    }
-  }
-
-  Future<void> deletePlot(PlotModel plot) async {
-    try {
-      await _firestore
-          .collection('plots')
-          .doc(plot.documentId)
-          .delete();
-
-      plots.removeWhere(
-            (item) => item.documentId == plot.documentId,
-      );
-
-      notifyListeners();
-    } catch (e) {
-      print('Error deleting plot: $e');
-    }
-  }
-}
 
 class AddPlotViewModel extends ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();

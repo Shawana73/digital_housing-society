@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import '../models/plot_model.dart';
 import '../app_routes.dart';
 import '../theme/admin_theme.dart';
@@ -8,10 +8,10 @@ import '../widgets/app_snack.dart';
 import '../widgets/premium_widgets.dart';
 
 class PlotManagementScreen extends StatefulWidget {
-  const PlotManagementScreen({super.key});
+  /*const PlotManagementScreen({super.key});
 
   @override
-  State<PlotManagementScreen> createState() => _PlotManagementScreenState();
+  State<PlotManagementScreen> createState() => _PlotManagementScreenState();*/
 }
 
 class _PlotManagementScreenState extends State<PlotManagementScreen> {
@@ -331,3 +331,5 @@ class _PlotCard extends StatelessWidget {
     );
   }
 }
+*/
+

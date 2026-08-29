@@ -90,7 +90,7 @@ class _AddPlotScreenState extends State<AddPlotScreen> {  //state class ,state m
                   const SizedBox(height: 18),
                   _Field(controller: _viewModel.plotId, label: 'Plot ID', icon: Icons.badge_rounded, validator: _required),
                   _Field(controller: _viewModel.plotSize, label: 'Plot Size', icon: Icons.aspect_ratio_rounded, validator: _required),
-                  _Field(controller: _viewModel.price, label: 'Price', icon: Icons.payments_rounded, validator: _required, keyboardType: TextInputType.number),
+                  _Field(controller: _viewModel.price, label: 'Plot Price (PKR)', icon: Icons.payments_rounded, validator: _required, keyboardType: TextInputType.number),
                   _Field(controller: _viewModel.location, label: 'Location', icon: Icons.location_on_rounded, validator: _required),
                   _Field(controller: _viewModel.description, label: 'Description', icon: Icons.description_rounded, validator: _required, maxLines: 4),
                   const SizedBox(height: 12),
