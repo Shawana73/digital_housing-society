@@ -4,7 +4,7 @@ import 'firebase_options.dart'; //firebase configuration options
 import 'app_routes.dart';  //routes names defined
 import 'models/admin_models.dart';
 import 'screens/admin_login_screen.dart';
-import 'screens/add_plot_screen.dart';
+import '../screens/add_plot/add_plot_screen.dart';
 import '../screens/dashboard/admin_dashboard_screen.dart';
 import 'screens/applicant_details_screen.dart';
 import 'screens/applicant_verification_screen.dart';
