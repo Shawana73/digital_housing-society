@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../../widgets/admin_shell.dart';
 import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
-import 'addplot_viewmodel.dart';
-import 'addplot_widgets.dart';
+import 'add_plot_viewmodel.dart';
+import 'add_plot_widgets.dart';
 
 class AddPlotScreen extends StatefulWidget {
   const AddPlotScreen({super.key});

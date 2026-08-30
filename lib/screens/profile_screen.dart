@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'notification_preferences_screen.dart';
-import 'admin_settings_screen.dart';
+import 'admin_settings/admin_settings_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../app_routes.dart';
 import '../theme/admin_theme.dart';

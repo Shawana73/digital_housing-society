@@ -3,20 +3,20 @@ import 'package:firebase_core/firebase_core.dart'; //firebase core package// req
 import 'firebase_options.dart'; //firebase configuration options
 import 'app_routes.dart';  //routes names defined
 import 'models/admin_models.dart';
-import 'screens/admin_login_screen.dart';
-import '../screens/add_plot/add_plot_screen.dart';
-import '../screens/dashboard/admin_dashboard_screen.dart';
-import 'screens/applicant_details_screen.dart';
-import 'screens/applicant_verification_screen.dart';
-import 'screens/balloting_screen.dart';
+import 'screens/admin_login/admin_login_screen.dart';
+import 'screens/add_plot/add_plot_screen.dart';
+import 'screens/applicants/applicant_verification_screen.dart';
+import 'screens/dashboard/admin_dashboard_screen.dart';
+import 'screens/applicant_details/applicant_details_screen.dart';
+import 'screens/balloting/balloting_screen.dart';
 import 'screens/dealer_verification_screen.dart';
 import 'screens/notification_screen.dart';
 import 'screens/payment_verification_screen.dart';
-import '../screens/plot_management/plot_management_screen.dart';
+import 'screens/plot_management/plot_management_screen.dart';
 import 'screens/plot_visualization_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/reports_screen.dart';
-import 'screens/balloting_processing_screen.dart';
+import 'screens/balloting_processing/balloting_processing_screen.dart';
 import 'screens/result_screen.dart';
 import 'theme/admin_theme.dart';
 
