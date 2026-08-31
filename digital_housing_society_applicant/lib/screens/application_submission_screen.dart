@@ -9,9 +9,9 @@ import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
+import '../widgets/responsive_shell.dart';
 import '../utils/app_text_styles.dart';
 import '../utils/formatters_validators.dart';
-import '../widgets/bottom_nav_bar.dart';
 import '../widgets/branded_background.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
@@ -70,7 +70,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
           _cnic.text = applicant.cnic;
           _contact.text = applicant.phone;
           _address.text = applicant.address;
-          _city = AppConstants.pakistaniCities.contains(applicant.city) ? applicant.city : 'Other';
+          _city = applicant.city.trim().isEmpty ? null : applicant.city.trim();
           _existingApplication = appDoc == null ? null : ApplicationModel.fromFirestore(appDoc);
         });
       } else {
@@ -105,7 +105,6 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
       final serial = _generateSerial();
       await _firestoreService.updateApplicant(uid, {
         'fullName': _fullName.text.trim(),
-        'cnic': _cnic.text.trim(),
         'phone': _contact.text.trim(),
         'address': _address.text.trim(),
         'city': _city,
@@ -145,9 +144,15 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Submit Application'), actions: [const NotificationBell(), Padding(padding: const EdgeInsets.only(right: 14), child: InitialsAvatar(name: _applicant?.fullName ?? 'Applicant'))]),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 1),
+    final desktop =
+        MediaQuery.sizeOf(context).width >= DhsResponsiveShell.desktopBreakpoint;
+
+    return DhsResponsiveShell(
+      currentRoute: AppConstants.applicationRoute,
+      mobileTitle: 'Applications',
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: desktop ? AppBar(title: const Text('Submit Application'), actions: [const NotificationBell(), Padding(padding: const EdgeInsets.only(right: 14), child: InitialsAvatar(name: _applicant?.fullName ?? 'Applicant'))]) : null,
       body: _profileLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple))
           : _existingApplication != null
@@ -185,7 +190,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
                   const SizedBox(height: 18),
                   AppTextField(label: 'Full Name', hint: 'Enter full name', controller: _fullName, prefixIcon: Icons.person_rounded, validator: (v) => Validators.required(v, 'Full name')),
                   const SizedBox(height: 14),
-                  AppTextField(label: 'CNIC', hint: '35202-1234567-8', controller: _cnic, prefixIcon: Icons.badge_rounded, keyboardType: TextInputType.number, inputFormatters: [CnicInputFormatter()], validator: Validators.cnic),
+                  AppTextField(label: 'CNIC', hint: '35202-1234567-8', controller: _cnic, prefixIcon: Icons.badge_rounded, keyboardType: TextInputType.number, readOnly: true, inputFormatters: [CnicInputFormatter()], validator: Validators.cnic),
                   const SizedBox(height: 20),
                   Text('Select Plot Type', style: AppTextStyles.headingSmall),
                   const SizedBox(height: 12),
@@ -223,7 +228,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
                   DropdownButtonFormField<String>(
                     initialValue: _city,
                     decoration: const InputDecoration(labelText: 'City', prefixIcon: Icon(Icons.location_city_rounded)),
-                    items: AppConstants.pakistaniCities.map((city) => DropdownMenuItem(value: city, child: Text(city))).toList(),
+                    items: <String>{...AppConstants.pakistaniCities, if (_city != null) _city!}.map((city) => DropdownMenuItem(value: city, child: Text(city))).toList(),
                     onChanged: (value) => setState(() => _city = value),
                     validator: (v) => v == null || v.isEmpty ? 'City is required' : null,
                   ),
@@ -243,6 +248,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
               ),
             ),
           ),
+      ),
     );
   }
 }

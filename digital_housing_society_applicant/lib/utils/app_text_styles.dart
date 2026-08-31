@@ -26,14 +26,14 @@ class AppTextStyles {
         height: 1.3,
       );
 
-  static TextStyle get bodyLarge => GoogleFonts.inter(
+  static TextStyle get bodyLarge => GoogleFonts.poppins(
         fontSize: 16,
         fontWeight: FontWeight.w500,
         color: AppColors.primaryText,
         height: 1.45,
       );
 
-  static TextStyle get bodyMedium => GoogleFonts.inter(
+  static TextStyle get bodyMedium => GoogleFonts.poppins(
         fontSize: 14,
         fontWeight: FontWeight.w400,
         color: AppColors.secondaryText,
@@ -52,7 +52,7 @@ class AppTextStyles {
         color: AppColors.white,
       );
 
-  static TextStyle get captionText => GoogleFonts.inter(
+  static TextStyle get captionText => GoogleFonts.poppins(
         fontSize: 12,
         fontWeight: FontWeight.w500,
         color: AppColors.secondaryText,

@@ -1,0 +1,30 @@
+DHS FINAL V3 FIXES
+
+1. Mobile/sidebar logout fixed using a stable root Navigator + FirebaseAuth.signOut().
+2. Balloting and Balloting Result added to the shared sidebar/drawer.
+3. Balloting + Result screens now use the shared DHS responsive navigation shell.
+4. Dealer Registration mobile overflow risks reduced:
+   - compact hero/logo/shield
+   - responsive registration process title
+   - responsive already-registered strip
+   - preserved backend submission validation fix.
+5. Profile purple header shortened on mobile while preserving the approved premium layout.
+6. Verified Dealers hero shortened slightly; search box no longer hides under the hero.
+7. Skyline Associates, Nexus Properties and Premier Estates local logo images added.
+   Firestore can later override with logoUrl / logoAsset.
+8. Explore Plots purple hero shortened slightly.
+9. Typography standardized to Poppins across theme, headings, body, labels, hints and snackbars.
+10. Backend audit added. Data-driven screens remain Firebase Authentication + Cloud Firestore connected.
+11. Preview plot/dealer data remains fallback-only; live admin Firestore records take priority.
+
+Static validation performed in packaging environment:
+- Dart delimiter/structure scan: pass
+- Relative import existence: pass
+- Route reference scan: pass
+- JSON parse: pass
+- XML parse: pass
+- Asset existence + image integrity: pass
+- pubspec YAML parse: pass
+
+Flutter SDK is not available in this packaging environment, so authoritative flutter analyze/test/runtime
+must still be run on the user's machine before GitHub commit.

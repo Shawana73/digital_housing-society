@@ -32,12 +32,13 @@ class AppColors {
   static const Color inactiveGrey = Color(0xFF9CA3AF);
   static const Color darkNavy = Color(0xFF111827);
   static const Color infoBlue = Color(0xFF3B82F6);
+  static const Color brandBlue = Color(0xFF2F5FDE);
   static const Color infoLightBackground = Color(0xFFEFF6FF);
   static const Color gold = Color(0xFFFBBF24);
   static const Color reservedGrey = Color(0xFF9CA3AF);
 
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primaryPurple, deepPurple],
+    colors: [brandBlue, deepPurple],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

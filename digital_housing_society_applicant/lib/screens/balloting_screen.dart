@@ -8,9 +8,9 @@ import '../models/result_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
+import '../utils/app_constants.dart';
 import '../utils/app_text_styles.dart';
-import '../widgets/bottom_nav_bar.dart';
-import '../widgets/header_actions.dart';
+import '../widgets/responsive_shell.dart';
 import '../widgets/status_badge.dart';
 
 class BallotingScreen extends StatefulWidget {
@@ -28,6 +28,7 @@ class _BallotingScreenState extends State<BallotingScreen> with TickerProviderSt
   DateTime? _drawDate;
   Duration _remaining = Duration.zero;
   ResultModel? _result;
+  Map<String, dynamic>? _eligibility;
   bool _resultLoading = true;
 
   @override
@@ -51,7 +52,13 @@ class _BallotingScreenState extends State<BallotingScreen> with TickerProviderSt
     if (uid == null) return;
     try {
       final doc = await _firestoreService.getResultForApplicant(uid);
-      if (mounted) setState(() => _result = doc == null ? null : ResultModel.fromFirestore(doc));
+      final eligibility = await _firestoreService.getBallotingEligibility(uid);
+      if (mounted) {
+        setState(() {
+          _result = doc == null ? null : ResultModel.fromFirestore(doc);
+          _eligibility = eligibility;
+        });
+      }
     } catch (_) {
       // Result stays empty until published.
     } finally {
@@ -84,49 +91,87 @@ class _BallotingScreenState extends State<BallotingScreen> with TickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('ballot_config').doc('main').snapshots(),
-      builder: (context, snapshot) {
-        final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
-        final status = _normalizeStatus(data['status']?.toString() ?? 'upcoming');
-        final drawDate = _date(data['drawDate']);
-        if (status == 'upcoming') _startCountdown(drawDate);
+    return DhsResponsiveShell(
+      currentRoute: AppConstants.ballotingRoute,
+      mobileTitle: 'Balloting',
+      child: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('ballot_config')
+            .doc('main')
+            .snapshots(),
+        builder: (context, snapshot) {
+          final data =
+              snapshot.data?.data() as Map<String, dynamic>? ?? {};
+          final configuredStatus = _normalizeStatus(
+            data['status']?.toString() ?? 'upcoming',
+          );
+          final status = _effectiveStatus(configuredStatus);
+          final drawDate = _date(data['drawDate']);
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Balloting'),
-            actions: [
-              Center(child: StatusBadge(text: _statusLabel(status), type: _badgeType(status))),
-              const NotificationBell(),
-              const SizedBox(width: 8),
-            ],
-          ),
-          bottomNavigationBar: const AppBottomNavBar(currentIndex: 4),
-          body: _resultLoading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple))
-              : RefreshIndicator(
-                  color: AppColors.primaryPurple,
-                  onRefresh: _loadResult,
-                  child: ListView(
-                    padding: const EdgeInsets.all(18),
-                    children: [
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 350),
-                        child: _stateWidget(status, data, drawDate),
-                      ),
-                      const SizedBox(height: 18),
-                      if (status == 'live') const _LiveResultsPanel(),
-                      if (status != 'live') _OfficialNote(status: status),
-                      const SizedBox(height: 24),
-                    ],
+          if (status == 'upcoming' && _drawDate != drawDate) {
+            _startCountdown(drawDate);
+          }
+
+          return RefreshIndicator(
+            color: AppColors.primaryPurple,
+            onRefresh: _loadResult,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(
+                horizontal:
+                    MediaQuery.sizeOf(context).width >= 980 ? 24 : 14,
+                vertical: 18,
+              ),
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1080),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _BallotingPageHeader(
+                          status: _statusLabel(status),
+                          badgeType: _badgeType(status),
+                          onNotifications: () => Navigator.pushNamed(
+                            context,
+                            AppConstants.notificationsRoute,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_resultLoading)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(28),
+                              child: CircularProgressIndicator(
+                                color: AppColors.primaryPurple,
+                              ),
+                            ),
+                          )
+                        else
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 350),
+                            child: _stateWidget(status, data, drawDate),
+                          ),
+                        const SizedBox(height: 18),
+                        if (status == 'live') const _LiveResultsPanel(),
+                        if (status != 'live') _OfficialNote(status: status),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
                 ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
   Widget _stateWidget(String status, Map<String, dynamic> data, DateTime? drawDate) {
+    if (_eligibility?['eligible'] != true && status != 'upcoming') {
+      return _EligibilityState(data: _eligibility ?? const {});
+    }
     switch (status) {
       case 'live':
         return _LiveState(key: const ValueKey('live'), data: data);
@@ -142,6 +187,12 @@ class _BallotingScreenState extends State<BallotingScreen> with TickerProviderSt
     }
   }
 
+  String _effectiveStatus(String configured) {
+    if (configured == 'upcoming' || configured == 'live') return configured;
+    if (_result != null) return _result!.isSelected ? 'winner' : 'notselected';
+    return configured == 'winner' || configured == 'notselected' ? 'completed' : configured;
+  }
+
   String _normalizeStatus(String value) => value.toLowerCase().replaceAll('_', '').replaceAll('-', '').trim();
   String _statusLabel(String status) {
     if (status == 'live') return 'LIVE';
@@ -155,6 +206,136 @@ class _BallotingScreenState extends State<BallotingScreen> with TickerProviderSt
     if (status == 'winner' || status == 'completed' || status == 'live') return StatusBadgeType.success;
     if (status == 'notselected') return StatusBadgeType.error;
     return StatusBadgeType.warning;
+  }
+}
+
+
+
+class _BallotingPageHeader extends StatelessWidget {
+  const _BallotingPageHeader({
+    required this.status,
+    required this.badgeType,
+    required this.onNotifications,
+  });
+
+  final String status;
+  final StatusBadgeType badgeType;
+  final VoidCallback onNotifications;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 560;
+
+    final title = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        Text(
+          'Official DHS Balloting',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          'Eligibility, draw status and applicant result in one place.',
+          style: TextStyle(
+            color: Color(0xFFECE9FF),
+            fontSize: 12.5,
+          ),
+        ),
+      ],
+    );
+
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        StatusBadge(text: status, type: badgeType),
+        const SizedBox(width: 8),
+        IconButton(
+          onPressed: onNotifications,
+          style: IconButton.styleFrom(
+            foregroundColor: Colors.white,
+            backgroundColor: Colors.white12,
+          ),
+          icon: const Icon(Icons.notifications_none_rounded),
+        ),
+      ],
+    );
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 16 : 20,
+        vertical: compact ? 15 : 18,
+      ),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF245CDD),
+            Color(0xFF693FE1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                title,
+                const SizedBox(height: 12),
+                actions,
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: title),
+                const SizedBox(width: 10),
+                actions,
+              ],
+            ),
+    );
+  }
+}
+
+class _EligibilityState extends StatelessWidget {
+  const _EligibilityState({required this.data});
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget row(String label, String key) {
+      final value = (data[key] ?? 'not submitted').toString();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 9),
+        child: Row(children: [
+          Text(label, style: AppTextStyles.captionText),
+          const Spacer(),
+          StatusBadge(text: value.toUpperCase(), type: badgeTypeFromStatus(value)),
+        ]),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.borderColor),
+        boxShadow: AppColors.premiumShadow(opacity: .16),
+      ),
+      child: Column(children: [
+        const Icon(Icons.lock_clock_rounded, size: 66, color: AppColors.deepPurple),
+        const SizedBox(height: 12),
+        Text('Balloting Eligibility Pending', style: AppTextStyles.headingMedium, textAlign: TextAlign.center),
+        const SizedBox(height: 7),
+        Text('Your application, documents and payment must be verified by DHS administration before participation.', style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
+        const SizedBox(height: 18),
+        row('Application', 'applicationStatus'),
+        row('Documents', 'documentsStatus'),
+        row('Payment', 'paymentStatus'),
+      ]),
+    );
   }
 }
 

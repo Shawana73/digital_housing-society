@@ -5,6 +5,7 @@ import '../models/notification_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
+import '../widgets/responsive_shell.dart';
 import '../utils/app_text_styles.dart';
 import '../widgets/notification_card.dart';
 
@@ -22,15 +23,46 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          IconButton(tooltip: 'Mark all read', onPressed: uid == null ? null : () async { await service.markAllNotificationsRead(uid); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All notifications marked as read.'))); }, icon: const Icon(Icons.done_all_rounded)),
-          IconButton(tooltip: 'Clear all', onPressed: uid == null ? null : () => _clearAll(context, uid), icon: const Icon(Icons.delete_sweep_rounded)),
-        ],
-      ),
-      body: uid == null
+    final desktop =
+        MediaQuery.sizeOf(context).width >= DhsResponsiveShell.desktopBreakpoint;
+
+    return DhsResponsiveShell(
+      currentRoute: AppConstants.notificationsRoute,
+      mobileTitle: 'Messages',
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: desktop
+            ? AppBar(
+                title: const Text('Notifications'),
+                actions: [
+                  IconButton(
+                    tooltip: 'Mark all read',
+                    onPressed: uid == null
+                        ? null
+                        : () async {
+                            await service.markAllNotificationsRead(uid);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'All notifications marked as read.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                    icon: const Icon(Icons.done_all_rounded),
+                  ),
+                  IconButton(
+                    tooltip: 'Clear all',
+                    onPressed:
+                        uid == null ? null : () => _clearAll(context, uid),
+                    icon: const Icon(Icons.delete_sweep_rounded),
+                  ),
+                ],
+              )
+            : null,
+        body: uid == null
           ? const _EmptyNotifications()
           : StreamBuilder<QuerySnapshot>(
               stream: service.getNotifications(uid),
@@ -99,6 +131,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ]);
               },
             ),
+      ),
     );
   }
 

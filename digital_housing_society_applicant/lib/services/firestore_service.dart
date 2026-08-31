@@ -1,58 +1,62 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class FirestoreService {
-  FirestoreService({FirebaseFirestore? firestore}) : _db = firestore ?? FirebaseFirestore.instance;
+  FirestoreService({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+  })  : _db = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _db;
-
-  static const Map<String, dynamic> defaultPaymentConfig = {
-    'bankName': 'Stripe Test Mode',
-    'accountTitle': 'Digital Housing Society',
-    'accountNumber': 'Test card: 4242 4242 4242 4242',
-    'iban': 'Use any future expiry date and any CVC for test simulation',
-  };
-
-  static Map<String, dynamic> defaultBallotConfig() {
-    return {
-      'status': 'upcoming',
-      'drawDate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
-      'totalApplicants': 0,
-      'totalWinners': 0,
-      'displayNumbers': <String>[],
-      'message': 'Balloting schedule will be announced by the society office.',
-    };
-  }
-
-  Future<void> ensureCoreCollections(String uid) async {
-    final batch = _db.batch();
-    batch.set(_db.collection('app_metadata').doc('collections'), {
-      'applicants': true,
-      'applications': true,
-      'uploads': true,
-      'payments': true,
-      'notifications': true,
-      'contacts': true,
-      'ballot_results': true,
-      'ballot_updates': true,
-      'ballot_live_results': true,
-      'plots': true,
-      'lastCheckedBy': uid,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    batch.set(_db.collection('payment_config').doc('stripe_test'), {
-      ...defaultPaymentConfig,
-      'mode': 'test',
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    // ballot_config/main is intentionally not overwritten here. The society admin controls its status.
-    await batch.commit();
-  }
+  final FirebaseAuth _auth;
 
   Future<void> saveApplicant(Map<String, dynamic> data) async {
     final uid = data['uid']?.toString();
-    if (uid == null || uid.isEmpty) throw Exception('Applicant uid is required.');
-    await _db.collection('applicants').doc(uid).set(data, SetOptions(merge: true));
-    await ensureCoreCollections(uid);
+    if (uid == null || uid.isEmpty) {
+      throw Exception('Applicant uid is required.');
+    }
+
+    final cnicDigits = (data['cnicDigits'] ?? data['cnic'] ?? '')
+        .toString()
+        .replaceAll(RegExp(r'\D'), '');
+
+    if (cnicDigits.length != 13) {
+      throw Exception('A valid CNIC is required.');
+    }
+
+    await _db.runTransaction((tx) async {
+      final registryRef = _db.collection('cnic_registry').doc(cnicDigits);
+      final existing = await tx.get(registryRef);
+
+      if (existing.exists) {
+        final owner =
+            existing.data()?['uid']?.toString();
+        if (owner != uid) {
+          throw Exception('An account with this CNIC already exists.');
+        }
+      }
+
+      tx.set(
+        registryRef,
+        {
+          'uid': uid,
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      tx.set(
+        _db.collection('applicants').doc(uid),
+        {
+          ...data,
+          'uid': uid,
+          'cnicDigits': cnicDigits,
+        },
+        SetOptions(merge: true),
+      );
+    });
+
     await createNotification(
       recipientId: uid,
       title: 'Welcome to Digital Housing Society',
@@ -61,17 +65,84 @@ class FirestoreService {
     );
   }
 
-  Future<DocumentSnapshot> getApplicant(String uid) => _db.collection('applicants').doc(uid).get();
-
-  Future<void> updateApplicant(String uid, Map<String, dynamic> data) {
-    return _db.collection('applicants').doc(uid).set({...data, 'uid': uid}, SetOptions(merge: true));
+  Future<DocumentSnapshot> getApplicant(String uid) {
+    return _db.collection('applicants').doc(uid).get();
   }
 
-  Future<DocumentReference> saveApplication(Map<String, dynamic> data) async {
+  /// Applicant updates are intentionally limited.
+  ///
+  /// Email/profile activation is allowed only after Firebase Auth itself
+  /// reports a verified email and the ID token is refreshed. Admin-owned
+  /// fields are never accepted through a normal applicant update.
+  Future<void> updateApplicant(
+    String uid,
+    Map<String, dynamic> data,
+  ) async {
+    final wantsVerificationSync =
+        data['emailVerified'] == true || data['profileStatus'] == 'active';
+
+    if (wantsVerificationSync) {
+      await _syncVerifiedEmailStatus(uid);
+    }
+
+    final clean = Map<String, dynamic>.from(data)
+      ..remove('uid')
+      ..remove('cnic')
+      ..remove('cnicDigits')
+      ..remove('role')
+      ..remove('verificationStatus')
+      ..remove('profileStatus')
+      ..remove('ballotingEligible')
+      ..remove('ballotingRegistered')
+      ..remove('emailVerified')
+      ..remove('createdAt');
+
+    if (clean.isEmpty) return;
+
+    await _db.collection('applicants').doc(uid).update(clean);
+  }
+
+  Future<void> _syncVerifiedEmailStatus(String uid) async {
+    var user = _auth.currentUser;
+    if (user == null || user.uid != uid) {
+      throw Exception('Please login again before syncing verification.');
+    }
+
+    await user.reload();
+    user = _auth.currentUser;
+
+    if (user == null || user.uid != uid || !user.emailVerified) {
+      throw Exception('Your email is not verified yet.');
+    }
+
+    await user.getIdToken(true);
+
+    await _db.collection('applicants').doc(uid).update({
+      'emailVerified': true,
+      'profileStatus': 'active',
+    });
+  }
+
+  Future<DocumentReference> saveApplication(
+    Map<String, dynamic> data,
+  ) async {
     final applicantId = data['applicantId']?.toString();
-    if (applicantId == null || applicantId.isEmpty) throw Exception('Applicant id is required.');
+    if (applicantId == null || applicantId.isEmpty) {
+      throw Exception('Applicant id is required.');
+    }
+
+    final existing = await getApplication(applicantId);
+    if (existing != null) {
+      throw Exception('An application has already been submitted.');
+    }
+
     final ref = _db.collection('applications').doc();
-    await ref.set({...data, 'applicationId': ref.id}, SetOptions(merge: true));
+    await ref.set({
+      ...data,
+      'applicationId': ref.id,
+      'status': 'pending',
+    });
+
     await createNotification(
       recipientId: applicantId,
       title: 'Application Submitted',
@@ -79,38 +150,58 @@ class FirestoreService {
       type: 'application',
       actionRoute: '/my-reports',
     );
+
     return ref;
   }
 
   Future<DocumentSnapshot?> getApplication(String applicantId) async {
-    // Single-field query only. Sorting is done client-side to avoid Firestore composite index errors.
-    final snap = await _db.collection('applications').where('applicantId', isEqualTo: applicantId).limit(20).get();
+    final snap = await _db
+        .collection('applications')
+        .where('applicantId', isEqualTo: applicantId)
+        .limit(20)
+        .get();
+
     if (snap.docs.isEmpty) return null;
+
     final docs = [...snap.docs];
     docs.sort((a, b) {
       final av = (a.data())['submittedAt'];
       final bv = (b.data())['submittedAt'];
-      final at = av is Timestamp ? av.toDate() : DateTime.fromMillisecondsSinceEpoch(0);
-      final bt = bv is Timestamp ? bv.toDate() : DateTime.fromMillisecondsSinceEpoch(0);
+      final at = av is Timestamp
+          ? av.toDate()
+          : DateTime.fromMillisecondsSinceEpoch(0);
+      final bt = bv is Timestamp
+          ? bv.toDate()
+          : DateTime.fromMillisecondsSinceEpoch(0);
       return bt.compareTo(at);
     });
+
     return docs.first;
   }
 
   Stream<QuerySnapshot> getMyApplications(String applicantId) {
-    return _db.collection('applications').where('applicantId', isEqualTo: applicantId).snapshots();
+    return _db
+        .collection('applications')
+        .where('applicantId', isEqualTo: applicantId)
+        .snapshots();
   }
-
-  Future<void> updateApplication(String id, Map<String, dynamic> data) {
-    return _db.collection('applications').doc(id).set(data, SetOptions(merge: true));
-  }
-
-  Future<void> deleteApplication(String id) => _db.collection('applications').doc(id).delete();
 
   Future<void> saveUpload(Map<String, dynamic> data) async {
     final applicantId = data['applicantId']?.toString();
-    if (applicantId == null || applicantId.isEmpty) throw Exception('Applicant id is required.');
-    await _db.collection('uploads').doc(applicantId).set(data, SetOptions(merge: true));
+    if (applicantId == null || applicantId.isEmpty) {
+      throw Exception('Applicant id is required.');
+    }
+
+    final existing = await getUpload(applicantId);
+    if (existing != null) {
+      throw Exception('Documents have already been submitted.');
+    }
+
+    await _db.collection('uploads').doc(applicantId).set({
+      ...data,
+      'verificationStatus': 'pending',
+    });
+
     await createNotification(
       recipientId: applicantId,
       title: 'Documents Submitted',
@@ -125,18 +216,34 @@ class FirestoreService {
     return doc.exists ? doc : null;
   }
 
-  Future<DocumentReference> savePayment(Map<String, dynamic> data) async {
+  Future<DocumentReference> savePayment(
+    Map<String, dynamic> data,
+  ) async {
     final applicantId = data['applicantId']?.toString();
-    if (applicantId == null || applicantId.isEmpty) throw Exception('Applicant id is required.');
+    if (applicantId == null || applicantId.isEmpty) {
+      throw Exception('Applicant id is required.');
+    }
+
+    final existing = await getPayment(applicantId);
+    if (existing != null) {
+      throw Exception('A payment record already exists.');
+    }
+
     final ref = _db.collection('payments').doc(applicantId);
-    await ref.set(data, SetOptions(merge: true));
+    await ref.set({
+      ...data,
+      'status': 'submitted',
+    });
+
     await createNotification(
       recipientId: applicantId,
       title: 'Payment Submitted',
-      message: 'Your payment reference has been saved and is pending verification.',
+      message:
+          'Your Stripe test payment record has been saved and is pending verification.',
       type: 'payment',
       actionRoute: '/payment',
     );
+
     return ref;
   }
 
@@ -145,25 +252,37 @@ class FirestoreService {
     return doc.exists ? doc : null;
   }
 
-  Future<DocumentSnapshot?> getResult(String cnic) async {
-    final snap = await _db.collection('ballot_results').where('cnic', isEqualTo: cnic).limit(1).get();
-    if (snap.docs.isEmpty) return null;
-    return snap.docs.first;
-  }
-
-  Future<DocumentSnapshot?> getResultForApplicant(String applicantId) async {
-    final direct = await _db.collection('ballot_results').doc(applicantId).get();
+  Future<DocumentSnapshot?> getResultForApplicant(
+    String applicantId,
+  ) async {
+    final direct =
+        await _db.collection('ballot_results').doc(applicantId).get();
     if (direct.exists) return direct;
-    final snap = await _db.collection('ballot_results').where('applicantId', isEqualTo: applicantId).limit(1).get();
+
+    final snap = await _db
+        .collection('ballot_results')
+        .where('applicantId', isEqualTo: applicantId)
+        .limit(1)
+        .get();
+
     if (snap.docs.isEmpty) return null;
     return snap.docs.first;
   }
 
   Stream<QuerySnapshot> getNotifications(String uid) {
-    return _db.collection('notifications').where('recipientId', isEqualTo: uid).snapshots();
+    return _db
+        .collection('notifications')
+        .where('recipientId', isEqualTo: uid)
+        .snapshots();
   }
 
-  Future<void> createNotification({required String recipientId, required String title, required String message, required String type, String? actionRoute}) {
+  Future<void> createNotification({
+    required String recipientId,
+    required String title,
+    required String message,
+    required String type,
+    String? actionRoute,
+  }) {
     return _db.collection('notifications').add({
       'recipientId': recipientId,
       'title': title,
@@ -176,23 +295,38 @@ class FirestoreService {
   }
 
   Future<void> markNotificationRead(String notifId) {
-    return _db.collection('notifications').doc(notifId).update({'isRead': true});
+    return _db
+        .collection('notifications')
+        .doc(notifId)
+        .update({'isRead': true});
   }
 
   Future<void> markAllNotificationsRead(String uid) async {
-    final snap = await _db.collection('notifications').where('recipientId', isEqualTo: uid).get();
+    final snap = await _db
+        .collection('notifications')
+        .where('recipientId', isEqualTo: uid)
+        .get();
+
     final batch = _db.batch();
     for (final doc in snap.docs) {
       final data = doc.data();
-      if (data['isRead'] != true) batch.update(doc.reference, {'isRead': true});
+      if (data['isRead'] != true) {
+        batch.update(doc.reference, {'isRead': true});
+      }
     }
     await batch.commit();
   }
 
-  Future<void> deleteNotification(String notifId) => _db.collection('notifications').doc(notifId).delete();
+  Future<void> deleteNotification(String notifId) {
+    return _db.collection('notifications').doc(notifId).delete();
+  }
 
   Future<void> clearNotifications(String uid) async {
-    final snap = await _db.collection('notifications').where('recipientId', isEqualTo: uid).get();
+    final snap = await _db
+        .collection('notifications')
+        .where('recipientId', isEqualTo: uid)
+        .get();
+
     final batch = _db.batch();
     for (final doc in snap.docs) {
       batch.delete(doc.reference);
@@ -200,39 +334,110 @@ class FirestoreService {
     await batch.commit();
   }
 
-  Stream<QuerySnapshot> getPlots() => _db.collection('plots').snapshots();
+  Stream<QuerySnapshot> getPlots() {
+    return _db.collection('plots').snapshots();
+  }
 
-  Stream<QuerySnapshot> getBallotUpdates() => _db.collection('ballot_updates').snapshots();
+  Stream<QuerySnapshot> getVerifiedDealers() {
+    return _db
+        .collection('dealers')
+        .where('verificationStatus', isEqualTo: 'verified')
+        .snapshots();
+  }
 
-  Stream<QuerySnapshot> getBallotLiveResults() => _db.collection('ballot_live_results').snapshots();
+  Future<DocumentSnapshot?> getDealerRegistration(String uid) async {
+    final doc =
+        await _db.collection('dealer_registrations').doc(uid).get();
+    return doc.exists ? doc : null;
+  }
 
-  Future<DocumentSnapshot> getBallotConfig() => _db.collection('ballot_config').doc('main').get();
+  Future<void> saveDealerRegistration(
+    String uid,
+    Map<String, dynamic> data,
+  ) async {
+    final current = await getDealerRegistration(uid);
+    if (current != null) {
+      throw Exception('Dealer registration has already been submitted.');
+    }
 
-  Future<DocumentSnapshot> getPaymentConfig() => _db.collection('payment_config').doc('stripe_test').get();
+    await _db.collection('dealer_registrations').doc(uid).set({
+      ...data,
+      'applicantId': uid,
+      'verificationStatus': 'pending',
+      'submittedAt': FieldValue.serverTimestamp(),
+    });
 
-  Future<void> registerForBalloting(String uid) async {
-    await _db.collection('applicants').doc(uid).set({
-      'uid': uid,
-      'ballotingRegistered': true,
-      'ballotingRegisteredAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
     await createNotification(
       recipientId: uid,
-      title: 'Balloting Registered',
-      message: 'You are registered for the upcoming digital balloting.',
-      type: 'ballot',
-      actionRoute: '/balloting',
+      title: 'Dealer Registration Submitted',
+      message: 'Your dealer registration is pending DHS verification.',
+      type: 'verification',
+      actionRoute: '/dealers',
     );
+  }
+
+  Stream<QuerySnapshot> getBallotUpdates() {
+    return _db.collection('ballot_updates').snapshots();
+  }
+
+  Stream<QuerySnapshot> getBallotLiveResults() {
+    return _db.collection('ballot_live_results').snapshots();
+  }
+
+  Future<DocumentSnapshot> getBallotConfig() {
+    return _db.collection('ballot_config').doc('main').get();
+  }
+
+  Future<DocumentSnapshot> getPaymentConfig() {
+    return _db.collection('payment_config').doc('stripe_test').get();
+  }
+
+  Future<Map<String, dynamic>> getBallotingEligibility(String uid) async {
+    final app = await getApplication(uid);
+    final upload = await getUpload(uid);
+    final payment = await getPayment(uid);
+
+    final appStatus =
+        (app?.data() as Map<String, dynamic>?)?['status']
+                ?.toString()
+                .toLowerCase() ??
+            '';
+    final uploadStatus =
+        (upload?.data() as Map<String, dynamic>?)?['verificationStatus']
+                ?.toString()
+                .toLowerCase() ??
+            '';
+    final paymentStatus =
+        (payment?.data() as Map<String, dynamic>?)?['status']
+                ?.toString()
+                .toLowerCase() ??
+            '';
+
+    final eligible = appStatus == 'approved' &&
+        uploadStatus == 'verified' &&
+        paymentStatus == 'verified';
+
+    return {
+      'eligible': eligible,
+      'applicationStatus':
+          appStatus.isEmpty ? 'not submitted' : appStatus,
+      'documentsStatus':
+          uploadStatus.isEmpty ? 'not submitted' : uploadStatus,
+      'paymentStatus':
+          paymentStatus.isEmpty ? 'not submitted' : paymentStatus,
+    };
   }
 
   Future<void> saveContactMessage(Map<String, dynamic> data) async {
     final uid = data['applicantId']?.toString() ?? '';
+
     await _db.collection('contacts').add({
       ...data,
       'createdAt': FieldValue.serverTimestamp(),
       'status': 'open',
       'source': 'applicant_app',
     });
+
     if (uid.isNotEmpty) {
       await createNotification(
         recipientId: uid,
@@ -244,25 +449,23 @@ class FirestoreService {
     }
   }
 
-  Future<void> saveSignupOtp({required String email, required String otp}) {
-    return _db.collection('signup_otps').doc(email.trim().toLowerCase()).set({
-      'email': email.trim().toLowerCase(),
-      'otp': otp,
-      'createdAt': FieldValue.serverTimestamp(),
-      'expiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 10))),
-      'verified': false,
-    }, SetOptions(merge: true));
+  Future<Set<String>> getFavoritePlotIds(String uid) async {
+    final doc = await getApplicant(uid);
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final raw = data['favoritePlotIds'];
+    if (raw is! List) return <String>{};
+    return raw.map((value) => value.toString()).toSet();
   }
 
-  Future<bool> verifySignupOtp({required String email, required String otp}) async {
-    final ref = _db.collection('signup_otps').doc(email.trim().toLowerCase());
-    final doc = await ref.get();
-    final data = doc.data();
-    if (data == null) return false;
-    final expiry = data['expiresAt'];
-    final expired = expiry is Timestamp && expiry.toDate().isBefore(DateTime.now());
-    final ok = data['otp']?.toString() == otp.trim() && !expired;
-    if (ok) await ref.set({'verified': true, 'verifiedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-    return ok;
+  Future<void> setPlotFavourite({
+    required String uid,
+    required String plotId,
+    required bool favourite,
+  }) async {
+    await _db.collection('applicants').doc(uid).update({
+      'favoritePlotIds': favourite
+          ? FieldValue.arrayUnion([plotId])
+          : FieldValue.arrayRemove([plotId]),
+    });
   }
 }

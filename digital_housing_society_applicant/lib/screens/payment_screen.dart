@@ -7,9 +7,9 @@ import '../models/payment_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
+import '../widgets/responsive_shell.dart';
 import '../utils/app_text_styles.dart';
 import '../utils/formatters_validators.dart';
-import '../widgets/bottom_nav_bar.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/header_actions.dart';
@@ -25,7 +25,6 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   final _firestoreService = FirestoreService();
   final _formKey = GlobalKey<FormState>();
-  final _reference = TextEditingController();
   final _cardLast4 = TextEditingController(text: '4242');
   static const String _method = 'Stripe Test Mode';
   ApplicationModel? _application;
@@ -41,7 +40,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   void dispose() {
-    _reference.dispose();
     _cardLast4.dispose();
     super.dispose();
   }
@@ -56,7 +54,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _application = applicationDoc == null ? null : ApplicationModel.fromFirestore(applicationDoc);
         _payment = paymentDoc == null ? null : PaymentModel.fromFirestore(paymentDoc);
         if (_payment != null) {
-          _reference.text = _payment!.transactionId;
           if (_payment!.transactionId.length >= 4) {
             _cardLast4.text = _payment!.transactionId.substring(_payment!.transactionId.length - 4);
           }
@@ -76,7 +73,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (_application == null) return _showSnack('Submit an application first.');
     setState(() => _submitting = true);
     try {
-      final ref = _reference.text.trim().isEmpty ? 'STRIPE-TEST-${DateTime.now().millisecondsSinceEpoch}' : _reference.text.trim();
+      final ref = 'STRIPE-TEST-${DateTime.now().millisecondsSinceEpoch}';
       await _firestoreService.savePayment({
         'applicantId': uid,
         'applicationId': _application!.id,
@@ -105,9 +102,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final amount = _application?.fee ?? 0;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Fee Payment'), actions: const [NotificationBell(), SizedBox(width: 8)]),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 3),
+    final desktop =
+        MediaQuery.sizeOf(context).width >= DhsResponsiveShell.desktopBreakpoint;
+
+    return DhsResponsiveShell(
+      currentRoute: AppConstants.paymentRoute,
+      mobileTitle: 'Payments',
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: desktop ? AppBar(title: const Text('Fee Payment'), actions: const [NotificationBell(), SizedBox(width: 8)]) : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple))
           : Form(
@@ -124,13 +127,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   else ...[
                     _StripeCard(),
                     const SizedBox(height: 14),
-                    AppTextField(
-                      label: 'Stripe Test Reference',
-                      hint: 'STRIPE-TEST-123456',
-                      controller: _reference,
-                      prefixIcon: Icons.receipt_long_rounded,
-                      validator: (v) => Validators.required(v, 'Stripe reference'),
-                    ),
                     const SizedBox(height: 14),
                     AppTextField(
                       label: 'Test Card Last 4',
@@ -148,6 +144,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ],
               ),
             ),
+      ),
     );
   }
 }

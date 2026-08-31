@@ -1,0 +1,11 @@
+{
+  "name": "Digital Housing Society",
+  "short_name": "DHS",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F7F7FC",
+  "theme_color": "#5B2EEA",
+  "description": "Digital Housing Society Applicant Portal",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}

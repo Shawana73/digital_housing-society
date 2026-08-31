@@ -1,0 +1,89 @@
+DHS FINAL FIRESTORE + ADMIN FALLBACK DATA
+========================================
+
+HOW THE FINAL APPLICANT BUILD WORKS
+-----------------------------------
+The Applicant app is connected to Firebase Authentication + Cloud Firestore.
+
+Official collections such as `plots` and `dealers` are admin-owned by the
+security rules. Until the Admin module is integrated and publishes those
+records, the Applicant app automatically shows polished local preview data.
+
+PRIORITY ORDER
+1. Live Firestore/admin records exist -> app shows live Firestore records.
+2. Firestore/admin records do not exist yet -> app shows local DemoData.
+3. When Admin integration is completed later, NO applicant UI rewrite is
+   required; the live records automatically replace the preview records.
+
+The local fallback is implemented in:
+lib/utils/demo_data.dart
+
+The same records are also documented in:
+firebase/sample_firestore_data.json
+
+PLOTS
+-----
+Primary backend:
+Firestore > plots
+
+Preview data includes:
+- Plot 245, Block B, Phase 2, 10 Marla, Available
+- Plot 236, Block B, Phase 2, 5 Marla, Available
+- Plot 244, Block B, Phase 2, 10 Marla, Reserved
+- Plot 202, Block C, Phase 2, 1 Kanal, Available
+- Plot 210, Block C, Phase 2, 10 Marla, Reserved
+
+Explore Plots, Dashboard Featured Plot and Static Plot Map all use the same
+backend-first/fallback-second behaviour.
+
+When the Admin module is ready, create the documents from
+firebase/sample_firestore_data.json or publish equivalent real records.
+
+Supported Firestore fields:
+plotNumber, block, phase, size, plotType, category, status, roadWidth,
+facing, dimensions, developmentPercent, price, location, notes, featured,
+imageUrl, createdAt
+
+Different bundled DHS housing images are rotated when `imageUrl` is empty.
+
+DEALERS
+-------
+Primary backend:
+Firestore > dealers
+
+Only records with:
+verificationStatus = verified
+
+are displayed publicly.
+
+Until Admin data exists, the final Applicant build shows three local verified
+dealer previews. As soon as Firestore has verified dealer records, those live
+records replace the local previews.
+
+DEALER REGISTRATION
+-------------------
+Applicant submissions are always written to the real backend:
+Firestore > dealer_registrations/{uid}
+
+Status starts as:
+verificationStatus = pending
+
+The applicant cannot self-verify. Later the Admin module can approve the
+registration and publish an official `dealers/{dealerId}` record.
+
+SECURITY
+--------
+Publish the final `firestore.rules`.
+The same rules are mirrored in:
+- firebase/firestore.rules
+- FIRESTORE_RULES_APPLY.txt
+
+Do not loosen the rules just to seed official data.
+
+ADMIN DOCUMENT
+--------------
+For the authorized admin account:
+admins/{ADMIN_UID}
+active = true
+
+This ZIP intentionally contains NO service-account credential or secret key.

@@ -126,6 +126,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'email': _email.text.trim(),
         'phone': _phone.text.trim(),
         'cnic': _cnic.text.trim(),
+        'cnicDigits': _cnic.text.replaceAll(RegExp(r'\D'), ''),
         'dateOfBirth': Timestamp.fromDate(_dobValue!),
         'address': _address.text.trim(),
         'city': _city.text.trim(),
@@ -142,7 +143,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } on FirebaseAuthException catch (e) {
       _showError(e.message ?? e.code);
     } catch (e) {
-      _showError(e.toString());
+      final current = FirebaseAuth.instance.currentUser;
+      if (current != null && current.emailVerified == false) {
+        try {
+          await current.delete();
+        } catch (_) {}
+      }
+      _showError(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

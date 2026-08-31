@@ -18,43 +18,55 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   late final AnimationController _controller;
   late final Animation<double> _scale;
   late final Animation<double> _fade;
-  StreamSubscription<User?>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
     _scale = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
-    Future.delayed(const Duration(seconds: 3), _routeNext);
+    Future.delayed(const Duration(milliseconds: 650), _routeNext);
   }
 
-  void _routeNext() {
-    _authSubscription = FirebaseAuth.instance.authStateChanges().take(1).listen((user) async {
-      if (user == null) {
-        if (mounted) Navigator.pushReplacementNamed(context, AppConstants.loginRoute);
-        return;
-      }
-      await user.reload();
-      final refreshed = FirebaseAuth.instance.currentUser;
-      if (!mounted) return;
-      if (refreshed?.emailVerified == true) {
-        Navigator.pushReplacementNamed(context, AppConstants.dashboardRoute);
-      } else {
-        await FirebaseAuth.instance.signOut();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please verify your email before continuing.')),
-        );
+  Future<void> _routeNext() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      if (mounted) {
         Navigator.pushReplacementNamed(context, AppConstants.loginRoute);
       }
-    });
+      return;
+    }
+
+    // Recheck verification, but do not leave the splash screen hanging forever
+    // on a slow network.
+    try {
+      await user.reload().timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Continue with the latest locally available Firebase Auth state.
+    }
+
+    final refreshed = FirebaseAuth.instance.currentUser;
+    if (!mounted) return;
+
+    if (refreshed?.emailVerified == true) {
+      Navigator.pushReplacementNamed(context, AppConstants.dashboardRoute);
+      return;
+    }
+
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please verify your email before continuing.'),
+      ),
+    );
+    Navigator.pushReplacementNamed(context, AppConstants.loginRoute);
   }
 
   @override
   void dispose() {
-    _authSubscription?.cancel();
     _controller.dispose();
     super.dispose();
   }
