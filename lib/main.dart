@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
-import 'app_routes.dart';
+import 'package:flutter/material.dart';  //flutter package , framework libraray
+import 'package:firebase_core/firebase_core.dart'; //firebase core package// required for Firebase initialization
+import 'firebase_options.dart'; //firebase configuration options
+import 'app_routes.dart';  //routes names defined
 import 'models/admin_models.dart';
 import 'screens/admin_login_screen.dart';
 import 'screens/add_plot_screen.dart';
@@ -21,10 +21,10 @@ import 'screens/result_screen.dart';
 import 'theme/admin_theme.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();  //Are flutter's required framework bindings initialized?
 
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+    options: DefaultFirebaseOptions.currentPlatform,  //firebase configuration selected according to current platforms
   );
 
   runApp(const DigitalHousingAdminApp());
@@ -38,9 +38,9 @@ class DigitalHousingAdminApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Digital Housing Admin Panel',
-      theme: AdminTheme.theme,
-      initialRoute: AdminRoutes.login,
-      routes: {
+      theme: AdminTheme.theme, //overall app visual config
+      initialRoute: AdminRoutes.login, //specify initial route when app gets started
+      routes: {  //maps named routes with their screens
         AdminRoutes.login: (_) => const AdminLoginScreen(),
         AdminRoutes.dashboard: (_) => const AdminDashboardScreen(),
         AdminRoutes.applicants: (_) => const ApplicantVerificationScreen(),
@@ -63,7 +63,7 @@ class DigitalHousingAdminApp extends StatelessWidget {
         AdminRoutes.notifications: (_) => const NotificationScreen(),
         AdminRoutes.profile: (_) => const ProfileScreen(),
       },
-      onGenerateRoute: (settings) {
+      onGenerateRoute: (settings) {   //dynamic route handling
         if (settings.name == AdminRoutes.applicantDetails && settings.arguments is Applicant) {
           final applicant = settings.arguments! as Applicant;
           return MaterialPageRoute(

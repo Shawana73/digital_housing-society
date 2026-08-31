@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../viewmodels/admin_view_models.dart';
 import '../models/admin_models.dart';
 import '../theme/admin_theme.dart';
 import '../widgets/admin_shell.dart';
@@ -19,7 +19,9 @@ class ApplicantDetailsScreen extends StatefulWidget {
 class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
-  bool _isLoading = true;
+  final ApplicantDetailsViewModel _viewModel =
+  ApplicantDetailsViewModel();
+
   int _tabIndex = 0;
 
   final List<String> _tabs = const [
@@ -33,15 +35,25 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 350), () {
-      if (mounted) setState(() => _isLoading = false);
-    });
+
+    _viewModel.addListener(_refresh);
+
+    _viewModel.loadApplicant(widget.applicant);
   }
 
+  void _refresh() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
   @override
   void dispose() {
+    _viewModel.removeListener(_refresh);
+    _viewModel.dispose();
+
     _searchController.dispose();
     _noteController.dispose();
+
     super.dispose();
   }
 
@@ -87,9 +99,24 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
     );
   }
 
-  void _setStatus(VerificationStatus status) {
-    setState(() => widget.applicant.status = status);
-    showAdminSnack(context, '${widget.applicant.name} marked ${status.label}');
+  Future<void> _setStatus(VerificationStatus status) async {
+    try {
+      await _viewModel.updateStatus(status);
+
+      if (!mounted) return;
+
+      showAdminSnack(
+        context,
+        '${widget.applicant.name} marked ${status.label}',
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      showAdminSnack(
+        context,
+        'Failed to update applicant status',
+      );
+    }
   }
 
   void _saveNote() {
@@ -101,7 +128,22 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final applicant = widget.applicant;
+    final applicant = _viewModel.applicant;
+
+    if (applicant == null) {
+      return AdminShell(
+        title: 'Applicant Details',
+        selectedIndex: 1,
+        searchController: _searchController,
+        searchHint: 'Search inside applicant profile...',
+        onSearchClear: () => _searchController.clear(),
+        isLoading: _viewModel.isLoading,
+        body: const Center(
+          child: Text('Unable to load applicant details'),
+        ),
+      );
+    }
+
     return AdminShell(
       title: 'Applicant Details',
       selectedIndex: 1,
@@ -112,7 +154,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
       onFabTap: () => _showFullImage('Profile Picture', Icons.person_rounded),
       fabLabel: 'View Image',
       fabIcon: Icons.image_rounded,
-      isLoading: _isLoading,
+      isLoading: _viewModel.isLoading,
       body: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 150),
@@ -223,21 +265,27 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 2),
                   child: Column(
                     children: [
-                      const Row(children: [
+                       Row(children: [
                         Expanded(
                             child: _MetaTile(
-                                label: 'Applied On', value: '28 Jun 2026')),
+                                label: 'Applied On', value: _viewModel.appliedOn,
+                            ),
+                        ),
                         SizedBox(width: 12),
                         Expanded(
                             child: _MetaTile(
-                                label: 'Last Updated', value: '28 Jun 2026')),
+                                label: 'Last Updated', value: _viewModel.profileCreatedOn,
+                            ),
+                        ),
                       ]),
                       const SizedBox(height: 12),
                       Row(children: [
-                        const Expanded(
+                        Expanded(
                             child: _MetaTile(
                                 label: 'Application Type',
-                                value: 'Residential')),
+                              value: _viewModel.applicationType,
+                            ),
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                             child: _MetaTile(
@@ -405,7 +453,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
       case 0:
         return _DocumentsTab(applicant: applicant, onPreview: _showFullImage);
       case 1:
-        return _PersonalInfoTab(applicant: applicant);
+        return _PersonalInfoTab(viewModel: _viewModel);
       case 2:
         return _PaymentInfoTab();
       case 3:
@@ -576,13 +624,16 @@ class _DocTile extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   fontSize: 12.5)),
           const SizedBox(height: 4),
-          const Text('Uploaded on 28 Jun 2026',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  color: AdminColors.greyText,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 10.5)),
+    Text(
+    '${doc.fileType.toUpperCase()} • ${doc.fileSize} bytes',
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: const TextStyle(
+    color: AdminColors.greyText,
+    fontWeight: FontWeight.w600,
+    fontSize: 10.5,
+    ),
+    ),
           const SizedBox(height: 8),
           StatusPill(label: doc.verified ? 'Verified' : 'Pending', color: color),
         ],
@@ -618,8 +669,11 @@ class _RoundGhostIcon extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PersonalInfoTab extends StatelessWidget {
-  final Applicant applicant;
-  const _PersonalInfoTab({required this.applicant});
+  final ApplicantDetailsViewModel viewModel;
+
+  const _PersonalInfoTab({
+    required this.viewModel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -628,12 +682,77 @@ class _PersonalInfoTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InfoRow(icon: Icons.badge_rounded, label: 'Applicant ID', value: applicant.id),
-          InfoRow(icon: Icons.credit_card_rounded, label: 'CNIC', value: applicant.cnic),
-          InfoRow(icon: Icons.phone_rounded, label: 'Phone', value: applicant.phone),
-          InfoRow(icon: Icons.email_rounded, label: 'Email', value: applicant.email),
-          InfoRow(icon: Icons.location_on_rounded, label: 'Address', value: applicant.address),
-          InfoRow(icon: Icons.work_rounded, label: 'Occupation', value: applicant.occupation),
+          InfoRow(
+            icon: Icons.badge_rounded,
+            label: 'Applicant ID',
+            value: viewModel.applicationId,
+          ),
+
+          InfoRow(
+            icon: Icons.person_rounded,
+            label: 'Full Name',
+            value: viewModel.fullName,
+          ),
+
+          InfoRow(
+            icon: Icons.credit_card_rounded,
+            label: 'CNIC',
+            value: viewModel.cnic,
+          ),
+
+          InfoRow(
+            icon: Icons.phone_rounded,
+            label: 'Phone',
+            value: viewModel.phone,
+          ),
+
+          InfoRow(
+            icon: Icons.email_rounded,
+            label: 'Email',
+            value: viewModel.email,
+          ),
+
+          InfoRow(
+            icon: Icons.location_on_rounded,
+            label: 'Address',
+            value: viewModel.address,
+          ),
+
+          InfoRow(
+            icon: Icons.location_city_rounded,
+            label: 'City',
+            value: viewModel.city,
+          ),
+
+          InfoRow(
+            icon: Icons.cake_rounded,
+            label: 'Date of Birth',
+            value: viewModel.dateOfBirth,
+          ),
+
+          InfoRow(
+            icon: Icons.category_rounded,
+            label: 'Application Type',
+            value: viewModel.applicationType,
+          ),
+
+          InfoRow(
+            icon: Icons.confirmation_number_rounded,
+            label: 'Serial Number',
+            value: viewModel.serialNumber,
+          ),
+
+          InfoRow(
+            icon: Icons.payments_rounded,
+            label: 'Application Fee',
+            value: viewModel.fee,
+          ),
+
+          InfoRow(
+            icon: Icons.verified_rounded,
+            label: 'Application Status',
+            value: viewModel.applicationStatus,
+          ),
         ],
       ),
     );

@@ -7,6 +7,7 @@ class ReportModel {
   final String fileType;
   final int count;
   final Timestamp createdAt;
+  final String? downloadUrl; // NEW — nullable, safe default
 
   ReportModel({
     required this.documentId,
@@ -15,6 +16,7 @@ class ReportModel {
     required this.fileType,
     required this.count,
     required this.createdAt,
+    this.downloadUrl,
   });
 
   Map<String, dynamic> toMap() {
@@ -24,6 +26,7 @@ class ReportModel {
       'fileType': fileType,
       'count': count,
       'createdAt': createdAt,
+      if (downloadUrl != null) 'downloadUrl': downloadUrl,
     };
   }
 
@@ -38,6 +41,7 @@ class ReportModel {
       fileType: map['fileType'] ?? '',
       count: (map['count'] ?? 0).toInt(),
       createdAt: map['createdAt'] ?? Timestamp.now(),
+      downloadUrl: map['downloadUrl'] as String?,
     );
   }
 }

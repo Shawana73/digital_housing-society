@@ -132,12 +132,18 @@ class ActivityItem {
 class ApplicantDocument {
   final String title;
   final String number;
+  final String fileSize;
+  final String fileType;
+  final String status;
   final IconData icon;
   final bool verified;
 
   const ApplicantDocument({
     required this.title,
     required this.number,
+    required this.fileSize,
+    required this.fileType,
+    required this.status,
     required this.icon,
     required this.verified,
   });
