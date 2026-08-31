@@ -7,8 +7,8 @@ import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
+import '../widgets/responsive_shell.dart';
 import '../utils/app_text_styles.dart';
-import '../widgets/bottom_nav_bar.dart';
 import '../widgets/branded_background.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/header_actions.dart';
@@ -104,6 +104,10 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
     if (!['pdf', 'png', 'jpg', 'jpeg'].contains(ext)) {
       return _showSnack('${file.name} is not allowed. Use PDF/JPG/PNG.');
     }
+    final safeName = RegExp(r'^[A-Za-z0-9 _().-]{3,120}$');
+    if (!safeName.hasMatch(file.name)) {
+      return _showSnack('Please rename the file using only letters, numbers, spaces, dot, dash, underscore or brackets.');
+    }
     final picked = _DocumentRecord(
       name: file.name,
       type: ext,
@@ -147,9 +151,15 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Upload Documents'), actions: const [NotificationBell(), SizedBox(width: 8)]),
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 2),
+    final desktop =
+        MediaQuery.sizeOf(context).width >= DhsResponsiveShell.desktopBreakpoint;
+
+    return DhsResponsiveShell(
+      currentRoute: AppConstants.uploadRoute,
+      mobileTitle: 'Documents',
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: desktop ? AppBar(title: const Text('Upload Documents'), actions: const [NotificationBell(), SizedBox(width: 8)]) : null,
       body: _checkingExisting
           ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple))
           : BrandedImageBackground(
@@ -187,6 +197,7 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
                 ),
               ),
             ),
+      ),
     );
   }
 }

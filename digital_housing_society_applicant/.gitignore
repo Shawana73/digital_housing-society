@@ -12,3 +12,5 @@ ios/Flutter/flutter_export_environment.sh
 *.iml
 .idea/
 firebase_options_private.dart
+android/.gradle/
+android/.kotlin/

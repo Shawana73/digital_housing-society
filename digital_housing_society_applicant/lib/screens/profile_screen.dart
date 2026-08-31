@@ -1,23 +1,18 @@
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../models/applicant_model.dart';
-import '../models/application_model.dart';
-import '../models/payment_model.dart';
-import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
-import '../utils/app_text_styles.dart';
-import '../utils/formatters_validators.dart';
-import '../widgets/bottom_nav_bar.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/custom_text_field.dart';
-import '../widgets/status_badge.dart';
+import '../widgets/responsive_shell.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -27,15 +22,11 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _firestoreService = FirestoreService();
-  final _authService = AuthService();
-  final _picker = ImagePicker();
+  final FirestoreService _service = FirestoreService();
+  final ImagePicker _picker = ImagePicker();
 
   ApplicantModel? _applicant;
-  ApplicationModel? _application;
-  PaymentModel? _payment;
-  String _documentStatus = 'not uploaded';
-  String _resultStatus = 'not available';
+  _ProfileSnapshot _snapshot = const _ProfileSnapshot();
   bool _loading = true;
   bool _photoSaving = false;
 
@@ -45,683 +36,1039 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _load();
   }
 
-  ApplicantModel _fallbackApplicant(String uid) {
+  Future<void> _load() async {
     final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    final uid = user.uid;
+
+    try {
+      final applicantDoc = await _service.getApplicant(uid);
+      final applicant = applicantDoc.exists
+          ? ApplicantModel.fromFirestore(applicantDoc)
+          : _fallbackApplicant(user);
+
+      final snapshot = await _ProfileSnapshot.load(uid, _service);
+
+      if (!mounted) return;
+      setState(() {
+        _applicant = applicant;
+        _snapshot = snapshot;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _applicant = _fallbackApplicant(user);
+        _loading = false;
+      });
+    }
+  }
+
+  ApplicantModel _fallbackApplicant(User user) {
     return ApplicantModel(
-      uid: uid,
-      fullName: user?.displayName ?? '',
-      email: user?.email ?? '',
+      uid: user.uid,
+      fullName: user.displayName ?? 'Applicant',
+      email: user.email ?? '',
       phone: '',
       cnic: '',
       dateOfBirth: DateTime.now(),
       address: '',
       city: '',
       createdAt: DateTime.now(),
-      profileStatus: 'active',
+      profileStatus: user.emailVerified ? 'active' : 'pending',
       notificationsEnabled: true,
       ballotingRegistered: false,
     );
   }
 
-  Future<void> _load() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    ApplicantModel? applicant;
-    ApplicationModel? application;
-    PaymentModel? payment;
-    String documentStatus = 'not uploaded';
-    String resultStatus = 'not available';
-    try {
-      final applicantDoc = await _firestoreService.getApplicant(uid);
-      applicant = applicantDoc.exists ? ApplicantModel.fromFirestore(applicantDoc) : _fallbackApplicant(uid);
-    } catch (_) {
-      applicant = _fallbackApplicant(uid);
-    }
-    try {
-      final applicationDoc = await _firestoreService.getApplication(uid);
-      application = applicationDoc == null ? null : ApplicationModel.fromFirestore(applicationDoc);
-      final base = applicant ?? _fallbackApplicant(uid);
-      if (application != null) {
-        applicant = base.copyWith(
-          fullName: base.fullName.isEmpty ? application.fullName : base.fullName,
-          cnic: base.cnic.isEmpty ? application.cnic : base.cnic,
-          phone: base.phone.isEmpty ? application.contactNumber : base.phone,
-          city: base.city.isEmpty ? application.city : base.city,
-          address: base.address.isEmpty ? application.address : base.address,
-        );
-      }
-    } catch (_) {}
-    try {
-      final paymentDoc = await _firestoreService.getPayment(uid);
-      payment = paymentDoc == null ? null : PaymentModel.fromFirestore(paymentDoc);
-    } catch (_) {}
-    try {
-      final uploadDoc = await _firestoreService.getUpload(uid);
-      documentStatus = (uploadDoc?.data() as Map<String, dynamic>?)?['verificationStatus']?.toString() ?? 'not uploaded';
-    } catch (_) {}
-    try {
-      final resultDoc = await _firestoreService.getResultForApplicant(uid);
-      if (resultDoc != null) {
-        final data = resultDoc.data() as Map<String, dynamic>? ?? {};
-        resultStatus = data['isSelected'] == true ? 'selected' : 'not selected';
-      }
-    } catch (_) {}
-    if (!mounted) return;
-    setState(() {
-      _applicant = applicant;
-      _application = application;
-      _payment = payment;
-      _documentStatus = documentStatus;
-      _resultStatus = resultStatus;
-      _loading = false;
-    });
-  }
-
-  Future<void> _toggleNotifications(bool value) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    try {
-      await _firestoreService.updateApplicant(uid, {'notificationsEnabled': value});
-      setState(() => _applicant = _applicant?.copyWith(notificationsEnabled: value));
-    } catch (e) {
-      _showSnack('Notification setting could not be updated.');
-    }
-  }
-
-  Future<void> _pickProfilePhoto() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return _showSnack('Please login again.');
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 700, maxHeight: 700);
-    if (picked == null) return;
-    setState(() => _photoSaving = true);
-    try {
-      final bytes = await picked.readAsBytes();
-      if (bytes.length > 900000) {
-        _showSnack('Selected image is too large. Please choose a smaller picture.');
-        return;
-      }
-      final b64 = base64Encode(bytes);
-      await _firestoreService.updateApplicant(uid, {'profilePhotoBase64': b64});
-      final base = _applicant ?? _fallbackApplicant(uid);
-      setState(() => _applicant = base.copyWith(profilePhotoBase64: b64));
-      _showSnack('Profile picture updated successfully.');
-    } catch (_) {
-      _showSnack('Could not save profile photo. Please try again.');
-    } finally {
-      if (mounted) setState(() => _photoSaving = false);
-    }
-  }
-
-  Future<void> _removeProfilePhoto() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    try {
-      await _firestoreService.updateApplicant(uid, {'profilePhotoBase64': ''});
-      final base = _applicant ?? _fallbackApplicant(uid);
-      setState(() => _applicant = base.copyWith(profilePhotoBase64: ''));
-      _showSnack('Profile picture removed.');
-    } catch (_) {
-      _showSnack('Photo could not be removed.');
-    }
-  }
-
-  void _previewPhoto() {
-    final bytes = _photoBytes;
-    if (bytes == null) return;
-    showDialog<void>(
-      context: context,
-      builder: (_) => Dialog(
-        insetPadding: const EdgeInsets.all(22),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: Image.memory(bytes, fit: BoxFit.contain),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _logout() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Logout')),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await _authService.logout();
-    if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, AppConstants.loginRoute, (_) => false);
-  }
-
   Uint8List? get _photoBytes {
-    final photo = _applicant?.profilePhotoBase64 ?? '';
-    if (photo.isEmpty) return null;
+    final raw = _applicant?.profilePhotoBase64 ?? '';
+    if (raw.isEmpty) return null;
     try {
-      return base64Decode(photo);
+      return base64Decode(raw);
     } catch (_) {
       return null;
     }
   }
 
-  void _showSnack(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  Future<void> _pickProfilePhoto() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
 
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.primaryPurple)));
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 65,
+      maxWidth: 720,
+      maxHeight: 720,
+    );
+
+    if (picked == null) return;
+
+    setState(() => _photoSaving = true);
+
+    try {
+      final bytes = await picked.readAsBytes();
+
+      // Firestore documents are limited to ~1 MiB. Keep the encoded image
+      // comfortably below that limit because the applicant document has
+      // additional fields too.
+      if (bytes.length > 520000) {
+        _snack(
+          'This image is still too large. Please choose a smaller photo.',
+        );
+        return;
+      }
+
+      final encoded = base64Encode(bytes);
+      await _service.updateApplicant(
+        uid,
+        {'profilePhotoBase64': encoded},
+      );
+
+      final applicant = _applicant;
+      if (applicant != null && mounted) {
+        setState(() {
+          _applicant = applicant.copyWith(
+            profilePhotoBase64: encoded,
+          );
+        });
+      }
+
+      _snack('Profile picture updated.');
+    } catch (_) {
+      _snack('Could not update profile picture.');
+    } finally {
+      if (mounted) setState(() => _photoSaving = false);
     }
-    final user = FirebaseAuth.instance.currentUser;
-    final name = (_applicant?.fullName ?? user?.displayName ?? '').trim();
-    final displayName = name.isEmpty ? 'Applicant' : name;
-    final email = (_applicant?.email ?? user?.email ?? '').trim();
+  }
 
-    return Scaffold(
-      bottomNavigationBar: const AppBottomNavBar(currentIndex: 5),
-      body: RefreshIndicator(
-        color: AppColors.primaryPurple,
-        onRefresh: _load,
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            _ProfileHero(
-              name: displayName,
-              email: email,
-              photoBytes: _photoBytes,
-              saving: _photoSaving,
-              onUpload: _pickProfilePhoto,
-              onPreview: _previewPhoto,
-              onRemove: _removeProfilePhoto,
+  Future<void> _editProfile() async {
+    final applicant = _applicant;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (applicant == null || uid == null) return;
+
+    final fullName = TextEditingController(text: applicant.fullName);
+    final phone = TextEditingController(text: applicant.phone);
+    final city = TextEditingController(text: applicant.city);
+    final address = TextEditingController(text: applicant.address);
+
+    final updated = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 26),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+            child: SingleChildScrollView(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _InfoCard(applicant: _applicant),
-                  const SizedBox(height: 18),
-                  _MenuCard(
-                    onChangePassword: () => _showPasswordSheet(context),
-                    notificationsEnabled: _applicant?.notificationsEnabled ?? true,
-                    onNotificationChanged: _toggleNotifications,
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD8DCE6),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Edit Profile',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primaryText,
+                    ),
                   ),
                   const SizedBox(height: 16),
+                  _ProfileField(
+                    controller: fullName,
+                    label: 'Full Name',
+                    icon: Icons.person_outline_rounded,
+                  ),
+                  const SizedBox(height: 12),
+                  _ProfileField(
+                    controller: phone,
+                    label: 'Phone Number',
+                    icon: Icons.phone_outlined,
+                  ),
+                  const SizedBox(height: 12),
+                  _ProfileField(
+                    controller: city,
+                    label: 'City',
+                    icon: Icons.location_city_outlined,
+                  ),
+                  const SizedBox(height: 12),
+                  _ProfileField(
+                    controller: address,
+                    label: 'Address',
+                    icon: Icons.home_work_outlined,
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 18),
                   SizedBox(
                     width: double.infinity,
-                    height: 54,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.errorRed,
-                        foregroundColor: AppColors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    height: 52,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF315DDC),
+                            Color(0xFF7C42EC),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(15),
                       ),
-                      onPressed: _logout,
-                      icon: const Icon(Icons.logout_rounded),
-                      label: const Text('Logout'),
+                      child: FilledButton(
+                        onPressed: () {
+                          Navigator.pop(
+                            context,
+                            {
+                              'fullName': fullName.text.trim(),
+                              'phone': phone.text.trim(),
+                              'city': city.text.trim(),
+                              'address': address.text.trim(),
+                            },
+                          );
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                        ),
+                        child: const Text('Save Changes'),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
+    );
+
+    fullName.dispose();
+    phone.dispose();
+    city.dispose();
+    address.dispose();
+
+    if (updated == null) return;
+
+    if ((updated['fullName'] ?? '').trim().isEmpty) {
+      _snack('Full name is required.');
+      return;
+    }
+
+    try {
+      await _service.updateApplicant(uid, updated);
+      if (FirebaseAuth.instance.currentUser?.displayName !=
+          updated['fullName']) {
+        await FirebaseAuth.instance.currentUser
+            ?.updateDisplayName(updated['fullName']);
+      }
+      await _load();
+      _snack('Profile updated successfully.');
+    } catch (_) {
+      _snack('Profile could not be updated.');
+    }
+  }
+
+  Future<void> _shareProfile() async {
+    final applicant = _applicant;
+    if (applicant == null) return;
+
+    final applicationId = _snapshot.applicationId.isEmpty
+        ? 'Not assigned'
+        : _snapshot.applicationId;
+
+    await Share.share(
+      'Digital Housing Society Applicant\n'
+      'Name: ${applicant.fullName}\n'
+      'City: ${applicant.city}\n'
+      'Application ID: $applicationId',
+      subject: 'DHS Applicant Profile',
     );
   }
 
-  void _showPasswordSheet(BuildContext context) {
-    final current = TextEditingController();
-    final password = TextEditingController();
-    final confirm = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    var loading = false;
-    showModalBottomSheet(
+  void _showIdCard() {
+    final applicant = _applicant;
+    if (applicant == null) return;
+
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.fromLTRB(18, 0, 18, MediaQuery.of(context).viewInsets.bottom + 20),
-          child: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Change Password', style: AppTextStyles.headingMedium),
-                const SizedBox(height: 10),
-                Text('For security, enter your current password before setting a new one.', style: AppTextStyles.bodyMedium),
-                const SizedBox(height: 18),
-                AppTextField(label: 'Current Password', hint: 'Enter current password', controller: current, prefixIcon: Icons.lock_outline_rounded, obscureText: true, validator: (v) => Validators.required(v, 'Current password')),
-                const SizedBox(height: 12),
-                AppTextField(label: 'New Password', hint: 'Minimum 8 characters', controller: password, prefixIcon: Icons.lock_rounded, obscureText: true, validator: Validators.password),
-                const SizedBox(height: 12),
-                AppTextField(label: 'Confirm Password', hint: 'Retype new password', controller: confirm, prefixIcon: Icons.lock_reset_rounded, obscureText: true, validator: (v) => v != password.text ? 'Passwords do not match' : null),
-                const SizedBox(height: 18),
-                PrimaryGradientButton(
-                  text: 'Update Password',
-                  isLoading: loading,
-                  onPressed: () async {
-                    if (!formKey.currentState!.validate()) return;
-                    setModalState(() => loading = true);
-                    try {
-                      final user = FirebaseAuth.instance.currentUser;
-                      final email = user?.email;
-                      if (user == null || email == null) throw Exception('Please login again.');
-                      final credential = EmailAuthProvider.credential(email: email, password: current.text.trim());
-                      await user.reauthenticateWithCredential(credential);
-                      await user.updatePassword(password.text.trim());
-                      if (context.mounted) Navigator.pop(context);
-                      if (mounted) _showSnack('Password updated successfully.');
-                    } on FirebaseAuthException catch (e) {
-                      if (mounted) _showSnack(e.message ?? 'Password could not be updated.');
-                    } catch (_) {
-                      if (mounted) _showSnack('Password could not be updated. Please try again.');
-                    } finally {
-                      setModalState(() => loading = false);
-                    }
-                  },
-                ),
-              ]),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: Container(
+          width: 440,
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF245CDD),
+                Color(0xFF793DEB),
+              ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileHero extends StatelessWidget {
-  const _ProfileHero({required this.name, required this.email, required this.photoBytes, required this.saving, required this.onUpload, required this.onPreview, required this.onRemove});
-  final String name;
-  final String email;
-  final Uint8List? photoBytes;
-  final bool saving;
-  final VoidCallback onUpload;
-  final VoidCallback onPreview;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final initials = name.trim().isEmpty ? 'A' : name.trim().split(RegExp(r'\s+')).map((e) => e[0]).take(2).join().toUpperCase();
-    return Container(
-      padding: EdgeInsets.fromLTRB(18, MediaQuery.of(context).padding.top + 16, 18, 24),
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(34)),
-        image: DecorationImage(image: AssetImage(AppAssets.profileBackground), fit: BoxFit.cover),
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          gradient: LinearGradient(
-            colors: [AppColors.infoBlue.withValues(alpha: .82), AppColors.primaryPurple.withValues(alpha: .80), AppColors.deepPurple.withValues(alpha: .76)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [BoxShadow(color: AppColors.darkNavy.withValues(alpha: .22), blurRadius: 26, offset: const Offset(0, 16))],
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(width: 58, height: 58, padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(18)), child: Image.asset(AppAssets.logo, fit: BoxFit.contain)),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Applicant Profile', style: AppTextStyles.headingSmall.copyWith(color: AppColors.white)),
-              const SizedBox(height: 2),
-              Text('Digital Housing Society', style: AppTextStyles.captionText.copyWith(color: AppColors.white.withValues(alpha: .86))),
-            ])),
-          ]),
-          const SizedBox(height: 22),
-          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            Stack(alignment: Alignment.bottomRight, children: [
-              GestureDetector(
-                onTap: photoBytes == null ? onUpload : onPreview,
-                child: Container(
-                  width: 112,
-                  height: 112,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.white, border: Border.all(color: AppColors.white, width: 4), boxShadow: [BoxShadow(color: AppColors.darkNavy.withValues(alpha: .22), blurRadius: 20, offset: const Offset(0, 10))]),
-                  child: ClipOval(
-                    child: photoBytes == null
-                        ? Center(child: Text(initials, style: AppTextStyles.headingLarge.copyWith(color: AppColors.primaryPurple)))
-                        : Image.memory(photoBytes!, fit: BoxFit.cover, width: 112, height: 112),
-                  ),
-                ),
-              ),
-              Container(
-                width: 38,
-                height: 38,
-                decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.warningOrange),
-                child: saving
-                    ? const Padding(padding: EdgeInsets.all(9), child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
-                    : IconButton(padding: EdgeInsets.zero, icon: const Icon(Icons.camera_alt_rounded, color: AppColors.white, size: 19), onPressed: onUpload),
-              ),
-            ]),
-            const SizedBox(width: 18),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppTextStyles.headingMedium.copyWith(color: AppColors.white, height: 1.15)),
-              const SizedBox(height: 7),
-              Text(email.isEmpty ? 'No email available' : email, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.white.withValues(alpha: .88))),
-              const SizedBox(height: 12),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                _HeroAction(label: 'Change', icon: Icons.upload_rounded, onTap: onUpload),
-                if (photoBytes != null) _HeroAction(label: 'Preview', icon: Icons.visibility_rounded, onTap: onPreview),
-                if (photoBytes != null) _HeroAction(label: 'Remove', icon: Icons.delete_outline_rounded, onTap: onRemove),
-              ]),
-            ])),
-          ]),
-        ]),
-      ),
-    );
-  }
-}
-
-class _HeroAction extends StatelessWidget {
-  const _HeroAction({required this.label, required this.icon, required this.onTap});
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(100),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(color: AppColors.white.withValues(alpha: .17), borderRadius: BorderRadius.circular(100), border: Border.all(color: AppColors.white.withValues(alpha: .45))),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, color: AppColors.white, size: 15), const SizedBox(width: 5), Text(label, style: AppTextStyles.captionText.copyWith(color: AppColors.white, fontWeight: FontWeight.w800))]),
-      ),
-    );
-  }
-}
-
-class _ProgressOverview extends StatelessWidget {
-  const _ProgressOverview({required this.applicationStatus, required this.documentStatus, required this.paymentStatus, required this.ballotingStatus});
-  final String applicationStatus;
-  final String documentStatus;
-  final String paymentStatus;
-  final String ballotingStatus;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ('Application', applicationStatus, Icons.description_rounded),
-      ('Documents', documentStatus, Icons.upload_file_rounded),
-      ('Payment', paymentStatus, Icons.payment_rounded),
-      ('Balloting', ballotingStatus, Icons.casino_rounded),
-    ];
-    return _Card(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Applicant Progress', style: AppTextStyles.headingSmall),
-        const SizedBox(height: 14),
-        LayoutBuilder(builder: (context, constraints) {
-          final width = constraints.maxWidth < 430 ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 24) / 4;
-          return Wrap(
-            spacing: 8,
-            runSpacing: 10,
-            children: items.map((e) {
-              final type = badgeTypeFromStatus(e.$2);
-              final color = type == StatusBadgeType.success ? AppColors.successGreen : type == StatusBadgeType.warning ? AppColors.warningOrange : type == StatusBadgeType.error ? AppColors.errorRed : AppColors.primaryPurple;
-              return SizedBox(
-                width: width,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: color.withValues(alpha: .10), borderRadius: BorderRadius.circular(18)),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Icon(e.$3, color: color, size: 24),
-                    const SizedBox(height: 10),
-                    Text(e.$1, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.captionText),
-                    const SizedBox(height: 4),
-                    Text(e.$2.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.captionText.copyWith(color: color, fontWeight: FontWeight.w900)),
-                  ]),
-                ),
-              );
-            }).toList(),
-          );
-        }),
-      ]),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.applicant});
-  final ApplicantModel? applicant;
-
-  @override
-  Widget build(BuildContext context) {
-    final fullName = _value(applicant?.fullName);
-    final cnic = _maskCnic(applicant?.cnic ?? '');
-    final phone = _value(applicant?.phone);
-    final city = _value(applicant?.city);
-    final address = _value(applicant?.address);
-    final dob = applicant == null ? '-' : DateFormat('d MMM yyyy').format(applicant!.dateOfBirth);
-    final memberSince = applicant == null ? '-' : DateFormat('d MMM yyyy').format(applicant!.createdAt);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(child: Text('Personal Details', style: AppTextStyles.headingSmall)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: AppColors.lightPurpleBackground,
-                borderRadius: BorderRadius.circular(100),
-              ),
-              child: Text('Applicant Record', style: AppTextStyles.captionText.copyWith(color: AppColors.deepPurple, fontWeight: FontWeight.w900)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        _Card(
-          child: Column(
-            children: [
-              _HighlightIdentity(name: fullName, city: city),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final twoColumns = constraints.maxWidth > 520;
-                  final itemWidth = twoColumns ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
-                  return Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      SizedBox(width: itemWidth, child: _DetailPill(icon: Icons.badge_rounded, label: 'CNIC', value: cnic)),
-                      SizedBox(width: itemWidth, child: _DetailPill(icon: Icons.phone_rounded, label: 'Phone', value: phone)),
-                      SizedBox(width: itemWidth, child: _DetailPill(icon: Icons.location_city_rounded, label: 'City', value: city)),
-                      SizedBox(width: itemWidth, child: _DetailPill(icon: Icons.cake_rounded, label: 'Date of Birth', value: dob)),
-                      SizedBox(width: itemWidth, child: _DetailPill(icon: Icons.event_available_rounded, label: 'Member Since', value: memberSince)),
-                      SizedBox(width: itemWidth, child: _DetailPill(icon: Icons.home_work_rounded, label: 'Address', value: address, maxLines: 2)),
-                    ],
-                  );
-                },
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.deepPurple.withValues(alpha: .28),
+                blurRadius: 30,
+                offset: const Offset(0, 14),
               ),
             ],
           ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                AppAssets.logo,
+                height: 54,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.apartment_rounded,
+                  color: Colors.white,
+                  size: 44,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ProfileAvatar(
+                name: applicant.fullName,
+                bytes: _photoBytes,
+                radius: 44,
+              ),
+              const SizedBox(height: 13),
+              Text(
+                applicant.fullName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Applicant ID: ${_snapshot.applicationId.isEmpty ? applicant.uid.substring(0, applicant.uid.length.clamp(0, 10).toInt()) : _snapshot.applicationId}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: .78),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const _VerifiedChip(),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 
-  String _value(String? value) {
-    final v = value?.trim() ?? '';
-    return v.isEmpty ? '-' : v;
+  Future<void> _toggleNotifications(bool value) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final applicant = _applicant;
+    if (uid == null || applicant == null) return;
+
+    setState(() {
+      _applicant = applicant.copyWith(
+        notificationsEnabled: value,
+      );
+    });
+
+    try {
+      await _service.updateApplicant(
+        uid,
+        {'notificationsEnabled': value},
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _applicant = applicant;
+      });
+      _snack('Notification preference could not be updated.');
+    }
   }
 
-  String _maskCnic(String cnic) {
-    final digits = Validators.onlyDigits(cnic);
-    if (digits.length != 13) return cnic.isEmpty ? '-' : cnic;
-    return '${digits.substring(0, 5)}-XXXXXXX-${digits.substring(12)}';
+  Future<void> _sendPasswordReset() async {
+    final email = FirebaseAuth.instance.currentUser?.email;
+    if (email == null || email.isEmpty) return;
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      _snack('Password reset email sent.');
+    } catch (_) {
+      _snack('Could not send password reset email.');
+    }
   }
-}
 
-class _HighlightIdentity extends StatelessWidget {
-  const _HighlightIdentity({required this.name, required this.city});
-  final String name;
-  final String city;
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.errorRed,
+            ),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppConstants.loginRoute,
+      (_) => false,
+    );
+  }
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    return DhsResponsiveShell(
+      currentRoute: AppConstants.profileRoute,
+      mobileTitle: 'Applicant Profile',
+      child: _loading
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primaryPurple,
+              ),
+            )
+          : RefreshIndicator(
+              color: AppColors.primaryPurple,
+              onRefresh: _load,
+              child: ListView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: MediaQuery.sizeOf(context).width >= 980 ? 26 : 14,
+                  vertical: 18,
+                ),
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1080),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _ProfileHeader(
+                            applicant: _applicant!,
+                            photoBytes: _photoBytes,
+                            photoSaving: _photoSaving,
+                            snapshot: _snapshot,
+                            onPhotoTap: _pickProfilePhoto,
+                            onEdit: _editProfile,
+                            onShare: _shareProfile,
+                            onIdCard: _showIdCard,
+                          ),
+                          const SizedBox(height: 18),
+                          _ProfileMenuGroup(
+                            children: [
+                              _ProfileMenuItem(
+                                icon: Icons.person_outline_rounded,
+                                title: 'About Applicant',
+                                subtitle:
+                                    'Membership, residency and applicant overview',
+                                onTap: () => _showAbout(context),
+                              ),
+                              _ProfileMenuItem(
+                                icon: Icons.badge_outlined,
+                                title: 'Personal Details',
+                                subtitle:
+                                    'Contact, CNIC, date of birth and address',
+                                onTap: _editProfile,
+                              ),
+                              _ProfileMenuItem(
+                                icon: Icons.link_rounded,
+                                title: 'Linked Accounts / Services',
+                                subtitle:
+                                    'Application, payment and document services',
+                                badge: '${_snapshot.linkedServices} Linked',
+                                onTap: () => Navigator.pushNamed(
+                                  context,
+                                  AppConstants.myReportsRoute,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          _ProfileMenuGroup(
+                            children: [
+                              _ProfileMenuItem(
+                                icon: Icons.favorite_border_rounded,
+                                title: 'Saved Items / Favourites',
+                                subtitle: 'Your saved DHS plots',
+                                onTap: () => Navigator.pushNamed(
+                                  context,
+                                  AppConstants.favouritesRoute,
+                                ),
+                              ),
+                              _ProfileMenuItem(
+                                icon: Icons.notifications_none_rounded,
+                                title: 'Notifications',
+                                subtitle:
+                                    'Application, payment and balloting alerts',
+                                trailing: Switch(
+                                  value:
+                                      _applicant?.notificationsEnabled ?? true,
+                                  onChanged: _toggleNotifications,
+                                  activeThumbColor: AppColors.deepPurple,
+                                ),
+                                onTap: () => Navigator.pushNamed(
+                                  context,
+                                  AppConstants.notificationsRoute,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          _ProfileMenuGroup(
+                            children: [
+                              _ProfileMenuItem(
+                                icon: Icons.shield_outlined,
+                                title: 'Privacy & Security',
+                                subtitle:
+                                    'Password, privacy policy and account safety',
+                                onTap: _sendPasswordReset,
+                              ),
+                              _ProfileMenuItem(
+                                icon: Icons.support_agent_rounded,
+                                title: 'Help & Support',
+                                subtitle:
+                                    'FAQs, contact DHS and support assistance',
+                                onTap: () => Navigator.pushNamed(
+                                  context,
+                                  AppConstants.contactRoute,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          _TrustBanner(
+                            onTap: () => Navigator.pushNamed(
+                              context,
+                              AppConstants.plotsRoute,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          OutlinedButton.icon(
+                            onPressed: _logout,
+                            icon: const Icon(Icons.logout_rounded),
+                            label: const Text('Logout'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.errorRed,
+                              side: const BorderSide(
+                                color: Color(0xFFF3B6B7),
+                              ),
+                              minimumSize: const Size.fromHeight(54),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(17),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  void _showAbout(BuildContext context) {
+    final applicant = _applicant;
+    if (applicant == null) return;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(28),
+            ),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD9DCE6),
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'About Applicant',
+                  style: TextStyle(
+                    color: AppColors.primaryText,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _AboutRow(label: 'Full Name', value: applicant.fullName),
+                _AboutRow(label: 'Email', value: applicant.email),
+                _AboutRow(label: 'Phone', value: applicant.phone),
+                _AboutRow(label: 'CNIC', value: applicant.cnic),
+                _AboutRow(label: 'City', value: applicant.city),
+                _AboutRow(label: 'Address', value: applicant.address),
+                _AboutRow(
+                  label: 'Member Since',
+                  value: DateFormat('d MMM yyyy').format(applicant.createdAt),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.applicant,
+    required this.photoBytes,
+    required this.photoSaving,
+    required this.snapshot,
+    required this.onPhotoTap,
+    required this.onEdit,
+    required this.onShare,
+    required this.onIdCard,
+  });
+
+  final ApplicantModel applicant;
+  final Uint8List? photoBytes;
+  final bool photoSaving;
+  final _ProfileSnapshot snapshot;
+  final VoidCallback onPhotoTap;
+  final VoidCallback onEdit;
+  final VoidCallback onShare;
+  final VoidCallback onIdCard;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 700;
+    final progress = snapshot.completionScore / 1000;
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(compact ? 15 : 24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           colors: [
-            AppColors.lightPurpleBackground,
-            AppColors.infoBlue.withValues(alpha: .10),
+            Color(0xFF315EDA),
+            Color(0xFF5E3BDF),
+            Color(0xFF7C3FE9),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.primaryPurple.withValues(alpha: .12)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: AppColors.primaryGradient,
-              boxShadow: AppColors.premiumShadow(opacity: .16, blurRadius: 16),
-            ),
-            child: const Icon(Icons.person_rounded, color: AppColors.white),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name == '-' ? 'Applicant information pending' : name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.labelBold.copyWith(fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(city == '-' ? 'Complete your application to show details' : city, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.captionText),
-              ],
-            ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.deepPurple.withValues(alpha: .22),
+            blurRadius: 30,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _DetailPill extends StatelessWidget {
-  const _DetailPill({required this.icon, required this.label, required this.value, this.maxLines = 1});
-  final IconData icon;
-  final String label;
-  final String value;
-  final int maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFF),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.borderColor),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(color: AppColors.primaryPurple.withValues(alpha: .10), borderRadius: BorderRadius.circular(13)),
-            child: Icon(icon, color: AppColors.primaryPurple, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.captionText),
-                const SizedBox(height: 4),
-                Text(value.isEmpty ? '-' : value, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: AppTextStyles.labelBold.copyWith(height: 1.25)),
-              ],
+          Positioned(
+            right: -30,
+            top: -30,
+            child: Opacity(
+              opacity: .10,
+              child: Image.asset(
+                AppAssets.profileBackground,
+                width: compact ? 225 : 390,
+                height: compact ? 215 : 280,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MenuCard extends StatelessWidget {
-  const _MenuCard({required this.onChangePassword, required this.notificationsEnabled, required this.onNotificationChanged});
-  final VoidCallback onChangePassword;
-  final bool notificationsEnabled;
-  final ValueChanged<bool> onNotificationChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final actions = [
-      _ProfileAction('My Reports', 'Submitted records', Icons.article_rounded, AppColors.deepPurple, () => Navigator.pushNamed(context, AppConstants.myReportsRoute)),
-      _ProfileAction('My Application', 'Application status', Icons.home_work_rounded, AppColors.successGreen, () => Navigator.pushNamed(context, AppConstants.applicationRoute)),
-      _ProfileAction('My Payments', 'Stripe test records', Icons.account_balance_wallet_rounded, AppColors.warningOrange, () => Navigator.pushNamed(context, AppConstants.paymentRoute)),
-      _ProfileAction('My Uploads', 'Documents summary', Icons.folder_rounded, AppColors.infoBlue, () => Navigator.pushNamed(context, AppConstants.uploadRoute)),
-      _ProfileAction('Balloting', 'Draw status', Icons.casino_rounded, AppColors.primaryPurple, () => Navigator.pushNamed(context, AppConstants.ballotingRoute)),
-      _ProfileAction('Contact Us', 'Society support', Icons.support_agent_rounded, AppColors.primaryPurple, () => Navigator.pushNamed(context, AppConstants.contactRoute)),
-      _ProfileAction('FAQs', 'Quick answers', Icons.quiz_rounded, AppColors.infoBlue, () => Navigator.pushNamed(context, AppConstants.faqRoute)),
-      _ProfileAction('Privacy', 'Data policy', Icons.privacy_tip_rounded, AppColors.deepPurple, () => Navigator.pushNamed(context, AppConstants.privacyRoute)),
-      _ProfileAction('Terms', 'User agreement', Icons.gavel_rounded, AppColors.deepPurple, () => Navigator.pushNamed(context, AppConstants.termsRoute)),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Account Services', style: AppTextStyles.headingSmall),
-        const SizedBox(height: 14),
-        _Card(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth > 700
-                  ? (constraints.maxWidth - 24) / 3
-                  : constraints.maxWidth > 430
-                      ? (constraints.maxWidth - 12) / 2
-                      : constraints.maxWidth;
-              return Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: actions
-                    .map((action) => SizedBox(
-                          width: itemWidth,
-                          child: _ServiceTile(action: action),
-                        ))
-                    .toList(),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text('Security & Preferences', style: AppTextStyles.headingSmall),
-        const SizedBox(height: 14),
-        _Card(
-          child: Column(
+          Column(
             children: [
-              _SettingsTile(icon: Icons.lock_rounded, title: 'Change Password', subtitle: 'Update your account password securely', color: AppColors.primaryPurple, onTap: onChangePassword),
-              const Divider(height: 22),
-              Row(
-                children: [
-                  _SmallIcon(Icons.notifications_active_rounded, AppColors.primaryPurple),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Notifications', style: AppTextStyles.labelBold),
-                      const SizedBox(height: 3),
-                      Text('Receive application and balloting updates', style: AppTextStyles.captionText),
-                    ]),
+              if (compact)
+                Column(
+                  children: [
+                    _ProfileAvatarWithCamera(
+                      applicant: applicant,
+                      photoBytes: photoBytes,
+                      photoSaving: photoSaving,
+                      onPhotoTap: onPhotoTap,
+                    ),
+                    const SizedBox(height: 10),
+                    _ProfileIdentity(
+                      applicant: applicant,
+                      applicationId: snapshot.applicationId,
+                      center: true,
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _ProfileAvatarWithCamera(
+                      applicant: applicant,
+                      photoBytes: photoBytes,
+                      photoSaving: photoSaving,
+                      onPhotoTap: onPhotoTap,
+                    ),
+                    const SizedBox(width: 22),
+                    Expanded(
+                      child: _ProfileIdentity(
+                        applicant: applicant,
+                        applicationId: snapshot.applicationId,
+                      ),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 14),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const columns = 3;
+                  const gap = 10.0;
+                  final width =
+                      (constraints.maxWidth - gap * (columns - 1)) / columns;
+                  final buttons = [
+                    _HeaderAction(
+                      icon: Icons.edit_outlined,
+                      label: 'Edit Profile',
+                      onTap: onEdit,
+                    ),
+                    _HeaderAction(
+                      icon: Icons.share_outlined,
+                      label: 'Share',
+                      onTap: onShare,
+                    ),
+                    _HeaderAction(
+                      icon: Icons.badge_outlined,
+                      label: 'ID Card',
+                      onTap: onIdCard,
+                    ),
+                  ];
+                  return Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: buttons
+                        .map(
+                          (button) => SizedBox(
+                            width: width,
+                            child: button,
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF171D62).withValues(alpha: .36),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .18),
                   ),
-                  Switch(value: notificationsEnabled, activeThumbColor: AppColors.primaryPurple, onChanged: onNotificationChanged),
-                ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: .14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.workspace_premium_outlined,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Membership Progress • ${_membershipTier(snapshot.completionScore)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: LinearProgressIndicator(
+                              value: progress.clamp(0, 1).toDouble(),
+                              minHeight: 7,
+                              backgroundColor:
+                                  Colors.white.withValues(alpha: .18),
+                              valueColor:
+                                  const AlwaysStoppedAnimation<Color>(
+                                Color(0xFFB58AFF),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '${snapshot.completionScore} / 1000',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _membershipTier(int score) {
+    if (score >= 850) return 'Platinum Member';
+    if (score >= 700) return 'Gold Member';
+    if (score >= 450) return 'Silver Member';
+    return 'Active Member';
+  }
+}
+
+class _ProfileAvatarWithCamera extends StatelessWidget {
+  const _ProfileAvatarWithCamera({
+    required this.applicant,
+    required this.photoBytes,
+    required this.photoSaving,
+    required this.onPhotoTap,
+  });
+
+  final ApplicantModel applicant;
+  final Uint8List? photoBytes;
+  final bool photoSaving;
+  final VoidCallback onPhotoTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 108,
+      height: 108,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: _ProfileAvatar(
+              name: applicant.fullName,
+              bytes: photoBytes,
+              radius: 50,
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 2,
+            child: Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              elevation: 5,
+              child: IconButton(
+                onPressed: photoSaving ? null : onPhotoTap,
+                icon: photoSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.deepPurple,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.photo_camera_outlined,
+                        color: AppColors.deepPurple,
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({
+    required this.name,
+    required this.bytes,
+    required this.radius,
+  });
+
+  final String name;
+  final Uint8List? bytes;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.white,
+      child: CircleAvatar(
+        radius: radius - 5,
+        backgroundColor: const Color(0xFFE9E3FF),
+        backgroundImage: bytes == null ? null : MemoryImage(bytes!),
+        child: bytes == null
+            ? Text(
+                _initials(name),
+                style: TextStyle(
+                  color: AppColors.deepPurple,
+                  fontSize: radius * .55,
+                  fontWeight: FontWeight.w900,
+                ),
+              )
+            : null,
+      ),
+    );
+  }
+
+  static String _initials(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .toList();
+    if (parts.isEmpty) return 'A';
+    return parts.map((part) => part[0].toUpperCase()).join();
+  }
+}
+
+class _ProfileIdentity extends StatelessWidget {
+  const _ProfileIdentity({
+    required this.applicant,
+    required this.applicationId,
+    this.center = false,
+  });
+
+  final ApplicantModel applicant;
+  final String applicationId;
+  final bool center;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment:
+          center ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      children: [
+        const _VerifiedChip(),
+        const SizedBox(height: 10),
+        Text(
+          applicant.fullName.isEmpty ? 'Applicant' : applicant.fullName,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: center ? TextAlign.center : TextAlign.left,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 32,
+            fontWeight: FontWeight.w900,
+            height: 1.05,
+          ),
+        ),
+        const SizedBox(height: 7),
+        if (applicant.city.isNotEmpty)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.location_city_outlined,
+                color: Colors.white,
+                size: 18,
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  applicant.city,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: .88),
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        const SizedBox(height: 10),
+        Container(
+          constraints: const BoxConstraints(maxWidth: 360),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 13,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(100),
+          ),
+          child: Text(
+            'Applicant ID: ${applicationId.isEmpty ? 'Pending assignment' : applicationId}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: .88),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
@@ -729,80 +1076,223 @@ class _MenuCard extends StatelessWidget {
   }
 }
 
-class _ProfileAction {
-  const _ProfileAction(this.title, this.subtitle, this.icon, this.color, this.onTap);
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-}
-
-class _ServiceTile extends StatelessWidget {
-  const _ServiceTile({required this.action});
-  final _ProfileAction action;
+class _VerifiedChip extends StatelessWidget {
+  const _VerifiedChip();
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: action.onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: action.color.withValues(alpha: .08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: action.color.withValues(alpha: .14)),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: .24),
         ),
-        child: Row(
-          children: [
-            _SmallIcon(action.icon, action.color),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(action.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.labelBold),
-                  const SizedBox(height: 3),
-                  Text(action.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.captionText),
-                ],
-              ),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.verified_rounded,
+            color: Color(0xFF9AF2C0),
+            size: 17,
+          ),
+          SizedBox(width: 5),
+          Text(
+            'Verified Applicant',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
             ),
-            Icon(Icons.chevron_right_rounded, color: action.color),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 700;
+
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: compact ? 16 : 19),
+      label: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: compact ? 10.5 : 13,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        side: BorderSide(
+          color: Colors.white.withValues(alpha: .35),
+        ),
+        backgroundColor: Colors.white.withValues(alpha: .08),
+        minimumSize: Size.fromHeight(compact ? 42 : 48),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 6 : 14,
+          vertical: compact ? 8 : 12,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
         ),
       ),
     );
   }
 }
 
-class _SettingsTile extends StatelessWidget {
-  const _SettingsTile({required this.icon, required this.title, required this.subtitle, required this.color, required this.onTap});
+class _ProfileMenuGroup extends StatelessWidget {
+  const _ProfileMenuGroup({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE6E7F0)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.deepPurple.withValues(alpha: .055),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: List.generate(children.length, (index) {
+          return Column(
+            children: [
+              children[index],
+              if (index != children.length - 1)
+                const Divider(
+                  height: 1,
+                  indent: 76,
+                  color: Color(0xFFE8E9F0),
+                ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _ProfileMenuItem extends StatelessWidget {
+  const _ProfileMenuItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.badge,
+    this.trailing,
+  });
+
   final IconData icon;
   final String title;
   final String subtitle;
-  final Color color;
   final VoidCallback onTap;
+  final String? badge;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(22),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 15,
+        ),
         child: Row(
           children: [
-            _SmallIcon(icon, color),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: AppTextStyles.labelBold),
-                const SizedBox(height: 3),
-                Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.captionText),
-              ]),
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1EDFF),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: AppColors.deepPurple),
             ),
-            Icon(Icons.chevron_right_rounded, color: color),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryText,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.secondaryText,
+                      fontSize: 12.5,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (badge != null) ...[
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0ECFF),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  badge!,
+                  style: const TextStyle(
+                    color: AppColors.deepPurple,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: 8),
+            trailing ??
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: Color(0xFF7A8293),
+                ),
           ],
         ),
       ),
@@ -810,28 +1300,205 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-class _SmallIcon extends StatelessWidget {
-  const _SmallIcon(this.icon, this.color);
-  final IconData icon;
-  final Color color;
+class _TrustBanner extends StatelessWidget {
+  const _TrustBanner({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(14)),
-      child: Icon(icon, color: color, size: 22),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFEDE8FF),
+            Color(0xFFEAF3FF),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFDDD5FF)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF315DDC),
+                  Color(0xFF7C42EC),
+                ],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.location_city_rounded,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 13),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your trusted partner in digital living',
+                  style: TextStyle(
+                    color: AppColors.primaryText,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Explore verified plots, dealers and transparent DHS services.',
+                  style: TextStyle(
+                    color: AppColors.secondaryText,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: onTap,
+            child: const Text('Explore'),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _Card extends StatelessWidget {
-  const _Card({required this.child});
-  final Widget child;
+class _ProfileField extends StatelessWidget {
+  const _ProfileField({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    this.maxLines = 1,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
-    return Container(width: double.infinity, padding: const EdgeInsets.all(18), decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderColor), boxShadow: AppColors.premiumShadow(opacity: .24)), child: child);
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+      ),
+    );
+  }
+}
+
+class _AboutRow extends StatelessWidget {
+  const _AboutRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 115,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.secondaryText,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              value.trim().isEmpty ? 'Not provided' : value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: AppColors.primaryText,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSnapshot {
+  const _ProfileSnapshot({
+    this.applicationId = '',
+    this.linkedServices = 0,
+    this.completionScore = 250,
+  });
+
+  final String applicationId;
+  final int linkedServices;
+  final int completionScore;
+
+  static Future<_ProfileSnapshot> load(
+    String uid,
+    FirestoreService service,
+  ) async {
+    try {
+      final application = await service.getApplication(uid);
+      final upload = await service.getUpload(uid);
+      final payment = await service.getPayment(uid);
+      final result = await service.getResultForApplicant(uid);
+
+      var linked = 0;
+      var score = 250;
+
+      if (application != null) {
+        linked++;
+        score += 250;
+      }
+      if (upload != null) {
+        linked++;
+        score += 200;
+      }
+      if (payment != null) {
+        linked++;
+        score += 200;
+      }
+      if (result != null) {
+        linked++;
+        score += 100;
+      }
+
+      final appData =
+          application?.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+      final applicationId = (appData['applicationId'] ??
+              appData['serialNumber'] ??
+              application?.id ??
+              '')
+          .toString();
+
+      return _ProfileSnapshot(
+        applicationId: applicationId,
+        linkedServices: linked,
+        completionScore: score.clamp(0, 1000).toInt(),
+      );
+    } catch (_) {
+      return const _ProfileSnapshot();
+    }
   }
 }

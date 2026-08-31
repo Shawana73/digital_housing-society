@@ -38,7 +38,7 @@ class MyReportsScreen extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final doc = docs[index];
                     final data = doc.data() as Map<String, dynamic>;
-                    return _ReportCard(id: doc.id, data: data, service: service);
+                    return _ReportCard(data: data);
                   },
                 );
               },
@@ -48,10 +48,8 @@ class MyReportsScreen extends StatelessWidget {
 }
 
 class _ReportCard extends StatelessWidget {
-  const _ReportCard({required this.id, required this.data, required this.service});
-  final String id;
+  const _ReportCard({required this.data});
   final Map<String, dynamic> data;
-  final FirestoreService service;
 
   @override
   Widget build(BuildContext context) {
@@ -74,13 +72,14 @@ class _ReportCard extends StatelessWidget {
         _row('CNIC', data['cnic']?.toString() ?? '-'),
         _row('City', data['city']?.toString() ?? '-'),
         const SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: OutlinedButton.icon(onPressed: () => _details(context), icon: const Icon(Icons.visibility_rounded), label: const Text('Details'))),
-          const SizedBox(width: 8),
-          Expanded(child: OutlinedButton.icon(onPressed: () => Navigator.pushNamed(context, AppConstants.applicationRoute), icon: const Icon(Icons.edit_rounded), label: const Text('Edit'))),
-          const SizedBox(width: 8),
-          IconButton.filledTonal(onPressed: () => _delete(context), icon: const Icon(Icons.delete_rounded, color: AppColors.errorRed)),
-        ]),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _details(context),
+            icon: const Icon(Icons.visibility_rounded),
+            label: const Text('View Application Details'),
+          ),
+        ),
       ]),
     );
   }
@@ -105,12 +104,6 @@ class _ReportCard extends StatelessWidget {
     );
   }
 
-  Future<void> _delete(BuildContext context) async {
-    final ok = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: const Text('Delete report?'), content: const Text('This will remove this submitted application report.'), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete'))]));
-    if (ok != true) return;
-    await service.deleteApplication(id);
-    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report deleted.')));
-  }
 }
 
 class _EmptyState extends StatelessWidget {

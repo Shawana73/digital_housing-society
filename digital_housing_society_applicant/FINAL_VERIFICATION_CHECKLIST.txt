@@ -1,0 +1,138 @@
+DHS FINAL VERIFICATION CHECKLIST
+================================
+
+RUN FIRST
+[ ] flutter pub get
+[ ] flutter analyze -> No issues found
+[ ] flutter test -> All tests passed
+[ ] flutter run -d chrome
+[ ] Run on final Android device/emulator
+
+AUTH
+[ ] Register new applicant
+[ ] Verification email received
+[ ] Unverified user cannot enter dashboard
+[ ] Verified user can login
+[ ] Duplicate email rejected
+[ ] Duplicate CNIC rejected
+[ ] Applicant cannot edit CNIC after registration
+
+NAVIGATION
+[ ] Chrome shows fixed left sidebar
+[ ] Mobile hamburger opens same navigation destinations
+[ ] Dashboard
+[ ] Explore Plots
+[ ] Static Plot Map
+[ ] Applications
+[ ] Dealers
+[ ] Register as Dealer
+[ ] Payments
+[ ] Documents
+[ ] Messages
+[ ] Favourites
+[ ] Profile
+[ ] Settings
+[ ] Logout
+[ ] No old inconsistent bottom navigation remains
+
+APPLICATION JOURNEY
+[ ] Application submits once and persists
+[ ] Documents require all 4 records and allowed file types
+[ ] Payment auto-generates Stripe test transaction reference
+[ ] Dashboard reflects application -> documents -> payment/result state
+[ ] Submitted records cannot be deleted by applicant
+
+DEALER REGISTRATION
+[ ] All personal/business/office fields complete
+[ ] Four required document metadata records selected
+[ ] Terms accepted
+[ ] Submit succeeds without false "complete fields" blocker
+[ ] Firestore dealer_registrations/{uid} created
+[ ] verificationStatus = pending
+[ ] Submission notification appears
+[ ] Applicant cannot self-verify
+
+PLOTS
+[ ] If Firestore plots are empty, five local preview plots are visible
+[ ] When Firestore plots exist, live records replace preview records
+[ ] Search "block B" returns matching plots
+[ ] Search "plot #245" returns Plot 245
+[ ] Phase / Block / Size / Category / Availability filters
+[ ] Favourite toggles persist after reload
+[ ] Different fallback society images appear
+[ ] No RIGHT OVERFLOWED error on narrow mobile
+[ ] View Details works
+[ ] View on Map opens approved master-plan screen
+
+STATIC PLOT MAP
+[ ] "Your Plot. Your Future." hero
+[ ] Phase / Block filters
+[ ] Available / Reserved / Sold / Selected legend
+[ ] Block B / Block C master plan
+[ ] Central Park / Commercial area visible
+[ ] Plot 245 selectable
+[ ] Zoom + reset
+[ ] Full-screen map
+[ ] Selected plot details / price / dimensions / status
+[ ] Web hover interaction
+[ ] Mobile tap interaction
+[ ] Return to Explore
+
+VERIFIED DEALERS
+[ ] If Firestore verified dealers are empty, local preview dealers are visible
+[ ] When live verified dealers exist, Firestore replaces preview data
+[ ] Search / City / Specialization filters
+[ ] Dealer profile sheet
+[ ] Contact sheet
+[ ] Register as a Dealer visible directly
+[ ] Dealer CNIC never shown publicly
+
+PROFILE
+[ ] Applicant Firestore data loads
+[ ] Profile photo update
+[ ] Edit profile
+[ ] Share profile
+[ ] View ID card
+[ ] Membership progress
+[ ] Favourites
+[ ] Notification preference persists
+[ ] Password reset action
+[ ] Help / support
+[ ] Logout
+
+BALLOTING
+[ ] Upcoming state
+[ ] Live state
+[ ] Eligibility lock when admin verification incomplete
+[ ] Selected applicant sees Winner
+[ ] Non-selected applicant sees Not Selected
+[ ] Completed with no personal result does not falsely show Winner
+[ ] My Result only loads signed-in applicant's result
+
+SECURITY
+[ ] Publish final FIRESTORE_RULES_APPLY.txt
+[ ] admins/{ADMIN_UID}.active = true for authorized admin
+[ ] Applicant cannot modify official plots/dealers
+[ ] Applicant cannot modify admin verification/result fields
+[ ] Applicant cannot modify CNIC/CNIC digits
+[ ] Firestore rule copies are identical
+
+RESPONSIVE
+[ ] Chrome desktop
+[ ] Narrow Chrome width
+[ ] Android portrait
+[ ] Android landscape if used
+[ ] No overflow on Dashboard
+[ ] No overflow on Explore Plots
+[ ] No overflow on Map
+[ ] No overflow on Dealers
+[ ] No overflow on Dealer Registration
+[ ] No overflow on Profile
+[ ] No overflow on Applications/Payments/Documents
+
+GITHUB DESKTOP — ONLY AFTER ALL ABOVE PASS
+[ ] Existing shared repository selected
+[ ] Generated/cache folders are not staged
+[ ] Review all final changes
+[ ] Commit: Finalize applicant UI, navigation and Firebase workflows
+[ ] Push origin

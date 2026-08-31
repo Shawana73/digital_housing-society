@@ -31,9 +31,24 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   void _routeNext() {
-    _authSubscription = FirebaseAuth.instance.authStateChanges().take(1).listen((user) {
+    _authSubscription = FirebaseAuth.instance.authStateChanges().take(1).listen((user) async {
+      if (user == null) {
+        if (mounted) Navigator.pushReplacementNamed(context, AppConstants.loginRoute);
+        return;
+      }
+      await user.reload();
+      final refreshed = FirebaseAuth.instance.currentUser;
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, user == null ? AppConstants.loginRoute : AppConstants.dashboardRoute);
+      if (refreshed?.emailVerified == true) {
+        Navigator.pushReplacementNamed(context, AppConstants.dashboardRoute);
+      } else {
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please verify your email before continuing.')),
+        );
+        Navigator.pushReplacementNamed(context, AppConstants.loginRoute);
+      }
     });
   }
 

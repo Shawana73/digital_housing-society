@@ -19,7 +19,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.pageBackground,
-      textTheme: GoogleFonts.interTextTheme().copyWith(
+      textTheme: GoogleFonts.poppinsTextTheme().copyWith(
         headlineLarge: GoogleFonts.poppins(fontWeight: FontWeight.w700),
         headlineMedium: GoogleFonts.poppins(fontWeight: FontWeight.w700),
         headlineSmall: GoogleFonts.poppins(fontWeight: FontWeight.w600),
@@ -42,7 +42,7 @@ class AppTheme {
         filled: true,
         fillColor: AppColors.lightPurpleBackground,
         labelStyle: GoogleFonts.poppins(color: AppColors.secondaryText),
-        hintStyle: GoogleFonts.inter(color: AppColors.hintText),
+        hintStyle: GoogleFonts.poppins(color: AppColors.hintText),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
@@ -95,7 +95,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.darkNavy,
-        contentTextStyle: GoogleFonts.inter(color: AppColors.white),
+        contentTextStyle: GoogleFonts.poppins(color: AppColors.white),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );

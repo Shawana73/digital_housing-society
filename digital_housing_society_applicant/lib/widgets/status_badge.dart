@@ -36,11 +36,15 @@ class StatusBadge extends StatelessWidget {
 }
 
 StatusBadgeType badgeTypeFromStatus(String status) {
-  final s = status.toLowerCase();
-  if (s.contains('verified') || s.contains('approved') || s.contains('selected') || s.contains('active') || s.contains('complete')) {
+  final s = status.toLowerCase().trim();
+  if (s.contains('not selected') || s.contains('notselected') || s.contains('reject') || s.contains('failed') || s.contains('denied')) {
+    return StatusBadgeType.error;
+  }
+  if (s.contains('pending') || s.contains('review') || s.contains('awaiting') || s.contains('upcoming')) {
+    return StatusBadgeType.warning;
+  }
+  if (s.contains('verified') || s.contains('approved') || s.contains('selected') || s.contains('active') || s.contains('complete') || s.contains('paid')) {
     return StatusBadgeType.success;
   }
-  if (s.contains('reject') || s.contains('failed') || s.contains('not')) return StatusBadgeType.error;
-  if (s.contains('pending') || s.contains('review') || s.contains('awaiting') || s.contains('upcoming')) return StatusBadgeType.warning;
   return StatusBadgeType.info;
 }

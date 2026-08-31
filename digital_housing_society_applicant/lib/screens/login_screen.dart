@@ -52,7 +52,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       final uid = refreshedUser?.uid;
       if (uid != null) {
-        await _firestoreService.ensureCoreCollections(uid);
         await _firestoreService.updateApplicant(uid, {'emailVerified': true, 'profileStatus': 'active'});
       }
       if (!mounted) return;

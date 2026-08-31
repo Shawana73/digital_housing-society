@@ -1,3 +1,5 @@
+COPY THE CONTENTS OF firestore.rules INTO Firebase Console > Firestore Database > Rules, then click Publish.
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -7,6 +9,12 @@ service cloud.firestore {
 
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;
     }
 
     function ownsIncomingApplicant() {
@@ -25,79 +33,146 @@ service cloud.firestore {
       return signedIn() && resource.data.recipientId == request.auth.uid;
     }
 
+    function applicantSensitiveFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'uid',
+        'cnic',
+        'cnicDigits',
+        'role',
+        'profileStatus',
+        'verificationStatus',
+        'ballotingEligible',
+        'ballotingRegistered',
+        'emailVerified',
+        'createdAt'
+      ]);
+    }
+
+    function verifiedEmailActivationAllowed(uid) {
+      return isOwner(uid) &&
+        request.auth.token.email_verified == true &&
+        request.resource.data.emailVerified == true &&
+        request.resource.data.profileStatus == 'active' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'emailVerified',
+          'profileStatus'
+        ]);
+    }
+
+    match /admins/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    match /cnic_registry/{cnicDigits} {
+      allow read: if signedIn();
+      allow create: if signedIn() &&
+        request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     match /applicants/{uid} {
-      allow create, read, update: if isOwner(uid);
+      allow create: if isOwner(uid) &&
+        request.resource.data.uid == request.auth.uid;
+      allow read: if isOwner(uid) || isAdmin();
+      allow update: if
+        (isOwner(uid) && applicantSensitiveFieldsUnchanged()) ||
+        verifiedEmailActivationAllowed(uid) ||
+        isAdmin();
       allow delete: if false;
     }
 
     match /applications/{applicationId} {
-      allow create: if ownsIncomingApplicant();
-      allow read, update, delete: if ownsExistingApplicant();
+      allow create: if ownsIncomingApplicant() &&
+        request.resource.data.status == 'pending';
+      allow read: if ownsExistingApplicant() || isAdmin();
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     match /uploads/{uploadId} {
-      allow create, update: if ownsIncomingApplicant() || isOwner(uploadId);
-      allow read, delete: if ownsExistingApplicant() || isOwner(uploadId);
+      allow create: if ownsIncomingApplicant() &&
+        isOwner(uploadId) &&
+        request.resource.data.verificationStatus == 'pending';
+      allow read: if ownsExistingApplicant() || isOwner(uploadId) || isAdmin();
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     match /payments/{paymentId} {
-      allow create, update: if ownsIncomingApplicant() || isOwner(paymentId);
-      allow read, delete: if ownsExistingApplicant() || isOwner(paymentId);
+      allow create: if ownsIncomingApplicant() &&
+        isOwner(paymentId) &&
+        request.resource.data.status == 'submitted' &&
+        request.resource.data.mode == 'test';
+      allow read: if ownsExistingApplicant() || isOwner(paymentId) || isAdmin();
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     match /notifications/{notificationId} {
-      allow create: if signedIn();
-      allow read, update, delete: if ownsExistingRecipient();
+      allow create: if ownsIncomingRecipient() || isAdmin();
+      allow read, update, delete: if ownsExistingRecipient() || isAdmin();
     }
 
     match /contacts/{contactId} {
-      allow create: if signedIn();
-      allow read, update: if ownsExistingApplicant();
+      allow create: if ownsIncomingApplicant();
+      allow read: if ownsExistingApplicant() || isAdmin();
+      allow update: if isAdmin();
       allow delete: if false;
     }
 
     match /plots/{plotId} {
       allow read: if signedIn();
-      allow create, update, delete: if false;
+      allow write: if isAdmin();
+    }
+
+    match /dealers/{dealerId} {
+      allow read: if signedIn() &&
+        (resource.data.verificationStatus == 'verified' || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    match /dealer_registrations/{uid} {
+      allow create: if isOwner(uid) &&
+        request.resource.data.applicantId == request.auth.uid &&
+        request.resource.data.verificationStatus == 'pending';
+      allow read: if isOwner(uid) || isAdmin();
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     match /ballot_results/{resultId} {
-      allow read: if signedIn();
-      allow create, update, delete: if false;
+      allow read: if isAdmin() ||
+        (signedIn() && resource.data.applicantId == request.auth.uid);
+      allow write: if isAdmin();
     }
 
     match /ballot_config/{docId} {
       allow read: if signedIn();
-      allow create, update: if signedIn();
-      allow delete: if false;
+      allow write: if isAdmin();
     }
 
     match /ballot_updates/{docId} {
       allow read: if signedIn();
-      allow create, update: if signedIn();
-      allow delete: if false;
+      allow write: if isAdmin();
     }
 
     match /ballot_live_results/{docId} {
       allow read: if signedIn();
-      allow create, update: if signedIn();
-      allow delete: if false;
+      allow write: if isAdmin();
     }
 
     match /payment_config/{docId} {
       allow read: if signedIn();
-      allow create, update: if signedIn();
-      allow delete: if false;
+      allow write: if isAdmin();
     }
 
     match /app_metadata/{docId} {
-      allow read, create, update: if signedIn();
-      allow delete: if false;
+      allow read, write: if isAdmin();
     }
 
-    match /signup_otps/{email} {
-      allow read, create, update: if true;
-      allow delete: if false;
+    match /signup_otps/{docId} {
+      allow read, write: if false;
     }
   }
 }
