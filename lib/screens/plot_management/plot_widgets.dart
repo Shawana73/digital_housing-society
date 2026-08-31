@@ -7,7 +7,6 @@ class PlotCard extends StatelessWidget {
   final PlotModel plot;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-
   const PlotCard({
     super.key,
     required this.plot,
@@ -68,6 +67,13 @@ class PlotCard extends StatelessWidget {
           Text(plot.location,
               maxLines: 2, overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 12, height: 1.25)),
+          Text(plot.description,
+            maxLines:2 ,
+            overflow: TextOverflow.fade,
+            style: const TextStyle(
+              color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 12, height: 1.25,
+            ),
+            ),
           const Spacer(),
           Text('PKR ${plot.price.toStringAsFixed(0)}',
               maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -78,9 +84,9 @@ class PlotCard extends StatelessWidget {
               Expanded(child: OutlinedButton(onPressed: onEdit, child: const Text('Edit'))),
               const SizedBox(width: 8),
               IconButton.filledTonal(onPressed: onDelete, icon: const Icon(Icons.delete_rounded), color: AdminColors.rejected),
-            ],
+    ],
           ),
-        ],
+      ],
       ),
     );
   }

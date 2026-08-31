@@ -35,7 +35,6 @@ class PlotModel {
       'updatedAt': updatedAt,
     };
   }
-
   factory PlotModel.fromMap(
       Map<String, dynamic> map,
       String documentId,

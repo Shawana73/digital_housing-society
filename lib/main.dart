@@ -9,15 +9,15 @@ import 'screens/applicants/applicant_verification_screen.dart';
 import 'screens/dashboard/admin_dashboard_screen.dart';
 import 'screens/applicant_details/applicant_details_screen.dart';
 import 'screens/balloting/balloting_screen.dart';
-import 'screens/dealer_verification_screen.dart';
-import 'screens/notification_screen.dart';
-import 'screens/payment_verification_screen.dart';
+import 'screens/dealers/dealer_verification_screen.dart';
+import 'screens/notifications/notification_screen.dart';
+import 'screens/payments/payment_verification_screen.dart';
 import 'screens/plot_management/plot_management_screen.dart';
-import 'screens/plot_visualization_screen.dart';
-import 'screens/profile_screen.dart';
-import 'screens/reports_screen.dart';
+import 'screens/plot_visualization/plot_visualization_screen.dart';
+import 'screens/admin_profile/profile_screen.dart';
+import 'screens/reports/reports_screen.dart';
 import 'screens/balloting_processing/balloting_processing_screen.dart';
-import 'screens/result_screen.dart';
+import 'screens/result/result_screen.dart';
 import 'theme/admin_theme.dart';
 
 Future<void> main() async {

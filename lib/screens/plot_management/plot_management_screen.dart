@@ -19,7 +19,7 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
   final PlotManagementViewModel _viewModel = PlotManagementViewModel();
   final TextEditingController _searchController = TextEditingController();
 
-  @override
+  @override              //screen created=>initState()=>listener attached=>load()=>firestore se plots
   void initState() {
     super.initState();
     _viewModel.addListener(_refresh);
@@ -56,8 +56,15 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
                 child: PremiumCard(
                   onTap: () async {
                     Navigator.pop(context);
-                    await _viewModel.updateStatus(plot, status);
-                    if (mounted) showAdminSnack(context, '${plot.plotId} marked $status');
+                    final success= await _viewModel.updateStatus(plot, status);
+                    if(success){
+                    if (mounted)
+                      showAdminSnack(context, '${plot.plotId} marked $status');
+                    }
+                    else{
+                    if (mounted)
+                      showAdminSnack(context, '${plot.plotId} error $status');
+                    }
                   },
                   padding: const EdgeInsets.all(14),
                   child: Row(
@@ -87,7 +94,7 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
         backgroundColor: AdminColors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminColors.radius)),
         title: Text('Delete ${plot.plotId}?'),
-        content: const Text('This will remove the plot from local dummy list.'),
+        content: const Text('Do You want to delete this plot?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
@@ -95,8 +102,15 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
       ),
     );
     if (ok == true) {
-      _viewModel.deletePlot(plot);
-      if (mounted) showAdminSnack(context, '${plot.plotId} deleted');
+      final success= await _viewModel.deletePlot(plot);
+      if (success){
+        if (mounted)
+          showAdminSnack(context, '${plot.plotId} deleted');
+      }
+      else{
+        if (mounted)
+        showAdminSnack(context, '${plot.plotId} failed to delete');
+      }
     }
   }
 
@@ -115,6 +129,29 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
       isLoading: _viewModel.isLoading,
       body: Column(
         children: [
+          Row(
+            children: [
+              Expanded(
+                  child: PremiumCard(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.home_work_rounded ,size: 30, color: AdminColors.primary,),
+                      const SizedBox(height: 10),
+                      Text('Total Plots:${_viewModel.totalPlots}',
+                        style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        color: AdminColors.primary,
+                      ),
+                      ),
+                    ],
+                  )
+                  ),
+              ),
+            ],
+          ),
           FilterTabs(filters: _viewModel.filters, selected: _viewModel.selectedFilter, onSelected: _viewModel.setFilter),
           const SizedBox(height: 12),
           Expanded(

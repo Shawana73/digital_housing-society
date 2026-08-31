@@ -6,6 +6,14 @@ class PlotManagementViewModel extends BaseAdminViewModel {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   List<PlotModel> plots = [];
+  int get totalPlots {
+    return plots.length;
+  }
+  int get availablePlots {
+    return plots.where((plot) {
+      return plot.status.toLowerCase() == 'available';
+    }).length;
+  }
   String selectedFilter = 'All';
 
   List<String> get filters => ['All', 'Available', 'Booked', 'Allocated'];
@@ -46,25 +54,30 @@ class PlotManagementViewModel extends BaseAdminViewModel {
     notifyListeners();
   }
 
-  Future<void> updateStatus(PlotModel plot, String status) async {
+  Future<bool> updateStatus(PlotModel plot, String status) async {
     try {
       await _firestore.collection('plots').doc(plot.documentId).update({
         'status': status,
         'updatedAt': Timestamp.now(),
-      });
+      }
+      );
       await load();
+      return true;
     } catch (e) {
       print('Error updating plot: $e');
+      return false;
     }
   }
 
-  Future<void> deletePlot(PlotModel plot) async {
+  Future<bool> deletePlot(PlotModel plot) async {
     try {
       await _firestore.collection('plots').doc(plot.documentId).delete();
       plots.removeWhere((item) => item.documentId == plot.documentId);
       notifyListeners();
+      return true;
     } catch (e) {
       print('Error deleting plot: $e');
+      return false;
     }
   }
 }
