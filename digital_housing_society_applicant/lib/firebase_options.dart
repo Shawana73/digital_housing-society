@@ -21,21 +21,20 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC0h9ON_3_QHZbRi66RtWMH8O7fzxghIvY',
-    appId: '1:545528218735:web:0e053cc2e80c0412d8399a',
-    messagingSenderId: '545528218735',
-    projectId: 'digital-housing-society-system',
-    authDomain: 'digital-housing-society-system.firebaseapp.com',
-    storageBucket: 'digital-housing-society-system.firebasestorage.app',
-    measurementId: 'G-9KMZCDTZPT',
+    apiKey: 'AIzaSyCF0T_dQcnj3Kd_o233SncdVgO0ePtJXis',
+    appId: '1:969765136421:web:86cf78648b9dbc22cc37cc',
+    messagingSenderId: '969765136421',
+    projectId: 'digital-housing-society-2f27c',
+    authDomain: 'digital-housing-society-2f27c.firebaseapp.com',
+    storageBucket: 'digital-housing-society-2f27c.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCnpdHyImScahbWUR8LH0_MvcyEw5eGfKg',
-    appId: '1:545528218735:android:3ff903411d167b35d8399a',
-    messagingSenderId: '545528218735',
-    projectId: 'digital-housing-society-system',
-    storageBucket: 'digital-housing-society-system.firebasestorage.app',
+    apiKey: 'AIzaSyDLF6BjT8FCTBxWVFP3nKW31g6oSu-oyLQ',
+    appId: '1:969765136421:android:fbca9072bf7a1300cc37cc',
+    messagingSenderId: '969765136421',
+    projectId: 'digital-housing-society-2f27c',
+    storageBucket: 'digital-housing-society-2f27c.firebasestorage.app',
   );
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'REPLACE_WITH_IOS_API_KEY',
