@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "969765136421",
+    "project_id": "digital-housing-society-2f27c",
+    "storage_bucket": "digital-housing-society-2f27c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:969765136421:android:fbca9072bf7a1300cc37cc",
+        "android_client_info": {
+          "package_name": "com.example.digital_housing_society"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLF6BjT8FCTBxWVFP3nKW31g6oSu-oyLQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:969765136421:android:15e1d1e865749ce6cc37cc",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLF6BjT8FCTBxWVFP3nKW31g6oSu-oyLQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
