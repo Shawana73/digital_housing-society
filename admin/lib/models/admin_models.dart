@@ -137,6 +137,7 @@ class ApplicantDocument {
   final String status;
   final IconData icon;
   final bool verified;
+  final String fileUrl;
 
   const ApplicantDocument({
     required this.title,
@@ -146,6 +147,7 @@ class ApplicantDocument {
     required this.status,
     required this.icon,
     required this.verified,
+    required this.fileUrl,
   });
 }
 

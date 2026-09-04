@@ -1,17 +1,15 @@
 import 'dart:math';
+import 'dart:typed_data';
+import '../services/storage_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
-import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
-import '../widgets/responsive_shell.dart';
 import '../utils/app_text_styles.dart';
-import '../widgets/branded_background.dart';
 import '../widgets/custom_button.dart';
-import '../widgets/header_actions.dart';
 import '../widgets/status_badge.dart';
 
 class FileUploadScreen extends StatefulWidget {
@@ -23,6 +21,7 @@ class FileUploadScreen extends StatefulWidget {
 
 class _FileUploadScreenState extends State<FileUploadScreen> {
   final _firestoreService = FirestoreService();
+  final _storageService = StorageService();
   late final List<_DocumentSlot> _slots;
   bool _loading = false;
   bool _checkingExisting = true;
@@ -68,6 +67,12 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
 
   Future<void> _loadExisting() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    debugPrint('CURRENT LOGGED-IN UID: $uid');
+
+    final existingUpload = await _firestoreService.getUpload(uid!);
+
+    debugPrint('EXISTING UPLOAD: ${existingUpload?.id}');
+    debugPrint('EXISTING UPLOAD DATA: ${existingUpload?.data()}');
     if (uid == null) {
       setState(() => _checkingExisting = false);
       return;
@@ -87,26 +92,32 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
 
   String _serial(String id) {
     final r = Random.secure().nextInt(900000) + 100000;
-    return 'DHS-${id.toUpperCase().replaceAll('_', '-')}-${DateTime.now().year}-$r';
+    return 'DHS-${id.toUpperCase().replaceAll('_', '-')}-${DateTime
+        .now()
+        .year}-$r';
   }
 
   Future<void> _pickForSlot(int index) async {
     final result = await FilePicker.pickFiles(
       allowMultiple: false,
-      withData: false,
+      withData: true,
       type: FileType.custom,
       allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
     );
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
-    final ext = (file.extension ?? file.name.split('.').last).toLowerCase();
-    if (file.size > _maxSize) return _showSnack('${file.name} exceeds 5MB limit.');
+    final ext = (file.extension ?? file.name
+        .split('.')
+        .last).toLowerCase();
+    if (file.size > _maxSize)
+      return _showSnack('${file.name} exceeds 5MB limit.');
     if (!['pdf', 'png', 'jpg', 'jpeg'].contains(ext)) {
       return _showSnack('${file.name} is not allowed. Use PDF/JPG/PNG.');
     }
     final safeName = RegExp(r'^[A-Za-z0-9 _().-]{3,120}$');
     if (!safeName.hasMatch(file.name)) {
-      return _showSnack('Please rename the file using only letters, numbers, spaces, dot, dash, underscore or brackets.');
+      return _showSnack(
+          'Please rename the file using only letters, numbers, spaces, dot, dash, underscore or brackets.');
     }
     final picked = _DocumentRecord(
       name: file.name,
@@ -115,88 +126,139 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
       serial: _serial(_slots[index].id),
       documentId: _slots[index].id,
       documentTitle: _slots[index].title,
+      bytes: file.bytes!,
     );
     setState(() => _slots[index] = _slots[index].copyWith(record: picked));
   }
 
   Future<void> _submit() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return _showSnack('Please login again.');
-    final missing = _slots.where((s) => s.required && s.record == null).map((s) => s.title).toList();
-    if (missing.isNotEmpty) return _showSnack('Please select: ${missing.join(', ')}');
-    final selected = _slots.where((s) => s.record != null).map((s) => s.record!).toList();
+
+    if (uid == null) {
+      return _showSnack('Please login again.');
+    }
+
+    final missing = _slots
+        .where((s) => s.required && s.record == null)
+        .map((s) => s.title)
+        .toList();
+
+    if (missing.isNotEmpty) {
+      return _showSnack('Please select: ${missing.join(', ')}');
+    }
+
+    final selected = _slots
+        .where((s) => s.record != null)
+        .map((s) => s.record!)
+        .toList();
+
     setState(() => _loading = true);
+
     try {
-      await _firestoreService.saveUpload({
+      final uploadedDocuments = <Map<String, dynamic>>[];
+
+      for (final document in selected) {
+        final fileUrl = await _storageService.uploadFile(
+          document.bytes,
+          document.name,
+        );
+
+        uploadedDocuments.add(
+          document.toMap(fileUrl: fileUrl),
+        );
+      }
+
+      await _firestoreService
+          .saveUpload({
         'applicantId': uid,
-        'documents': selected.map((e) => e.toMap()).toList(),
-        'documentCount': selected.length,
+        'documents': uploadedDocuments,
+        'documentCount': uploadedDocuments.length,
         'requiredCompleted': missing.isEmpty,
         'verificationStatus': 'pending',
         'uploadedAt': FieldValue.serverTimestamp(),
-      }).timeout(const Duration(seconds: 20));
+      })
+          .timeout(const Duration(seconds: 60));
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Documents submitted successfully.')));
-      Navigator.pushReplacementNamed(context, AppConstants.paymentRoute);
-    } catch (_) {
-      _showSnack('Documents could not be submitted. Please try again.');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Documents submitted successfully.'),
+        ),
+      );
+
+      Navigator.pushReplacementNamed(
+        context,
+        AppConstants.paymentRoute,
+      );
+    } catch (e) {
+      debugPrint('Document upload error: $e');
+
+      if (mounted) {
+        _showSnack(
+          'Documents could not be submitted. Please try again.',
+        );
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
-  void _showSnack(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
-  int get _selectedCount => _slots.where((s) => s.record != null).length;
-
+  int get _selectedCount =>
+      _slots.where((s) => s.record != null).length;
   @override
   Widget build(BuildContext context) {
-    final desktop =
-        MediaQuery.sizeOf(context).width >= DhsResponsiveShell.desktopBreakpoint;
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _HeroCard(
+                count: _selectedCount,
+                total: _slots.length,
+              ),
+              const SizedBox(height: 18),
+              _InfoCard(),
+              const SizedBox(height: 18),
 
-    return DhsResponsiveShell(
-      currentRoute: AppConstants.uploadRoute,
-      mobileTitle: 'Documents',
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: desktop ? AppBar(title: const Text('Upload Documents'), actions: const [NotificationBell(), SizedBox(width: 8)]) : null,
-      body: _checkingExisting
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple))
-          : BrandedImageBackground(
-              imagePath: AppAssets.courtyardBackground,
-              overlayOpacity: .32,
-              child: SafeArea(
-                child: ListView(
-                  padding: const EdgeInsets.all(18),
-                  children: [
-                    if (_existingUpload != null)
-                      _SubmittedDocumentsView(data: _existingUpload!)
-                    else ...[
-                      _HeroCard(count: _selectedCount, total: _slots.length),
-                      const SizedBox(height: 18),
-                      _InfoCard(),
-                      const SizedBox(height: 16),
-                      ...List.generate(
-                        _slots.length,
-                        (index) => _DocumentSlotCard(
-                          slot: _slots[index],
-                          onPick: () => _pickForSlot(index),
-                          onRemove: () => setState(() => _slots[index] = _slots[index].copyWith(record: null)),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      PrimaryGradientButton(
-                        text: 'Submit Documents',
-                        icon: Icons.task_alt_rounded,
-                        isLoading: _loading,
-                        onPressed: _submit,
-                      ),
-                    ],
-                    const SizedBox(height: 22),
-                  ],
+              ..._slots.asMap().entries.map(
+                    (entry) => _DocumentSlotCard(
+                  slot: entry.value,
+                  onPick: () => _pickForSlot(entry.key),
+                  onRemove: () {
+                    setState(() {
+                      _slots[entry.key] =
+                          _slots[entry.key].copyWith(record: null);
+                    });
+                  },
                 ),
               ),
-            ),
+
+              const SizedBox(height: 10),
+
+              SizedBox(
+                width: double.infinity,
+                child: PrimaryGradientButton(
+                  text: _loading
+                      ? 'Uploading Documents...'
+                      : 'Submit Documents',
+                  icon: Icons.cloud_upload_rounded,
+                  onPressed: _loading ? null : _submit,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -296,23 +358,34 @@ class _DocumentSlot {
 }
 
 class _DocumentRecord {
-  const _DocumentRecord({required this.name, required this.type, required this.size, required this.serial, required this.documentId, required this.documentTitle});
+  const _DocumentRecord({
+    required this.name,
+    required this.type,
+    required this.size,
+    required this.serial,
+    required this.documentId,
+    required this.documentTitle,
+    required this.bytes,
+  });
+
   final String name;
   final String type;
   final int size;
   final String serial;
   final String documentId;
   final String documentTitle;
+  final Uint8List bytes;
 
-  Map<String, dynamic> toMap() => {
-        'documentId': documentId,
-        'documentTitle': documentTitle,
-        'fileName': name,
-        'fileType': type,
-        'fileSize': size,
-        'serialNumber': serial,
-        'status': 'pending',
-      };
+  Map<String, dynamic> toMap({String? fileUrl}) => {
+    'documentId': documentId,
+    'documentTitle': documentTitle,
+    'fileName': name,
+    'fileType': type,
+    'fileSize': size,
+    'serialNumber': serial,
+    'status': 'pending',
+    if (fileUrl != null) 'fileUrl': fileUrl,
+  };
 }
 
 class _HeroCard extends StatelessWidget {
