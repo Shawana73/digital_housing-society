@@ -89,12 +89,18 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
 
       final applicantId =
           applicantData?['uid']?.toString() ?? selectedApplicant.id;
+      debugPrint('SELECTED APPLICANT ID: ${selectedApplicant.id}');
+      debugPrint('SELECTED APPLICANT CNIC: ${selectedApplicant.cnic}');
+      debugPrint('APPLICANT FIRESTORE UID: ${applicantData?['uid']}');
+      debugPrint('UPLOAD DOC ID USED: $applicantId');
 
       final uploadDoc = await _firestore
           .collection('uploads')
           .doc(applicantId)
           .get();
-
+      debugPrint('UPLOAD DOC ID: $applicantId');
+      debugPrint('UPLOAD EXISTS: ${uploadDoc.exists}');
+      debugPrint('UPLOAD DATA: ${uploadDoc.data()}');
       if (uploadDoc.exists) {
         final uploadData = uploadDoc.data() as Map<String, dynamic>;
         final rawDocuments = uploadData['documents'];
