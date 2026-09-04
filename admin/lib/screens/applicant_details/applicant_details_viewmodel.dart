@@ -87,14 +87,16 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
 
       documents = [];
 
-      final uploadSnapshot = await _firestore
+      final applicantId =
+          applicantData?['uid']?.toString() ?? selectedApplicant.id;
+
+      final uploadDoc = await _firestore
           .collection('uploads')
-          .where('applicantId', isEqualTo: applicantData?['uid'] ?? selectedApplicant.id)
-          .limit(1)
+          .doc(applicantId)
           .get();
 
-      if (uploadSnapshot.docs.isNotEmpty) {
-        final uploadData = uploadSnapshot.docs.first.data();
+      if (uploadDoc.exists) {
+        final uploadData = uploadDoc.data() as Map<String, dynamic>;
         final rawDocuments = uploadData['documents'];
 
         if (rawDocuments is List) {

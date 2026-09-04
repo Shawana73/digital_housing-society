@@ -49,19 +49,58 @@ class DetailsTabStrip extends StatelessWidget {
 }
 
 class DocumentsTab extends StatelessWidget {
-  final Applicant applicant;
+  final List<ApplicantDocument> documents;
   final void Function(String title, IconData icon) onPreview;
-  const DocumentsTab({super.key, required this.applicant, required this.onPreview});
+
+  const DocumentsTab({
+    super.key,
+    required this.documents,
+    required this.onPreview,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final docs = applicant.documents;
+    final docs = documents;
+
+    if (docs.isEmpty) {
+      return PremiumCard(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Icon(
+              Icons.folder_off_rounded,
+              color: AdminColors.greyText,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'No documents have been uploaded by this applicant.',
+                style: TextStyle(
+                  color: AdminColors.greyText,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Uploaded Documents',
-            style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 15)),
+        const Text(
+          'Uploaded Documents',
+          style: TextStyle(
+            color: AdminColors.darkText,
+            fontWeight: FontWeight.w900,
+            fontSize: 15,
+          ),
+        ),
         const SizedBox(height: 12),
+
         for (int i = 0; i < docs.length; i += 2)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -69,33 +108,65 @@ class DocumentsTab extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: DocTile(doc: docs[i], onTap: () => onPreview(docs[i].title, docs[i].icon))),
+                  Expanded(
+                    child: DocTile(
+                      doc: docs[i],
+                      onTap: () => onPreview(
+                        docs[i].title,
+                        docs[i].icon,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: i + 1 < docs.length
-                        ? DocTile(doc: docs[i + 1], onTap: () => onPreview(docs[i + 1].title, docs[i + 1].icon))
+                        ? DocTile(
+                      doc: docs[i + 1],
+                      onTap: () => onPreview(
+                        docs[i + 1].title,
+                        docs[i + 1].icon,
+                      ),
+                    )
                         : const SizedBox.shrink(),
                   ),
                 ],
               ),
             ),
           ),
+
         const SizedBox(height: 6),
-        Row(children: [
-          Expanded(
+
+        Row(
+          children: [
+            Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => showAdminSnack(context, 'Download clicked'),
-                icon: const Icon(Icons.download_rounded, size: 18),
+                onPressed: () => showAdminSnack(
+                  context,
+                  'Download feature will be connected next.',
+                ),
+                icon: const Icon(
+                  Icons.download_rounded,
+                  size: 18,
+                ),
                 label: const Text('Download'),
-              )),
-          const SizedBox(width: 10),
-          Expanded(
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
               child: FilledButton.icon(
-                onPressed: () => onPreview('All Documents', Icons.folder_copy_rounded),
-                icon: const Icon(Icons.fullscreen_rounded, size: 18),
+                onPressed: () => onPreview(
+                  'All Documents',
+                  Icons.folder_copy_rounded,
+                ),
+                icon: const Icon(
+                  Icons.fullscreen_rounded,
+                  size: 18,
+                ),
                 label: const Text('View Full'),
-              )),
-        ]),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }

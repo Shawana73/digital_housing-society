@@ -324,7 +324,10 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
   Widget _buildTabContent(Applicant applicant) {
     switch (_tabIndex) {
       case 0:
-        return DocumentsTab(applicant: applicant, onPreview: _showFullImage);
+        return DocumentsTab(
+          documents: _viewModel.documents,
+          onPreview: _showFullImage,
+        );
       case 1:
         return PersonalInfoTab(viewModel: _viewModel);
       case 2:
