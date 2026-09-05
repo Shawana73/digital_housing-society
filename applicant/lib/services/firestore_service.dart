@@ -31,7 +31,7 @@ class FirestoreService {
 
       if (existing.exists) {
         final owner =
-            existing.data()?['uid']?.toString();
+        existing.data()?['uid']?.toString();
         if (owner != uid) {
           throw Exception('An account with this CNIC already exists.');
         }
@@ -75,9 +75,9 @@ class FirestoreService {
   /// reports a verified email and the ID token is refreshed. Admin-owned
   /// fields are never accepted through a normal applicant update.
   Future<void> updateApplicant(
-    String uid,
-    Map<String, dynamic> data,
-  ) async {
+      String uid,
+      Map<String, dynamic> data,
+      ) async {
     final wantsVerificationSync =
         data['emailVerified'] == true || data['profileStatus'] == 'active';
 
@@ -124,8 +124,8 @@ class FirestoreService {
   }
 
   Future<DocumentReference> saveApplication(
-    Map<String, dynamic> data,
-  ) async {
+      Map<String, dynamic> data,
+      ) async {
     final applicantId = data['applicantId']?.toString();
     if (applicantId == null || applicantId.isEmpty) {
       throw Exception('Applicant id is required.');
@@ -217,8 +217,8 @@ class FirestoreService {
   }
 
   Future<DocumentReference> savePayment(
-    Map<String, dynamic> data,
-  ) async {
+      Map<String, dynamic> data,
+      ) async {
     final applicantId = data['applicantId']?.toString();
     if (applicantId == null || applicantId.isEmpty) {
       throw Exception('Applicant id is required.');
@@ -239,7 +239,7 @@ class FirestoreService {
       recipientId: applicantId,
       title: 'Payment Submitted',
       message:
-          'Your Stripe test payment record has been saved and is pending verification.',
+      'Your Stripe test payment record has been saved and is pending verification.',
       type: 'payment',
       actionRoute: '/payment',
     );
@@ -253,10 +253,10 @@ class FirestoreService {
   }
 
   Future<DocumentSnapshot?> getResultForApplicant(
-    String applicantId,
-  ) async {
+      String applicantId,
+      ) async {
     final direct =
-        await _db.collection('ballot_results').doc(applicantId).get();
+    await _db.collection('ballot_results').doc(applicantId).get();
     if (direct.exists) return direct;
 
     final snap = await _db
@@ -347,14 +347,14 @@ class FirestoreService {
 
   Future<DocumentSnapshot?> getDealerRegistration(String uid) async {
     final doc =
-        await _db.collection('dealer_registrations').doc(uid).get();
+    await _db.collection('dealer_registrations').doc(uid).get();
     return doc.exists ? doc : null;
   }
 
   Future<void> saveDealerRegistration(
-    String uid,
-    Map<String, dynamic> data,
-  ) async {
+      String uid,
+      Map<String, dynamic> data,
+      ) async {
     final current = await getDealerRegistration(uid);
     if (current != null) {
       throw Exception('Dealer registration has already been submitted.');
@@ -393,26 +393,30 @@ class FirestoreService {
   }
 
   Future<Map<String, dynamic>> getBallotingEligibility(String uid) async {
-    final app = await getApplication(uid);
-    final upload = await getUpload(uid);
-    final payment = await getPayment(uid);
+    // Fetch the three official records in parallel so the Balloting screen
+    // does not wait on three sequential Firestore reads.
+    final records = await Future.wait<DocumentSnapshot?>([
+      getApplication(uid),
+      getUpload(uid),
+      getPayment(uid),
+    ]);
 
-    final appStatus =
-        (app?.data() as Map<String, dynamic>?)?['status']
-                ?.toString()
-                .toLowerCase() ??
-            '';
+    final app = records[0];
+    final upload = records[1];
+    final payment = records[2];
+
+    final appData = app?.data() as Map<String, dynamic>?;
+    final uploadData = upload?.data() as Map<String, dynamic>?;
+    final paymentData = payment?.data() as Map<String, dynamic>?;
+
+    final appStatus = _normalizeWorkflowStatus(appData?['status']);
     final uploadStatus =
-        (upload?.data() as Map<String, dynamic>?)?['verificationStatus']
-                ?.toString()
-                .toLowerCase() ??
-            '';
-    final paymentStatus =
-        (payment?.data() as Map<String, dynamic>?)?['status']
-                ?.toString()
-                .toLowerCase() ??
-            '';
+    _normalizeWorkflowStatus(uploadData?['verificationStatus']);
+    final paymentStatus = _normalizeWorkflowStatus(paymentData?['status']);
 
+    // IMPORTANT:
+    // Eligibility stays backend-controlled. The applicant app never marks
+    // itself eligible. Admin/official records must contain these values.
     final eligible = appStatus == 'approved' &&
         uploadStatus == 'verified' &&
         paymentStatus == 'verified';
@@ -420,12 +424,16 @@ class FirestoreService {
     return {
       'eligible': eligible,
       'applicationStatus':
-          appStatus.isEmpty ? 'not submitted' : appStatus,
+      appStatus.isEmpty ? 'not submitted' : appStatus,
       'documentsStatus':
-          uploadStatus.isEmpty ? 'not submitted' : uploadStatus,
+      uploadStatus.isEmpty ? 'not submitted' : uploadStatus,
       'paymentStatus':
-          paymentStatus.isEmpty ? 'not submitted' : paymentStatus,
+      paymentStatus.isEmpty ? 'not submitted' : paymentStatus,
     };
+  }
+
+  String _normalizeWorkflowStatus(dynamic value) {
+    return value?.toString().trim().toLowerCase() ?? '';
   }
 
   Future<void> saveContactMessage(Map<String, dynamic> data) async {

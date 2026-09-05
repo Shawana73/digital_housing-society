@@ -17,12 +17,14 @@ class DhsResponsiveShell extends StatelessWidget {
     required this.child,
     this.backgroundColor = AppColors.pageBackground,
     this.mobileTitle = 'Digital Housing Society',
+    this.showMobileAppBar = true,
   });
 
   final String currentRoute;
   final Widget child;
   final Color backgroundColor;
   final String mobileTitle;
+  final bool showMobileAppBar;
 
   static const double desktopBreakpoint = 980;
 
@@ -67,7 +69,8 @@ class DhsResponsiveShell extends StatelessWidget {
           ),
         ),
       ),
-      appBar: AppBar(
+      appBar: showMobileAppBar
+          ? AppBar(
         toolbarHeight: 66,
         elevation: 0,
         backgroundColor: Colors.white,
@@ -107,8 +110,9 @@ class DhsResponsiveShell extends StatelessWidget {
           _MobileInitialsAvatar(),
           const SizedBox(width: 12),
         ],
-      ),
-      body: child,
+      )
+          : null,
+      body: showMobileAppBar ? child : SafeArea(child: child),
     );
   }
 }
@@ -396,7 +400,7 @@ class DhsNavigationPanel extends StatelessWidget {
 
     navigator.pushNamedAndRemoveUntil(
       AppConstants.loginRoute,
-      (_) => false,
+          (_) => false,
     );
   }
 }
@@ -426,11 +430,11 @@ class _NavTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: selected
                 ? const Border(
-                    left: BorderSide(
-                      color: AppColors.primaryPurple,
-                      width: 3,
-                    ),
-                  )
+              left: BorderSide(
+                color: AppColors.primaryPurple,
+                width: 3,
+              ),
+            )
                 : null,
           ),
           child: Row(
@@ -453,7 +457,7 @@ class _NavTile extends StatelessWidget {
                         ? AppColors.deepPurple
                         : const Color(0xFF344054),
                     fontWeight:
-                        selected ? FontWeight.w800 : FontWeight.w600,
+                    selected ? FontWeight.w800 : FontWeight.w600,
                     fontSize: 13.5,
                   ),
                 ),
@@ -490,11 +494,11 @@ class _MobileInitialsAvatar extends StatelessWidget {
     final initials = raw.isEmpty
         ? 'A'
         : raw
-            .split(RegExp(r'\s+'))
-            .where((part) => part.isNotEmpty)
-            .take(2)
-            .map((part) => part[0].toUpperCase())
-            .join();
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0].toUpperCase())
+        .join();
 
     return CircleAvatar(
       radius: 17,
