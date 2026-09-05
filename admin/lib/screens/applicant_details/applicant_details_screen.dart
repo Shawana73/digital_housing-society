@@ -43,31 +43,70 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
     super.dispose();
   }
 
-  void _showFullImage(String title, IconData icon) {
+  void _showDocumentPreview(ApplicantDocument document) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 40,
+        ),
         child: PremiumCard(
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                height: 220,
-                width: double.infinity,
-                decoration: BoxDecoration(gradient: AdminColors.primaryGradient, borderRadius: BorderRadius.circular(24)),
-                child: Icon(icon, size: 82, color: AdminColors.white),
+              Text(
+                document.title,
+                style: const TextStyle(
+                  color: AdminColors.darkText,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                ),
               ),
               const SizedBox(height: 16),
-              Text(title, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 18)),
-              const SizedBox(height: 8),
-              const Text('Dummy preview image for local UI testing.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600)),
+
+              if (document.fileUrl.isEmpty)
+                const SizedBox(
+                  height: 220,
+                  child: Center(
+                    child: Text('Document URL not available.'),
+                  ),
+                )
+              else if (['jpg', 'jpeg', 'png']
+                  .contains(document.fileType.toLowerCase()))
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.network(
+                    document.fileUrl,
+                    height: 320,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox(
+                      height: 220,
+                      child: Center(
+                        child: Text('Unable to load document.'),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(
+                  height: 220,
+                  child: Center(
+                    child: Text(
+                      'PDF preview will be connected next.',
+                    ),
+                  ),
+                ),
+
               const SizedBox(height: 16),
-              FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close Preview')),
+
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Close Preview'),
+              ),
             ],
           ),
         ),
@@ -116,9 +155,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
       searchHint: 'Search inside applicant profile...',
       onSearchClear: () => _searchController.clear(),
       onSearchSubmitted: (value) => showAdminSnack(context, 'Searching $value'),
-      onFabTap: () => _showFullImage('Profile Picture', Icons.person_rounded),
-      fabLabel: 'View Image',
-      fabIcon: Icons.image_rounded,
+      onFabTap: null,
       isLoading: _viewModel.isLoading,
       body: ListView(
         physics: const BouncingScrollPhysics(),
@@ -326,8 +363,17 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
       case 0:
         return DocumentsTab(
           documents: _viewModel.documents,
-          onPreview: _showFullImage,
+          onPreview: (document) {
+            _showDocumentPreview(document);
+          },
+          onVerify: (index) async {
+            await _viewModel.updateDocumentStatus(index, 'verified');
+          },
+          onReject: (index) async {
+            await _viewModel.updateDocumentStatus(index, 'rejected');
+          },
         );
+
       case 1:
         return PersonalInfoTab(viewModel: _viewModel);
       case 2:

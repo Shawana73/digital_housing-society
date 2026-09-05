@@ -89,12 +89,18 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
 
       final applicantId =
           applicantData?['uid']?.toString() ?? selectedApplicant.id;
+      debugPrint('SELECTED APPLICANT ID: ${selectedApplicant.id}');
+      debugPrint('SELECTED APPLICANT CNIC: ${selectedApplicant.cnic}');
+      debugPrint('APPLICANT FIRESTORE UID: ${applicantData?['uid']}');
+      debugPrint('UPLOAD DOC ID USED: $applicantId');
 
       final uploadDoc = await _firestore
           .collection('uploads')
           .doc(applicantId)
           .get();
-
+      debugPrint('ADMIN UPLOAD UID: $applicantId');
+      debugPrint('ADMIN UPLOAD EXISTS: ${uploadDoc.exists}');
+      debugPrint('ADMIN UPLOAD DATA: ${uploadDoc.data()}');
       if (uploadDoc.exists) {
         final uploadData = uploadDoc.data() as Map<String, dynamic>;
         final rawDocuments = uploadData['documents'];
@@ -113,6 +119,7 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
                 number: serialNumber,
                 fileSize: fileSize,
                 fileType: fileType,
+                fileUrl: item['fileUrl']?.toString() ?? '',
                 status: status,
                 icon: _getDocumentIcon(fileType),
                 verified: status.toLowerCase() == 'verified',
@@ -123,6 +130,7 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
               number: '',
               fileSize: '',
               fileType: '',
+              fileUrl: '',
               status: 'pending',
               icon: Icons.insert_drive_file_rounded,
               verified: false,
@@ -154,6 +162,84 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
         return Icons.description_rounded;
       default:
         return Icons.insert_drive_file_rounded;
+    }
+  }
+  Future<void> updateDocumentStatus(
+      int index,
+      String newStatus,
+      ) async {
+    if (index < 0 || index >= documents.length) return;
+
+    try {
+      final applicantId =
+          applicantData?['uid']?.toString() ?? applicant?.id;
+
+      if (applicantId == null || applicantId.isEmpty) {
+        throw Exception('Applicant UID not found.');
+      }
+
+      final uploadRef =
+      _firestore.collection('uploads').doc(applicantId);
+
+      final uploadSnapshot = await uploadRef.get();
+
+      if (!uploadSnapshot.exists) {
+        throw Exception('Upload record not found.');
+      }
+
+      final uploadData = uploadSnapshot.data();
+
+      if (uploadData == null || uploadData['documents'] is! List) {
+        throw Exception('No documents found.');
+      }
+
+      final updatedDocuments =
+      List<Map<String, dynamic>>.from(
+        (uploadData['documents'] as List).map(
+              (item) => Map<String, dynamic>.from(item as Map),
+        ),
+      );
+
+      if (index >= updatedDocuments.length) return;
+
+      updatedDocuments[index]['status'] = newStatus;
+
+      String overallStatus = 'pending';
+
+      final statuses = updatedDocuments
+          .map((doc) => doc['status']?.toString().toLowerCase())
+          .toList();
+
+      if (statuses.any((status) => status == 'rejected')) {
+        overallStatus = 'rejected';
+      } else if (statuses.isNotEmpty &&
+          statuses.every((status) => status == 'verified')) {
+        overallStatus = 'verified';
+      }
+
+      await uploadRef.update({
+        'documents': updatedDocuments,
+        'verificationStatus': overallStatus,
+      });
+
+      final oldDocument = documents[index];
+
+      documents[index] = ApplicantDocument(
+        title: oldDocument.title,
+        number: oldDocument.number,
+        fileSize: oldDocument.fileSize,
+        fileType: oldDocument.fileType,
+        fileUrl: oldDocument.fileUrl,
+        status: newStatus,
+        icon: oldDocument.icon,
+        verified: newStatus.toLowerCase() == 'verified',
+      );
+
+      notifyListeners();
+    } catch (e, stackTrace) {
+      debugPrint('Error updating document status: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
     }
   }
 

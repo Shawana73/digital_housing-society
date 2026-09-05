@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/admin_models.dart';
 import '../../theme/admin_theme.dart';
-import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
+import '../../widgets/app_snack.dart';
 
 class DetailsTabStrip extends StatelessWidget {
   final List<String> tabs;
@@ -50,12 +50,18 @@ class DetailsTabStrip extends StatelessWidget {
 
 class DocumentsTab extends StatelessWidget {
   final List<ApplicantDocument> documents;
-  final void Function(String title, IconData icon) onPreview;
+  final void Function(ApplicantDocument document)? onPreview;
+  final VoidCallback? onTap;
+  final void Function(int index)? onVerify;
+  final void Function(int index)? onReject;
 
   const DocumentsTab({
     super.key,
     required this.documents,
-    required this.onPreview,
+    this.onPreview,
+    this.onTap,
+    this.onVerify,
+    this.onReject,
   });
 
   @override
@@ -111,10 +117,15 @@ class DocumentsTab extends StatelessWidget {
                   Expanded(
                     child: DocTile(
                       doc: docs[i],
-                      onTap: () => onPreview(
-                        docs[i].title,
-                        docs[i].icon,
-                      ),
+                      onTap: onPreview == null
+                          ? null
+                          : () => onPreview!(docs[i]),
+                      onVerify: onVerify == null
+                          ? null
+                          : () => onVerify!(i),
+                      onReject: onReject == null
+                          ? null
+                          : () => onReject!(i),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -122,10 +133,15 @@ class DocumentsTab extends StatelessWidget {
                     child: i + 1 < docs.length
                         ? DocTile(
                       doc: docs[i + 1],
-                      onTap: () => onPreview(
-                        docs[i + 1].title,
-                        docs[i + 1].icon,
-                      ),
+                      onTap: onPreview == null
+                          ? null
+                          : () => onPreview!(docs[i + 1]),
+                      onVerify: onVerify == null
+                          ? null
+                          : () => onVerify!(i + 1),
+                      onReject: onReject == null
+                          ? null
+                          : () => onReject!(i + 1),
                     )
                         : const SizedBox.shrink(),
                   ),
@@ -133,40 +149,6 @@ class DocumentsTab extends StatelessWidget {
               ),
             ),
           ),
-
-        const SizedBox(height: 6),
-
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => showAdminSnack(
-                  context,
-                  'Download feature will be connected next.',
-                ),
-                icon: const Icon(
-                  Icons.download_rounded,
-                  size: 18,
-                ),
-                label: const Text('Download'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: () => onPreview(
-                  'All Documents',
-                  Icons.folder_copy_rounded,
-                ),
-                icon: const Icon(
-                  Icons.fullscreen_rounded,
-                  size: 18,
-                ),
-                label: const Text('View Full'),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -174,38 +156,127 @@ class DocumentsTab extends StatelessWidget {
 
 class DocTile extends StatelessWidget {
   final ApplicantDocument doc;
-  final VoidCallback onTap;
-  const DocTile({super.key, required this.doc, required this.onTap});
+  final VoidCallback? onTap;
+  final VoidCallback? onVerify;
+  final VoidCallback? onReject;
+
+  const DocTile({
+    super.key,
+    required this.doc,
+    this.onTap,
+    this.onVerify,
+    this.onReject,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = doc.verified ? AdminColors.success : AdminColors.warning;
+    final status = doc.status.toLowerCase();
+
+    final Color statusColor;
+    if (status == 'verified') {
+      statusColor = AdminColors.success;
+    } else if (status == 'rejected') {
+      statusColor = AdminColors.rejected;
+    } else {
+      statusColor = AdminColors.warning;
+    }
+
     return PremiumCard(
       onTap: onTap,
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Container(
-              height: 38,
-              width: 38,
-              decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.10), borderRadius: BorderRadius.circular(11)),
-              child: Icon(doc.icon, color: AdminColors.primary, size: 19),
+          Container(
+            height: 38,
+            width: 38,
+            decoration: BoxDecoration(
+              color: AdminColors.primary.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(11),
             ),
-            const Spacer(),
-            RoundGhostIcon(icon: Icons.visibility_outlined, onTap: onTap),
-          ]),
+            child: Icon(
+              doc.icon,
+              color: AdminColors.primary,
+              size: 19,
+            ),
+          ),
+
           const SizedBox(height: 10),
-          Text(doc.title,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 12.5)),
+
+          Text(
+            doc.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AdminColors.darkText,
+              fontWeight: FontWeight.w800,
+              fontSize: 12.5,
+            ),
+          ),
+
           const SizedBox(height: 4),
-          Text('${doc.fileType.toUpperCase()} • ${doc.fileSize} bytes',
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 10.5)),
+
+          Text(
+            '${doc.fileType.toUpperCase()} • ${doc.fileSize} bytes',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AdminColors.greyText,
+              fontWeight: FontWeight.w600,
+              fontSize: 10.5,
+            ),
+          ),
+
           const SizedBox(height: 8),
-          StatusPill(label: doc.verified ? 'Verified' : 'Pending', color: color),
+
+          StatusPill(
+            label: status == 'verified'
+                ? 'Verified'
+                : status == 'rejected'
+                ? 'Rejected'
+                : 'Pending',
+            color: statusColor,
+          ),
+
+          const SizedBox(height: 10),
+
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onVerify,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    foregroundColor: AdminColors.success,
+                  ),
+                  child: const Text(
+                    'Verify',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onReject,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    foregroundColor: AdminColors.rejected,
+                  ),
+                  child: const Text(
+                    'Reject',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

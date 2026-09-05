@@ -241,6 +241,7 @@ class DummyData {
           fileSize: '400136',
           fileType: 'jpg',
           status: 'pending',
+          fileUrl: 'url',
         ),
         ApplicantDocument(
           title: 'CNIC Back',
@@ -250,6 +251,7 @@ class DummyData {
           fileSize: '400136',
           fileType: 'jpg',
           status: 'pending',
+          fileUrl: 'url',
         ),
         ApplicantDocument(
           title: 'Payment Slip',
@@ -259,6 +261,7 @@ class DummyData {
           fileSize: '400136',
           fileType: 'jpg',
           status: 'pending',
+          fileUrl: 'url',
         ),
         ApplicantDocument(
           title: 'Application Form',
@@ -268,6 +271,7 @@ class DummyData {
           fileSize: '400136',
           fileType: 'jpg',
           status: 'pending',
+          fileUrl: 'url',
         ),
       ];
 
