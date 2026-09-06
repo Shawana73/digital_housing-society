@@ -7,7 +7,6 @@ import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
 import 'applicant_viewmodel.dart';
 import 'applicant_widgets.dart';
-
 class ApplicantVerificationScreen extends StatefulWidget {
   const ApplicantVerificationScreen({super.key});
 

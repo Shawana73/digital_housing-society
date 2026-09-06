@@ -52,8 +52,19 @@ class _PaymentVerificationScreenState extends State<PaymentVerificationScreen> {
       ),
     );
     if (ok == true) {
-      approve ? _viewModel.approve(payment) : _viewModel.reject(payment);
-      if (mounted) showAdminSnack(context, 'Payment ${approve ? 'approved' : 'rejected'}');
+
+      if (approve) {
+        await _viewModel.approve(payment);
+      } else {
+        await _viewModel.reject(payment);
+      }
+
+      if (mounted) {
+        showAdminSnack(
+          context,
+          'Payment ${approve ? 'approved' : 'rejected'}',
+        );
+      }
     }
   }
 
