@@ -43,3 +43,22 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# =========================================================
+# DHS - Ignore generated Flutter / Android files everywhere
+# =========================================================
+
+**/.dart_tool/
+**/build/
+**/.gradle/
+**/.kotlin/
+**/.idea/
+**/.pub-cache/
+**/.pub/
+**/.flutter-plugins-dependencies
+**/android/local.properties
+**/GeneratedPluginRegistrant.java
+
+# Old/local project copies - not part of final integrated repo
+/digital_housing_society_applicant/
+/digital_housing_society_applicant_old/
+/digital_housing_society_flutter_app/
