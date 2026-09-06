@@ -67,26 +67,29 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
 
   Future<void> _loadExisting() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    debugPrint('CURRENT LOGGED-IN UID: $uid');
 
-    final existingUpload = await _firestoreService.getUpload(uid!);
-
-    debugPrint('EXISTING UPLOAD: ${existingUpload?.id}');
-    debugPrint('EXISTING UPLOAD DATA: ${existingUpload?.data()}');
     if (uid == null) {
-      setState(() => _checkingExisting = false);
+      if (mounted) {
+        setState(() => _checkingExisting = false);
+      }
       return;
     }
+
     try {
       final doc = await _firestoreService.getUpload(uid);
+
       if (!mounted) return;
+
       setState(() {
         _existingUpload = doc?.data() as Map<String, dynamic>?;
       });
-    } catch (_) {
-      // Keep screen usable even if old record cannot be loaded.
+    } catch (e) {
+      debugPrint('Existing upload check failed: $e');
+      // Keep screen usable even if an old upload record cannot be loaded.
     } finally {
-      if (mounted) setState(() => _checkingExisting = false);
+      if (mounted) {
+        setState(() => _checkingExisting = false);
+      }
     }
   }
 
@@ -109,8 +112,9 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
     final ext = (file.extension ?? file.name
         .split('.')
         .last).toLowerCase();
-    if (file.size > _maxSize)
+    if (file.size > _maxSize) {
       return _showSnack('${file.name} exceeds 5MB limit.');
+    }
     if (!['pdf', 'png', 'jpg', 'jpeg'].contains(ext)) {
       return _showSnack('${file.name} is not allowed. Use PDF/JPG/PNG.');
     }
@@ -216,6 +220,31 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
       _slots.where((s) => s.record != null).length;
   @override
   Widget build(BuildContext context) {
+    if (_checkingExisting) {
+      return const Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: CircularProgressIndicator(
+              color: AppColors.deepPurple,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_existingUpload != null) {
+      return Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: _SubmittedDocumentsView(
+              data: _existingUpload!,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
