@@ -178,6 +178,14 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
         'uploadedAt': FieldValue.serverTimestamp(),
       })
           .timeout(const Duration(seconds: 60));
+      await FirebaseFirestore.instance.collection('activity_logs').add({
+        'applicantId': uid,
+        'action': 'Documents uploaded',
+        'description':
+        'Applicant uploaded ${uploadedDocuments.length} required documents.',
+        'type': 'document',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
 
       if (!mounted) return;
 

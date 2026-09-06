@@ -170,14 +170,11 @@ class ApplicantStatTile extends StatelessWidget {
 
 class ApplicantRow extends StatelessWidget {
   final Applicant applicant;
-  final VoidCallback onApprove;
-  final VoidCallback onReject;
   final VoidCallback onTap;
   const ApplicantRow({
     super.key,
     required this.applicant,
-    required this.onApprove,
-    required this.onReject,
+
     required this.onTap,
   });
 
@@ -230,11 +227,12 @@ class ApplicantRow extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ApplicantRoundIconButton(icon: Icons.visibility_outlined, background: AdminColors.background, iconColor: AdminColors.darkText, onTap: onTap),
-                  const SizedBox(width: 6),
-                  ApplicantRoundIconButton(icon: Icons.check_rounded, background: AdminColors.success, iconColor: AdminColors.white, onTap: onApprove),
-                  const SizedBox(width: 6),
-                  ApplicantRoundIconButton(icon: Icons.close_rounded, background: AdminColors.rejected, iconColor: AdminColors.white, onTap: onReject),
+                  ApplicantRoundIconButton(
+                    icon: Icons.visibility_outlined,
+                    background: AdminColors.background,
+                    iconColor: AdminColors.darkText,
+                    onTap: onTap,
+                  ),
                 ],
               ),
             ],

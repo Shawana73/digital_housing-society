@@ -77,6 +77,9 @@ class PaymentVerificationViewModel extends BaseAdminViewModel {
             receiptNo:
             data['transactionId']?.toString() ?? 'Not available',
 
+            receiptUrl:
+            data['receiptUrl']?.toString() ?? '',
+
             status: _mapStatus(data['status']),
           ),
         );
@@ -148,6 +151,15 @@ class PaymentVerificationViewModel extends BaseAdminViewModel {
         'verifiedAt': FieldValue.serverTimestamp(),
       });
 
+      await _firestore.collection('activity_logs').add({
+        'applicantId': payment.id,
+        'action': 'Payment verified',
+        'description':
+        'Admin verified the payment of ${payment.amount}.',
+        'type': 'payment',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
       payment.status = PaymentStatus.verified;
       notifyListeners();
     } catch (e) {
@@ -161,6 +173,15 @@ class PaymentVerificationViewModel extends BaseAdminViewModel {
       await _firestore.collection('payments').doc(payment.id).update({
         'status': 'rejected',
         'rejectedAt': FieldValue.serverTimestamp(),
+      });
+
+      await _firestore.collection('activity_logs').add({
+        'applicantId': payment.id,
+        'action': 'Payment rejected',
+        'description':
+        'Admin rejected the payment of ${payment.amount}.',
+        'type': 'payment',
+        'timestamp': FieldValue.serverTimestamp(),
       });
 
       payment.status = PaymentStatus.rejected;

@@ -13,7 +13,7 @@ import 'screens/dealers/dealer_verification_screen.dart';
 import 'screens/notifications/notification_screen.dart';
 import 'screens/payments/payment_verification_screen.dart';
 import 'screens/plot_management/plot_management_screen.dart';
-import 'screens/plot_visualization/plot_visualization_screen.dart';
+import 'screens/plot_map_visualization/plot_map_visualization_screen.dart';
 import 'screens/admin_profile/profile_screen.dart';
 import 'screens/reports/reports_screen.dart';
 import 'screens/balloting_processing/balloting_processing_screen.dart';

@@ -186,6 +186,7 @@ class PaymentRecord {
   final String method;
   final String receiptNo;
   PaymentStatus status;
+  final String receiptUrl;
 
   PaymentRecord({
     required this.id,
@@ -196,6 +197,7 @@ class PaymentRecord {
     required this.method,
     required this.receiptNo,
     required this.status,
+    required this.receiptUrl,
   });
 }
 

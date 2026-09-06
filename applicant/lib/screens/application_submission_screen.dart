@@ -122,6 +122,14 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
         'submittedAt': FieldValue.serverTimestamp(),
         'status': 'pending',
       });
+      await FirebaseFirestore.instance.collection('activity_logs').add({
+        'applicantId': uid,
+        'action': 'Application submitted',
+        'description':
+        'Applicant submitted a housing application with serial number $serial.',
+        'type': 'application',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
       if (!mounted) return;
       await showDialog<void>(
         context: context,

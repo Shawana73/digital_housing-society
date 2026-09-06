@@ -9,8 +9,10 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
   Applicant? applicant;
   Map<String, dynamic>? applicantData;
   Map<String, dynamic>? applicationData;
+  Map<String, dynamic>? paymentData;
   List<ApplicantDocument> documents = [];
   List<Map<String, dynamic>> notes = [];
+  List<Map<String, dynamic>> activityLogs = [];
 
   bool get hasApplication => applicationData != null;
 
@@ -39,6 +41,20 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
   Future<void> load() async {
     // Applicant Details screen uses loadApplicant()
   }
+  Future<void> _addActivityLog({
+    required String applicantId,
+    required String action,
+    required String description,
+    required String type,
+  }) async {
+    await _firestore.collection('activity_logs').add({
+      'applicantId': applicantId,
+      'action': action,
+      'description': description,
+      'type': type,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
 
   Future<void> loadApplicant(Applicant selectedApplicant) async {
     isLoading = true;
@@ -47,8 +63,10 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
     applicant = selectedApplicant;
     applicantData = null;
     applicationData = null;
+    paymentData = null;
     documents = [];
     notes = [];
+    activityLogs = [];
 
     try {
       QuerySnapshot<Map<String, dynamic>> applicantSnapshot;
@@ -70,6 +88,25 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
       if (applicantSnapshot.docs.isNotEmpty) {
         final applicantDoc = applicantSnapshot.docs.first;
         applicantData = applicantDoc.data();
+        final rawNotes = applicantData?['verificationNotes'];
+
+        if (rawNotes is List) {
+          notes = rawNotes
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+
+          notes.sort((a, b) {
+            final aTime = a['createdAt'];
+            final bTime = b['createdAt'];
+
+            if (aTime is Timestamp && bTime is Timestamp) {
+              return bTime.compareTo(aTime);
+            }
+
+            return 0;
+          });
+        }
         final uid = applicantData?['uid']?.toString().trim();
 
         if (uid != null && uid.isNotEmpty) {
@@ -82,6 +119,34 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
           if (applicationSnapshot.docs.isNotEmpty) {
             applicationData = applicationSnapshot.docs.first.data();
           }
+
+          final paymentSnapshot = await _firestore
+              .collection('payments')
+              .doc(uid)
+              .get();
+
+          if (paymentSnapshot.exists) {
+            paymentData = paymentSnapshot.data();
+          }
+          final activitySnapshot = await _firestore
+              .collection('activity_logs')
+              .where('applicantId', isEqualTo: uid)
+              .get();
+
+          activityLogs = activitySnapshot.docs
+              .map((doc) => doc.data())
+              .toList();
+
+          activityLogs.sort((a, b) {
+            final aTime = a['timestamp'];
+            final bTime = b['timestamp'];
+
+            if (aTime is Timestamp && bTime is Timestamp) {
+              return bTime.compareTo(aTime);
+            }
+
+            return 0;
+          });
         }
       }
 
@@ -139,7 +204,6 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
         }
       }
 
-      notes = [];
     } catch (e, stackTrace) {
       debugPrint('Error loading applicant details: $e');
       debugPrintStack(stackTrace: stackTrace);
@@ -221,6 +285,22 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
         'documents': updatedDocuments,
         'verificationStatus': overallStatus,
       });
+      final documentName = documents[index].title;
+
+      final action = newStatus.toLowerCase() == 'verified'
+          ? 'Document verified'
+          : 'Document rejected';
+
+      final description = newStatus.toLowerCase() == 'verified'
+          ? '$documentName was verified by admin.'
+          : '$documentName was rejected by admin.';
+
+      await _addActivityLog(
+        applicantId: applicantId,
+        action: action,
+        description: description,
+        type: 'document',
+      );
 
       final oldDocument = documents[index];
 
@@ -238,6 +318,50 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
       notifyListeners();
     } catch (e, stackTrace) {
       debugPrint('Error updating document status: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+  Future<void> saveNote(String noteText) async {
+    final applicantId =
+        applicantData?['uid']?.toString() ?? applicant?.id;
+
+    if (applicantId == null || applicantId.isEmpty) {
+      throw Exception('Applicant UID not found.');
+    }
+
+    final text = noteText.trim();
+
+    if (text.isEmpty) {
+      throw Exception('Note cannot be empty.');
+    }
+
+    final note = {
+      'text': text,
+      'adminName': 'Ayesha Khan',
+      'createdAt': Timestamp.now(),
+    };
+
+    try {
+      await _firestore
+          .collection('applicants')
+          .doc(applicantId)
+          .update({
+        'verificationNotes': FieldValue.arrayUnion([note]),
+      });
+
+      await _addActivityLog(
+        applicantId: applicantId,
+        action: 'Verification note added',
+        description: 'Admin added a verification note.',
+        type: 'verification',
+      );
+
+      notes.insert(0, note);
+
+      notifyListeners();
+    } catch (e, stackTrace) {
+      debugPrint('Error saving verification note: $e');
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
     }
@@ -298,6 +422,25 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
 
       applicant!.status = status;
       applicationData = {...?applicationData, 'status': firestoreStatus};
+
+      final action = status == VerificationStatus.verified
+          ? 'Applicant verified'
+          : status == VerificationStatus.rejected
+          ? 'Applicant rejected'
+          : 'Applicant status changed';
+
+      final description = status == VerificationStatus.verified
+          ? 'Admin verified the applicant profile.'
+          : status == VerificationStatus.rejected
+          ? 'Admin rejected the applicant profile.'
+          : 'Applicant verification status was changed.';
+
+      await _addActivityLog(
+        applicantId: uid,
+        action: action,
+        description: description,
+        type: 'verification',
+      );
 
       notifyListeners();
     } catch (e, stackTrace) {

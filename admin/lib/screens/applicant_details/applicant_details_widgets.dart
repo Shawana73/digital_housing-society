@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/admin_models.dart';
 import '../../theme/admin_theme.dart';
 import '../../widgets/premium_widgets.dart';
-import '../../widgets/app_snack.dart';
 
 class DetailsTabStrip extends StatelessWidget {
   final List<String> tabs;
@@ -336,35 +336,160 @@ class PersonalInfoTab extends StatelessWidget {
 }
 
 class PaymentInfoTab extends StatelessWidget {
-  const PaymentInfoTab({super.key});
+  final dynamic viewModel;
+
+  const PaymentInfoTab({
+    super.key,
+    required this.viewModel,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return const PremiumCard(
-      padding: EdgeInsets.all(18),
+    final payment = viewModel.paymentData;
+
+    if (payment == null) {
+      return const PremiumCard(
+        padding: EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Icon(
+              Icons.payment_rounded,
+              color: AdminColors.greyText,
+              size: 24,
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'No payment record found for this applicant.',
+                style: TextStyle(
+                  color: AdminColors.greyText,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final transactionId =
+        payment['transactionId']?.toString() ?? 'Not available';
+
+    final amount = payment['amount']?.toString() ?? '0';
+
+    final paymentMethod =
+        payment['paymentMethod']?.toString() ?? 'Not available';
+
+    final status =
+        payment['status']?.toString() ?? 'Not available';
+
+    final submittedAt = payment['submittedAt'];
+
+    String paymentDate = 'Not available';
+
+    if (submittedAt is Timestamp) {
+      final date = submittedAt.toDate();
+
+      paymentDate =
+      '${date.day.toString().padLeft(2, '0')} '
+          '${_monthName(date.month)} '
+          '${date.year}';
+    }
+
+    return PremiumCard(
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InfoRow(icon: Icons.receipt_long_rounded, label: 'Transaction ID', value: 'DH-882913'),
-          InfoRow(icon: Icons.payments_rounded, label: 'Amount Paid', value: 'PKR 450,000'),
-          InfoRow(icon: Icons.account_balance_rounded, label: 'Payment Method', value: 'Bank Transfer'),
-          InfoRow(icon: Icons.event_rounded, label: 'Payment Date', value: '28 Jun 2026'),
+          InfoRow(
+            icon: Icons.receipt_long_rounded,
+            label: 'Transaction ID',
+            value: transactionId,
+          ),
+          InfoRow(
+            icon: Icons.payments_rounded,
+            label: 'Amount Paid',
+            value: 'PKR $amount',
+          ),
+          InfoRow(
+            icon: Icons.account_balance_rounded,
+            label: 'Payment Method',
+            value: paymentMethod,
+          ),
+          InfoRow(
+            icon: Icons.event_rounded,
+            label: 'Payment Date',
+            value: paymentDate,
+          ),
+          InfoRow(
+            icon: Icons.verified_rounded,
+            label: 'Payment Status',
+            value: status,
+          ),
         ],
       ),
     );
   }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return months[month - 1];
+  }
 }
 
 class ActivityLogTab extends StatelessWidget {
-  const ActivityLogTab({super.key});
+  final dynamic viewModel;
+
+  const ActivityLogTab({
+    super.key,
+    required this.viewModel,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final entries = [
-      ('Application submitted', '28 Jun 2026, 9:02 AM'),
-      ('CNIC documents uploaded', '28 Jun 2026, 9:14 AM'),
-      ('Admin reviewed profile', '28 Jun 2026, 11:30 AM'),
-    ];
+    final List<Map<String, dynamic>> entries = viewModel.activityLogs;
+
+    if (entries.isEmpty) {
+      return const PremiumCard(
+        padding: EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Icon(
+              Icons.history_rounded,
+              color: AdminColors.greyText,
+              size: 24,
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'No activity has been recorded for this applicant.',
+                style: TextStyle(
+                  color: AdminColors.greyText,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return PremiumCard(
       padding: const EdgeInsets.all(18),
       child: Column(
@@ -372,7 +497,9 @@ class ActivityLogTab extends StatelessWidget {
         children: [
           for (int i = 0; i < entries.length; i++)
             Padding(
-              padding: EdgeInsets.only(bottom: i == entries.length - 1 ? 0 : 14),
+              padding: EdgeInsets.only(
+                bottom: i == entries.length - 1 ? 0 : 14,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -380,18 +507,43 @@ class ActivityLogTab extends StatelessWidget {
                     margin: const EdgeInsets.only(top: 4),
                     height: 8,
                     width: 8,
-                    decoration: const BoxDecoration(color: AdminColors.primary, shape: BoxShape.circle),
+                    decoration: const BoxDecoration(
+                      color: AdminColors.primary,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(entries[i].$1,
-                            style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 13)),
+                        Text(
+                          entries[i]['action']?.toString() ??
+                              'Activity',
+                          style: const TextStyle(
+                            color: AdminColors.darkText,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(entries[i].$2,
-                            style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11)),
+                        Text(
+                          entries[i]['description']?.toString() ?? '',
+                          style: const TextStyle(
+                            color: AdminColors.greyText,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _formatTimestamp(entries[i]['timestamp']),
+                          style: const TextStyle(
+                            color: AdminColors.greyText,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -401,6 +553,39 @@ class ActivityLogTab extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatTimestamp(dynamic value) {
+    if (value is Timestamp) {
+      final date = value.toDate();
+
+      return '${date.day.toString().padLeft(2, '0')} '
+          '${_monthName(date.month)} '
+          '${date.year}, '
+          '${date.hour.toString().padLeft(2, '0')}:'
+          '${date.minute.toString().padLeft(2, '0')}';
+    }
+
+    return 'Date not available';
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return months[month - 1];
   }
 }
 

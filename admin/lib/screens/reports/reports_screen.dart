@@ -42,46 +42,164 @@ class _ReportsScreenState extends State<ReportsScreen> {
       context: context,
       firstDate: DateTime(2024),
       lastDate: DateTime(2027),
-      initialDateRange: DateTimeRange(start: DateTime(2026, 6, 1), end: DateTime(2026, 6, 28)),
+      initialDateRange: DateTimeRange(
+        start: DateTime(2026, 6, 1),
+        end: DateTime(2026, 6, 28),
+      ),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: Theme.of(ctx).colorScheme.copyWith(primary: AdminColors.primary, onPrimary: AdminColors.white),
+          colorScheme: Theme.of(ctx).colorScheme.copyWith(
+            primary: AdminColors.primary,
+            onPrimary: AdminColors.white,
+          ),
         ),
         child: child!,
       ),
     );
+
     if (picked != null) {
-      showAdminSnack(context, 'Range updated: ${_fmtDate(picked.start)} - ${_fmtDate(picked.end)}');
+      await _viewModel.setDateRange(picked);
+
+      if (!mounted) return;
+
+      showAdminSnack(
+        context,
+        'Date range updated successfully',
+      );
     }
   }
-
   String _fmtDate(DateTime d) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}';
-  }
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
 
-  void _openFilterSheet() {
+    return '${d.day.toString().padLeft(2, '0')} '
+        '${months[d.month - 1]} ${d.year}';
+  }
+  void _openReportPreview(String reportTitle) {
+    final isPayment = reportTitle == 'Payment Report';
+    final isApplicant = reportTitle == 'Applicant Summary';
+    final isPlot = reportTitle == 'Plot Allocation Report';
+
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
       backgroundColor: AdminColors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Filter Reports', style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 16)),
-            const SizedBox(height: 14),
-            for (final type in ['All Types', 'PDF', 'Excel'])
-              ReportsSheetOption(
-                  label: type,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    showAdminSnack(context, 'Filter: $type');
-                  }),
-          ],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(30),
         ),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                reportTitle,
+                style: const TextStyle(
+                  color: AdminColors.darkText,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              if (isPayment)
+                _reportInfoRow(
+                  'Total Payments',
+                  _viewModel.totalPayments.toString(),
+                ),
+
+              if (isApplicant) ...[
+                _reportInfoRow(
+                  'Total Applicants',
+                  _viewModel.totalApplicants.toString(),
+                ),
+                _reportInfoRow(
+                  'Verified',
+                  _viewModel.verifiedApplicants.toString(),
+                ),
+                _reportInfoRow(
+                  'Pending',
+                  _viewModel.pendingApplicants.toString(),
+                ),
+                _reportInfoRow(
+                  'Rejected',
+                  _viewModel.rejectedApplicants.toString(),
+                ),
+              ],
+
+              if (isPlot) ...[
+                _reportInfoRow(
+                  'Total Plots',
+                  _viewModel.totalPlots.toString(),
+                ),
+                _reportInfoRow(
+                  'Available',
+                  _viewModel.availablePlots.toString(),
+                ),
+                _reportInfoRow(
+                  'Booked',
+                  _viewModel.bookedPlots.toString(),
+                ),
+                _reportInfoRow(
+                  'Allocated',
+                  _viewModel.allocatedPlots.toString(),
+                ),
+              ],
+
+              if (!isPayment && !isApplicant && !isPlot)
+                _reportInfoRow(
+                  'Total Records',
+                  _viewModel.totalApplicants.toString(),
+                ),
+
+
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _reportInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AdminColors.greyText,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AdminColors.darkText,
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -97,27 +215,34 @@ class _ReportsScreenState extends State<ReportsScreen> {
       title: 'Reports',
       selectedIndex: 3,
       searchController: _searchController,
-      searchHint: 'Search PDF, Excel, report...',
+      searchHint: 'Search reports...',
       onSearchChanged: _viewModel.search,
       onSearchClear: () {
         _searchController.clear();
         _viewModel.clearSearch();
       },
-      onFabTap: () => showAdminSnack(context, 'Master report exported'),
-      fabLabel: 'Export',
-      fabIcon: Icons.file_download_rounded,
       isLoading: _viewModel.isLoading,
       body: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
         children: [
           Row(children: [
-            Expanded(child: DateRangeChip(label: '01 Jun 2026 - 28 Jun 2026', onTap: _pickDateRange)),
-            const SizedBox(width: 10),
-            ReportsFilterChip(onTap: _openFilterSheet),
+            Expanded(child:DateRangeChip(
+              label: _viewModel.selectedStartDate != null &&
+                  _viewModel.selectedEndDate != null
+                  ? '${_fmtDate(_viewModel.selectedStartDate!)} - '
+                  '${_fmtDate(_viewModel.selectedEndDate!)}'
+                  : 'All Dates',
+              onTap: _pickDateRange,
+            )),
           ]),
           const SizedBox(height: 16),
-          const ReportsStatsGrid(),
+          ReportsStatsGrid(
+            totalApplicants: _viewModel.totalApplicants,
+            verifiedApplicants: _viewModel.verifiedApplicants,
+            pendingApplicants: _viewModel.pendingApplicants,
+            rejectedApplicants: _viewModel.rejectedApplicants,
+          ),
           const SizedBox(height: 18),
           PremiumCard(
             padding: const EdgeInsets.all(18),
@@ -130,16 +255,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                   PeriodDropdown(value: _trendPeriod, onChanged: _setTrendPeriod),
                   const SizedBox(width: 6),
-                  PopupMenuButton<String>(
-                    color: AdminColors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    onSelected: (v) => showAdminSnack(context, '$v clicked'),
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'Download chart', child: PopupMenuRow(icon: Icons.download_rounded, text: 'Download Chart')),
-                      PopupMenuItem(value: 'Share', child: PopupMenuRow(icon: Icons.share_rounded, text: 'Share')),
-                    ],
-                    icon: const Icon(Icons.more_vert_rounded, color: AdminColors.greyText),
-                  ),
                 ]),
                 const SizedBox(height: 6),
                 const Row(children: [
@@ -150,7 +265,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   LegendDot(color: AdminColors.rejected, label: 'Rejected'),
                 ]),
                 const SizedBox(height: 14),
-                const SizedBox(height: 230, child: TrendChart()),
+                SizedBox(
+                  height: 230,
+                  child: TrendChart(
+                    months: _viewModel.trendMonths,
+                    total: _viewModel.totalTrend,
+                    verified: _viewModel.verifiedTrend,
+                    rejected: _viewModel.rejectedTrend,
+                  ),
+                ),
               ],
             ),
           ),
@@ -169,7 +292,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
           ]),
           const SizedBox(height: 12),
-          QuickReportsGrid(onTap: (label) => showAdminSnack(context, '$label opened')),
+          QuickReportsGrid(
+            onTap: (label) => _openReportPreview(label),
+          ),
           const SizedBox(height: 22),
           const Text('Recent Reports', style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -.3)),
           const SizedBox(height: 12),
@@ -187,8 +312,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
           else
             ..._viewModel.filteredReports.map((report) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: RecentReportRow(report: report),
-            )),
+             child:RecentReportRow(
+               report: report,
+               onTap: () => _openReportPreview(report.title),
+             ),
+            ),
+            ),
         ],
       ),
     );

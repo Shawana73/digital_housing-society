@@ -91,6 +91,11 @@ class _ApplicantDashboardScreenState
                           service: _service,
                         ),
                         const SizedBox(height: 16),
+
+                        _VerificationNotesPanel(uid: uid),
+
+                        const SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         LayoutBuilder(
                           builder: (context, constraints) {
                             final wide = constraints.maxWidth >= 900;
@@ -1390,6 +1395,176 @@ class _MiniFact extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+class _VerificationNotesPanel extends StatelessWidget {
+  const _VerificationNotesPanel({required this.uid});
+
+  final String? uid;
+
+  @override
+  Widget build(BuildContext context) {
+    if (uid == null) {
+      return const SizedBox.shrink();
+    }
+
+    return _SectionCard(
+      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('applicants')
+            .doc(uid)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.all(12),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.primaryPurple,
+                ),
+              ),
+            );
+          }
+
+          final data = snapshot.data?.data();
+          final rawNotes = data?['verificationNotes'];
+
+          final notes = rawNotes is List
+              ? rawNotes
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList()
+              : <Map<String, dynamic>>[];
+
+          notes.sort((a, b) {
+            final aTime = a['createdAt'];
+            final bTime = b['createdAt'];
+
+            if (aTime is Timestamp && bTime is Timestamp) {
+              return bTime.compareTo(aTime);
+            }
+
+            return 0;
+          });
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SectionHeader(
+                title: 'Verification Notes',
+              ),
+              const SizedBox(height: 12),
+
+              if (notes.isEmpty)
+                const _EmptyMessage(
+                  text: 'No verification notes from admin yet.',
+                )
+              else
+                Column(
+                  children: notes.map((note) {
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F5FF),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFFE5DFFF),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: AppColors.deepPurple,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.verified_user_outlined,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Admin Verification Note',
+                                  style: TextStyle(
+                                    color: AppColors.primaryText,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  note['text']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    color: AppColors.secondaryText,
+                                    fontSize: 12,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _formatNoteDate(note['createdAt']),
+                                  style: const TextStyle(
+                                    color: AppColors.secondaryText,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  static String _formatNoteDate(dynamic value) {
+    if (value is Timestamp) {
+      final date = value.toDate();
+
+      return '${date.day.toString().padLeft(2, '0')} '
+          '${_monthName(date.month)} '
+          '${date.year}, '
+          '${date.hour.toString().padLeft(2, '0')}:'
+          '${date.minute.toString().padLeft(2, '0')}';
+    }
+
+    return 'Date not available';
+  }
+
+  static String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return months[month - 1];
   }
 }
 

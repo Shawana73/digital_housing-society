@@ -120,8 +120,6 @@ class _ApplicantVerificationScreenState extends State<ApplicantVerificationScree
               padding: const EdgeInsets.only(bottom: 12),
               child: ApplicantRow(
                 applicant: applicant,
-                onApprove: () => _confirmStatus(applicant, true),
-                onReject: () => _confirmStatus(applicant, false),
                 onTap: () => Navigator.pushNamed(context, AdminRoutes.applicantDetails, arguments: applicant),
               ),
             )),

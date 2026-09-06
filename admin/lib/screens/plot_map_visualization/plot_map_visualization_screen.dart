@@ -3,8 +3,8 @@ import '../../theme/admin_theme.dart';
 import '../../widgets/admin_shell.dart';
 import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
-import 'plot_visualization_viewmodel.dart';
-import 'plot_visualization_widgets.dart';
+import 'plot_map_visualization_viewmodel.dart';
+import 'plot_map_visualization_widgets.dart';
 
 class PlotVisualizationScreen extends StatefulWidget {
   const PlotVisualizationScreen({super.key});
@@ -48,7 +48,7 @@ class _PlotVisualizationScreenState extends State<PlotVisualizationScreen> {
         _searchController.clear();
         _viewModel.clearSearch();
       },
-      onFabTap: () => showAdminSnack(context, 'Map centered'),
+      onFabTap: _viewModel.resetZoom,
       fabLabel: 'Center',
       fabIcon: Icons.my_location_rounded,
       isLoading: _viewModel.isLoading,
@@ -85,38 +85,8 @@ class _PlotVisualizationScreenState extends State<PlotVisualizationScreen> {
           AnimatedScale(
             scale: _viewModel.zoom,
             duration: const Duration(milliseconds: 250),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AdminColors.white.withOpacity(0.72),
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: AdminColors.primary.withOpacity(0.08)),
-              ),
-              child: _viewModel.filteredPlots.isEmpty
-                  ? EmptyState(
-                  icon: Icons.map_outlined,
-                  title: 'No plot found',
-                  subtitle: 'No map block matches your search.',
-                  buttonText: 'Reset',
-                  onPressed: () {
-                    _searchController.clear();
-                    _viewModel.clearSearch();
-                  })
-                  : GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _viewModel.filteredPlots.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.65,
-                ),
-                itemBuilder: (context, index) {
-                  final plot = _viewModel.filteredPlots[index];
-                  return MapPlotBlock(plot: plot);
-                },
-              ),
+            child: SocietyLayoutMap(
+              plots: _viewModel.filteredPlots,
             ),
           ),
         ],

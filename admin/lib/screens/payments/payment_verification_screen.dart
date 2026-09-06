@@ -79,16 +79,62 @@ class _PaymentVerificationScreenState extends State<PaymentVerificationScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                height: 220,
-                decoration: BoxDecoration(gradient: AdminColors.primaryGradient, borderRadius: BorderRadius.circular(24)),
-                child: const Center(child: Icon(Icons.receipt_long_rounded, color: AdminColors.white, size: 90)),
+                height: 400,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: AdminColors.primary,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: payment.receiptUrl.isNotEmpty
+                    ? Image.network(
+                  payment.receiptUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Center(
+                      child: Icon(
+                        Icons.broken_image_rounded,
+                        size: 80,
+                      ),
+                    );
+                  },
+                )
+                    : const Center(
+                  child: Icon(
+                    Icons.receipt_long_rounded,
+                    size: 80,
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
-              Text(payment.receiptNo, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 18)),
+              Text(
+                payment.receiptNo,
+                style: const TextStyle(
+                  color: AdminColors.darkText,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                ),
+              ),
               const SizedBox(height: 6),
-              Text(payment.transactionId, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700)),
+              Text(
+                payment.transactionId,
+                style: const TextStyle(
+                  color: AdminColors.greyText,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 16),
-              FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Close Receipt')),
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close Receipt'),
+              ),
             ],
           ),
         ),
@@ -108,9 +154,6 @@ class _PaymentVerificationScreenState extends State<PaymentVerificationScreen> {
         _searchController.clear();
         _viewModel.clearSearch();
       },
-      onFabTap: () => showAdminSnack(context, 'Manual payment entry clicked'),
-      fabLabel: 'Payment',
-      fabIcon: Icons.add_card_rounded,
       isLoading: _viewModel.isLoading,
       body: Column(
         children: [

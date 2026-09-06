@@ -285,6 +285,7 @@ class DummyData {
           method: 'Bank Transfer',
           receiptNo: 'RCT-8891',
           status: PaymentStatus.pending,
+          receiptUrl: 'url',
         ),
         PaymentRecord(
           id: 'PAY-002',
@@ -295,6 +296,7 @@ class DummyData {
           method: 'Online Transfer',
           receiptNo: 'RCT-8892',
           status: PaymentStatus.verified,
+          receiptUrl: 'url',
         ),
         PaymentRecord(
           id: 'PAY-003',
@@ -305,6 +307,7 @@ class DummyData {
           method: 'Cash Deposit',
           receiptNo: 'RCT-8893',
           status: PaymentStatus.pending,
+          receiptUrl: 'url',
         ),
         PaymentRecord(
           id: 'PAY-004',
@@ -315,6 +318,7 @@ class DummyData {
           method: 'Bank Transfer',
           receiptNo: 'RCT-8894',
           status: PaymentStatus.rejected,
+          receiptUrl: 'url',
         ),
       ];
 

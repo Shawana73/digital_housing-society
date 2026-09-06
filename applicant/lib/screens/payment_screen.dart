@@ -121,6 +121,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'submittedAt': FieldValue.serverTimestamp(),
         'mode': 'test',
       });
+      await FirebaseFirestore.instance.collection('activity_logs').add({
+        'applicantId': uid,
+        'action': 'Payment submitted',
+        'description': 'Applicant submitted a payment of PKR ${_application!.fee}.',
+        'type': 'payment',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment submitted successfully.')));
       Navigator.pushReplacementNamed(context, AppConstants.ballotingRoute);

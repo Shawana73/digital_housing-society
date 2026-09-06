@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/admin_models.dart';
 import '../../theme/admin_theme.dart';
 import '../../widgets/admin_shell.dart';
@@ -125,11 +126,60 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
     }
   }
 
-  void _saveNote() {
-    if (_noteController.text.trim().isEmpty) return;
-    showAdminSnack(context, 'Note saved');
-    _noteController.clear();
-    FocusScope.of(context).unfocus();
+  Future<void> _saveNote() async {
+    final text = _noteController.text.trim();
+
+    if (text.isEmpty) {
+      showAdminSnack(context, 'Please enter a note');
+      return;
+    }
+
+    try {
+      await _viewModel.saveNote(text);
+
+      if (!mounted) return;
+
+      _noteController.clear();
+      FocusScope.of(context).unfocus();
+
+      showAdminSnack(context, 'Note saved successfully');
+    } catch (e) {
+      if (!mounted) return;
+
+      showAdminSnack(context, 'Failed to save note');
+    }
+  }
+  String _formatNoteDate(dynamic value) {
+    if (value is Timestamp) {
+      final date = value.toDate();
+
+      return '${date.day.toString().padLeft(2, '0')} '
+          '${_monthName(date.month)} '
+          '${date.year}, '
+          '${date.hour.toString().padLeft(2, '0')}:'
+          '${date.minute.toString().padLeft(2, '0')}';
+    }
+
+    return 'Date not available';
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return months[month - 1];
   }
 
   @override
@@ -265,67 +315,100 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Verification Notes',
-                    style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 15)),
+                const Text(
+                  'Verification Notes',
+                  style: TextStyle(
+                    color: AdminColors.darkText,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                  ),
+                ),
                 const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const CircleAvatar(
-                      radius: 16,
-                      backgroundColor: AdminColors.primary,
-                      child: Text('AK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11)),
+
+                if (_viewModel.notes.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 14),
+                    child: Text(
+                      'No verification notes have been added yet.',
+                      style: TextStyle(
+                        color: AdminColors.greyText,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 4,
+                  ),
+
+                for (final note in _viewModel.notes)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(width: 10),
+
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Ayesha Khan (Admin)',
-                                  style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 12)),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.10), borderRadius: BorderRadius.circular(8)),
-                                child: const Text('Note',
-                                    style: TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w700, fontSize: 9)),
+                              const SizedBox(height: 3),
+
+                              Text(
+                                _formatNoteDate(note['createdAt']),
+                                style: const TextStyle(
+                                  color: AdminColors.greyText,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 10,
+                                ),
+                              ),
+
+                              const SizedBox(height: 6),
+
+                              Text(
+                                note['text']?.toString() ?? '',
+                                style: const TextStyle(
+                                  color: AdminColors.darkText,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 3),
-                          const Text('28 Jun 2026, 11:30 AM',
-                              style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 10)),
-                          const SizedBox(height: 6),
-                          const Text('All documents look good. Need to verify income proof.',
-                              style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w600, fontSize: 12, height: 1.4)),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _noteController,
+                        maxLines: 2,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: const InputDecoration(
+                          hintText: 'Add a note...',
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
                       ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    FilledButton(
+                      onPressed: _saveNote,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 16,
+                        ),
+                      ),
+                      child: const Text('Save Note'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                Row(children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _noteController,
-                      style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(
-                        hintText: 'Add a note...',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  FilledButton(
-                    onPressed: _saveNote,
-                    style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16)),
-                    child: const Text('Save Note'),
-                  ),
-                ]),
               ],
             ),
           ),
@@ -377,9 +460,9 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
       case 1:
         return PersonalInfoTab(viewModel: _viewModel);
       case 2:
-        return const PaymentInfoTab();
+        return PaymentInfoTab(viewModel: _viewModel);
       case 3:
-        return const ActivityLogTab();
+        return ActivityLogTab(viewModel: _viewModel);
       default:
         return const SizedBox.shrink();
     }

@@ -99,34 +99,98 @@ class PeriodDropdown extends StatelessWidget {
 }
 
 class ReportsStatsGrid extends StatelessWidget {
-  const ReportsStatsGrid({super.key});
+  final int totalApplicants;
+  final int verifiedApplicants;
+  final int pendingApplicants;
+  final int rejectedApplicants;
+
+  const ReportsStatsGrid({
+    super.key,
+    required this.totalApplicants,
+    required this.verifiedApplicants,
+    required this.pendingApplicants,
+    required this.rejectedApplicants,
+  });
 
   @override
   Widget build(BuildContext context) {
     final stats = [
-      ('Total Applicants', '1,284', '+12.8%', true, AdminColors.primary, Icons.groups_rounded),
-      ('Verified Applicants', '842', '+16.2%', true, AdminColors.success, Icons.verified_rounded),
-      ('Pending Applicants', '356', '+8.4%', true, AdminColors.warning, Icons.hourglass_top_rounded),
-      ('Rejected Applicants', '86', '-2.1%', false, AdminColors.rejected, Icons.cancel_rounded),
+      (
+      'Total Applicants',
+      totalApplicants.toString(),
+      AdminColors.primary,
+      Icons.groups_rounded,
+      ),
+      (
+      'Verified Applicants',
+      verifiedApplicants.toString(),
+      AdminColors.success,
+      Icons.verified_rounded,
+      ),
+      (
+      'Pending Applicants',
+      pendingApplicants.toString(),
+      AdminColors.warning,
+      Icons.hourglass_top_rounded,
+      ),
+      (
+      'Rejected Applicants',
+      rejectedApplicants.toString(),
+      AdminColors.rejected,
+      Icons.cancel_rounded,
+      ),
     ];
 
-    return Column(
-      children: [
-        for (int i = 0; i < stats.length; i += 2)
-          Padding(
-            padding: EdgeInsets.only(bottom: i + 2 < stats.length ? 12 : 0),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: stats.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.55,
+      ),
+      itemBuilder: (context, index) {
+        final stat = stats[index];
+
+        return PremiumCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Expanded(child: ReportStatCard(data: stats[i])),
-                  const SizedBox(width: 12),
-                  Expanded(child: i + 1 < stats.length ? ReportStatCard(data: stats[i + 1]) : const SizedBox.shrink()),
+                  Icon(
+                    stat.$4,
+                    color: stat.$3,
+                    size: 22,
+                  ),
+                  const Spacer(),
                 ],
               ),
-            ),
+              const Spacer(),
+              Text(
+                stat.$2,
+                style: const TextStyle(
+                  color: AdminColors.darkText,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                stat.$1,
+                style: const TextStyle(
+                  color: AdminColors.greyText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-      ],
+        );
+      },
     );
   }
 }
@@ -200,7 +264,18 @@ class LegendDot extends StatelessWidget {
 }
 
 class TrendChart extends StatefulWidget {
-  const TrendChart({super.key});
+  final List<String> months;
+  final List<double> total;
+  final List<double> verified;
+  final List<double> rejected;
+
+  const TrendChart({
+    super.key,
+    required this.months,
+    required this.total,
+    required this.verified,
+    required this.rejected,
+  });
 
   @override
   State<TrendChart> createState() => _TrendChartState();
@@ -209,51 +284,91 @@ class TrendChart extends StatefulWidget {
 class _TrendChartState extends State<TrendChart> {
   int? _selectedIndex;
 
-  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  static const _total = [620.0, 780.0, 850.0, 1080.0, 1124.0, 1284.0];
-  static const _verified = [380.0, 470.0, 520.0, 690.0, 742.0, 842.0];
-  static const _rejected = [40.0, 52.0, 58.0, 60.0, 64.0, 86.0];
-
   @override
   void initState() {
     super.initState();
-    _selectedIndex = 4;
+    _selectedIndex =
+    widget.months.isEmpty ? null : widget.months.length - 1;
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final width = constraints.maxWidth;
-      return GestureDetector(
-        onTapDown: (details) {
-          final step = width / (_months.length - 1);
-          final idx = (details.localPosition.dx / step).round().clamp(0, _months.length - 1);
-          setState(() => _selectedIndex = idx);
-        },
-        child: Stack(children: [
-          CustomPaint(
-            size: Size(width, constraints.maxHeight),
-            painter: _TrendChartPainter(
-              total: _total,
-              verified: _verified,
-              rejected: _rejected,
-              months: _months,
-              selectedIndex: _selectedIndex,
-            ),
+    if (widget.months.isEmpty) {
+      return const Center(
+        child: Text(
+          'No trend data available',
+          style: TextStyle(
+            color: AdminColors.greyText,
+            fontWeight: FontWeight.w600,
           ),
-          if (_selectedIndex != null) _buildTooltip(width, constraints.maxHeight),
-        ]),
+        ),
       );
-    });
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+
+        return GestureDetector(
+          onTapDown: (details) {
+            if (widget.months.length == 1) {
+              setState(() => _selectedIndex = 0);
+              return;
+            }
+
+            final step = width / (widget.months.length - 1);
+
+            final idx = (details.localPosition.dx / step)
+                .round()
+                .clamp(0, widget.months.length - 1);
+
+            setState(() => _selectedIndex = idx);
+          },
+          child: Stack(
+            children: [
+              CustomPaint(
+                size: Size(width, constraints.maxHeight),
+                painter: _TrendChartPainter(
+                  total: widget.total,
+                  verified: widget.verified,
+                  rejected: widget.rejected,
+                  months: widget.months,
+                  selectedIndex: _selectedIndex,
+                ),
+              ),
+              if (_selectedIndex != null)
+                _buildTooltip(
+                  width,
+                  constraints.maxHeight,
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildTooltip(double width, double height) {
     final i = _selectedIndex!;
-    final step = width / (_months.length - 1);
+
+    if (i >= widget.months.length) {
+      return const SizedBox.shrink();
+    }
+
+    final step = widget.months.length == 1
+        ? 0.0
+        : width / (widget.months.length - 1);
+
     final x = step * i;
+
     const tooltipWidth = 150.0;
+
     double left = x - tooltipWidth / 2;
-    left = left.clamp(0, width - tooltipWidth);
+
+    left = left.clamp(
+      0.0,
+      width > tooltipWidth ? width - tooltipWidth : 0.0,
+    );
 
     return Positioned(
       left: left,
@@ -264,32 +379,86 @@ class _TrendChartState extends State<TrendChart> {
         decoration: BoxDecoration(
           color: AdminColors.white,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 14, offset: const Offset(0, 6))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('${_months[i]} 2026', style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 11)),
+            Text(
+              '${widget.months[i]} ${DateTime.now().year}',
+              style: const TextStyle(
+                color: AdminColors.darkText,
+                fontWeight: FontWeight.w900,
+                fontSize: 11,
+              ),
+            ),
             const SizedBox(height: 6),
-            _tooltipRow('Total', _total[i], AdminColors.primary),
-            _tooltipRow('Verified', _verified[i], AdminColors.success),
-            _tooltipRow('Rejected', _rejected[i], AdminColors.rejected),
+            _tooltipRow(
+              'Total',
+              widget.total[i],
+              AdminColors.primary,
+            ),
+            _tooltipRow(
+              'Verified',
+              widget.verified[i],
+              AdminColors.success,
+            ),
+            _tooltipRow(
+              'Rejected',
+              widget.rejected[i],
+              AdminColors.rejected,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _tooltipRow(String label, double value, Color color) {
+  Widget _tooltipRow(
+      String label,
+      double value,
+      Color color,
+      ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
-      child: Row(children: [
-        Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 5),
-        Expanded(child: Text(label, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 10))),
-        Text(value.toInt().toString(), style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 10)),
-      ]),
+      child: Row(
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AdminColors.greyText,
+                fontWeight: FontWeight.w600,
+                fontSize: 10,
+              ),
+            ),
+          ),
+          Text(
+            value.toInt().toString(),
+            style: const TextStyle(
+              color: AdminColors.darkText,
+              fontWeight: FontWeight.w800,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -453,7 +622,13 @@ class QuickReportsGrid extends StatelessWidget {
 
 class RecentReportRow extends StatelessWidget {
   final ReportCardModel report;
-  const RecentReportRow({super.key, required this.report});
+  final VoidCallback onTap;
+
+  const RecentReportRow({
+    super.key,
+    required this.report,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -462,7 +637,7 @@ class RecentReportRow extends StatelessWidget {
     final fileIcon = isExcel ? Icons.table_chart_rounded : Icons.picture_as_pdf_rounded;
 
     return PremiumCard(
-      onTap: () => showAdminSnack(context, '${report.title} opened'),
+      onTap: onTap,
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
@@ -494,7 +669,14 @@ class RecentReportRow extends StatelessWidget {
             child: Text(report.fileType.toUpperCase(), style: TextStyle(color: fileColor, fontWeight: FontWeight.w800, fontSize: 10.5)),
           ),
           const SizedBox(width: 8),
-          RoundDownloadButton(onTap: () => showAdminSnack(context, '${report.title} downloading...')),
+          IconButton(
+            onPressed: onTap,
+            icon: const Icon(
+              Icons.visibility_rounded,
+              color: AdminColors.primary,
+            ),
+            tooltip: 'View Details',
+          ),
         ],
       ),
     );

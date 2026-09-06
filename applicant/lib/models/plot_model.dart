@@ -43,35 +43,85 @@ class PlotModel {
   final bool featured;
 
   factory PlotModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+    final data =
+        doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+
+    // Admin side uses plotId.
+    final plotId = data['plotId']?.toString() ?? doc.id;
+
+    // Admin side uses plotSize.
+    final plotSize = data['plotSize']?.toString() ??
+        data['size']?.toString() ??
+        '';
+
+    // Admin side uses description.
+    final description = data['description']?.toString() ??
+        data['notes']?.toString() ??
+        '';
+
+    final rawPrice = data['price'];
+    final price = rawPrice is num
+        ? rawPrice.toInt()
+        : int.tryParse(rawPrice?.toString() ?? '') ?? 0;
+
+    final rawStatus = data['status']?.toString().trim().toLowerCase();
+
+    // Keep status compatible with Admin.
+    final status = switch (rawStatus) {
+      'booked' => 'booked',
+      'allocated' => 'allocated',
+      'available' => 'available',
+      'reserved' => 'booked',
+      'sold' => 'allocated',
+      _ => 'available',
+    };
+
+    // Derive block from IDs such as A-101, D-105, P-101.
+    final derivedBlock = plotId.contains('-')
+        ? plotId.split('-').first.trim().toUpperCase()
+        : '';
+
+    final block =
+    data['block']?.toString().trim().isNotEmpty == true
+        ? data['block'].toString().trim().toUpperCase()
+        : derivedBlock;
 
     int development = 0;
     final rawDevelopment =
         data['developmentPercent'] ?? data['developmentStatus'];
+
     if (rawDevelopment is num) {
       development = rawDevelopment.toInt().clamp(0, 100).toInt();
     } else {
-      final match =
-          RegExp(r'(\d{1,3})').firstMatch(rawDevelopment?.toString() ?? '');
+      final match = RegExp(r'(\d{1,3})')
+          .firstMatch(rawDevelopment?.toString() ?? '');
+
       development =
-          (int.tryParse(match?.group(1) ?? '') ?? 0).clamp(0, 100).toInt();
+          (int.tryParse(match?.group(1) ?? '') ?? 0)
+              .clamp(0, 100)
+              .toInt();
     }
 
-    final category =
-        (data['category'] ?? data['plotType'] ?? '').toString();
     final plotType =
-        (data['plotType'] ?? data['category'] ?? '').toString();
+        data['plotType']?.toString() ??
+            data['category']?.toString() ??
+            '';
+
+    final category =
+        data['category']?.toString() ??
+            data['plotType']?.toString() ??
+            '';
 
     return PlotModel(
-      id: doc.id,
-      plotNumber: data['plotNumber']?.toString() ?? doc.id,
+      id: plotId,
+      plotNumber: plotId,
       plotType: plotType,
-      size: data['size']?.toString() ?? '',
+      size: plotSize,
       location: data['location']?.toString() ?? '',
-      price: (data['price'] as num?)?.toInt() ?? 0,
-      status: data['status']?.toString() ?? 'Available',
+      price: price,
+      status: status,
       allocatedTo: data['allocatedTo']?.toString() ?? '',
-      block: data['block']?.toString() ?? '',
+      block: block,
       phase: data['phase']?.toString() ?? '',
       category: category,
       roadWidth: data['roadWidth']?.toString() ?? '',
@@ -79,13 +129,14 @@ class PlotModel {
       dimensions: data['dimensions']?.toString() ?? '',
       developmentPercent: development,
       imageUrl: data['imageUrl']?.toString() ?? '',
-      notes: data['notes']?.toString() ?? '',
+      notes: description,
       featured: data['featured'] == true,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'plotId': id,
       'plotNumber': plotNumber,
       'plotType': plotType,
       'size': size,
