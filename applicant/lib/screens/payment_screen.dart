@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import '../services/storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/application_model.dart';
@@ -31,6 +33,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
   PaymentModel? _payment;
   bool _loading = true;
   bool _submitting = false;
+  final StorageService _storageService = StorageService();
+  XFile? _receiptImage;
+  bool _uploadingReceipt = false;
+  Future<void> _pickReceipt() async {
+    final picker = ImagePicker();
+
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
+    if (image == null) return;
+
+    setState(() {
+      _receiptImage = image;
+    });
+  }
 
   @override
   void initState() {
@@ -74,6 +93,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _submitting = true);
     try {
       final ref = 'STRIPE-TEST-${DateTime.now().millisecondsSinceEpoch}';
+
+      if (_receiptImage == null) {
+        _showSnack('Please select a payment receipt image.');
+        return;
+      }
+
+      setState(() => _uploadingReceipt = true);
+
+      final receiptBytes = await _receiptImage!.readAsBytes();
+
+      final receiptUrl = await _storageService.uploadImage(
+        receiptBytes,
+        'payment_receipt_${uid}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+
       await _firestoreService.savePayment({
         'applicantId': uid,
         'applicationId': _application!.id,
@@ -82,7 +116,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'paymentMethod': _method,
         'transactionId': ref,
         'cardLast4': _cardLast4.text.trim(),
-        'receiptUrl': '',
+        'receiptUrl': receiptUrl,
         'status': 'submitted',
         'submittedAt': FieldValue.serverTimestamp(),
         'mode': 'test',
@@ -93,7 +127,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } catch (e) {
       _showSnack('Payment record could not be saved. Please try again.');
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _uploadingReceipt = false;
+        });
+      }
     }
   }
 
@@ -139,6 +178,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     const SizedBox(height: 14),
                     _StripeHelp(),
                     const SizedBox(height: 18),
+                      const SizedBox(height: 18),
+
+                      OutlinedButton.icon(
+                        onPressed: _uploadingReceipt ? null : _pickReceipt,
+                        icon: const Icon(Icons.upload_file_rounded),
+                        label: Text(
+                          _receiptImage == null
+                              ? 'Select Payment Receipt'
+                              : 'Receipt Selected',
+                        ),
+                      ),
+
+                      if (_receiptImage != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _receiptImage!.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
                     PrimaryGradientButton(text: 'Submit Payment', icon: Icons.lock_rounded, isLoading: _submitting, onPressed: _submit),
                   ],
                 ],
