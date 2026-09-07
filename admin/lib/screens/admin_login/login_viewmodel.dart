@@ -26,6 +26,9 @@ class LoginViewModel extends ChangeNotifier {
     if (email.isEmpty || password.isEmpty) {
       return 'Please enter email and password';
     }
+    if(password.length<6){
+      return 'Password must be at least 6 characters';
+    }
 
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(

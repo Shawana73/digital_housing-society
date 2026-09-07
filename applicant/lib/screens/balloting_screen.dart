@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
-
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -201,18 +201,27 @@ class _BallotingScreenState extends State<BallotingScreen>
   }
 
   String _effectiveStatus(String configured) {
+    // Live draw always has priority while the official draw is running.
+    if (configured == 'live') {
+      return 'live';
+    }
+
+    // Once the draw is completed, show the applicant's actual result.
+    if (configured == 'completed') {
+      if (_result != null) {
+        return _result!.isSelected ? 'winner' : 'notselected';
+      }
+
+      return 'completed';
+    }
+
     if (configured == 'upcoming' ||
-        configured == 'live' ||
         configured == 'none') {
       return configured;
     }
 
     if (_result != null) {
       return _result!.isSelected ? 'winner' : 'notselected';
-    }
-
-    if (configured == 'winner' || configured == 'notselected') {
-      return 'completed';
     }
 
     return configured;
@@ -618,6 +627,109 @@ class _BeforeDrawCard extends StatelessWidget {
     );
   }
 }
+class _LiveOverviewCard extends StatelessWidget {
+  const _LiveOverviewCard({
+    required this.eligibleApplicants,
+    required this.availablePlots,
+    required this.selectedApplications,
+    required this.progress,
+  });
+
+  final String eligibleApplicants;
+  final String availablePlots;
+  final String selectedApplications;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Live Balloting Overview',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              Expanded(
+                child: _OverviewItem(
+                  title: 'Eligible Applicants',
+                  value: eligibleApplicants,
+                ),
+              ),
+              Expanded(
+                child: _OverviewItem(
+                  title: 'Available Plots',
+                  value: availablePlots,
+                ),
+              ),
+              Expanded(
+                child: _OverviewItem(
+                  title: 'Selected',
+                  value: selectedApplications,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          Text(
+            'Balloting Progress ${(progress * 100).round()}%',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverviewItem extends StatelessWidget {
+  const _OverviewItem({
+    required this.title,
+    required this.value,
+  });
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 // -----------------------------------------------------------------------------
 // LIVE
@@ -638,6 +750,25 @@ class _LiveState extends StatelessWidget {
     final project = _text(data, 'projectName', 'Official Housing Balloting');
     final block = _text(data, 'block', 'Block');
     final current = _text(data, 'currentNumber', '----');
+    final eligibleApplicants =
+    _text(data, 'totalEligibleApplicants', '0');
+
+    final availablePlots =
+    _text(data, 'availablePlots', '0');
+
+    final selectedApplications =
+    _text(data, 'selectedApplications', '0');
+
+    final progress =
+        (data['progress'] as num?)?.toDouble() ?? 0.0;
+    final stage = _text(data, 'stage', 'validation');
+    final message = _text(
+      data,
+      'message',
+      'The official housing balloting draw is currently in progress.',
+    );
+    final startedAt = _formatTimestamp(data['startedAt']);
+    final completedAt = _formatTimestamp(data['completedAt']);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -652,6 +783,25 @@ class _LiveState extends StatelessWidget {
         const SizedBox(height: 18),
         _LiveSessionCard(data: data),
         const SizedBox(height: 18),
+        _LiveOverviewCard(
+          eligibleApplicants: eligibleApplicants,
+          availablePlots: availablePlots,
+          selectedApplications: selectedApplications,
+          progress: progress,
+        ),
+        const SizedBox(height: 18),
+
+        _LiveTimingCard(
+          startedAt: startedAt,
+          completedAt: completedAt,
+        ),
+        const SizedBox(height: 18),
+        _LiveStageCard(
+          stage: stage,
+          message: message,
+          progress: progress,
+        ),
+        const SizedBox(height: 18),
         _DrawNumberCard(
           title: 'Current Draw Number',
           number: current,
@@ -659,12 +809,73 @@ class _LiveState extends StatelessWidget {
         const SizedBox(height: 18),
         _LiveFeedCard(feed: data['liveFeed']),
         const SizedBox(height: 18),
-        const _LiveResultsPanel(),
+         _LiveResultsPanel(
+          sessionId: _text(data, 'sessionId', ''),
+        ),
       ],
     );
   }
 }
+String _formatTimestamp(dynamic value) {
+  if (value == null) return '--';
 
+  if (value is Timestamp) {
+    final date = value.toDate();
+
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+
+    return '${date.day}/${date.month}/${date.year} $hour:$minute';
+  }
+
+  return '--';
+}
+class _LiveTimingCard extends StatelessWidget {
+  const _LiveTimingCard({
+    required this.startedAt,
+    required this.completedAt,
+  });
+
+  final String startedAt;
+  final String completedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Balloting Timing',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _OverviewItem(
+                  title: 'Started At',
+                  value: startedAt,
+                ),
+              ),
+              Expanded(
+                child: _OverviewItem(
+                  title: 'Completed At',
+                  value: completedAt == '--'
+                      ? 'In Progress'
+                      : completedAt,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 class _LiveSessionCard extends StatelessWidget {
   const _LiveSessionCard({required this.data});
 
@@ -760,6 +971,67 @@ class _LiveSessionCard extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+class _LiveStageCard extends StatelessWidget {
+  const _LiveStageCard({
+    required this.stage,
+    required this.message,
+    required this.progress,
+  });
+
+  final String stage;
+  final String message;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    String title;
+
+    switch (stage.toLowerCase()) {
+      case 'validation':
+        title = 'Validating Applicants';
+        break;
+      case 'shuffling':
+        title = 'Shuffling Applicants';
+        break;
+      case 'selecting':
+        title = 'Selecting Winners';
+        break;
+      default:
+        title = 'Balloting in Progress';
+    }
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 14),
+          LinearProgressIndicator(
+            value: stage == 'shuffling'
+                ? progress
+                : stage == 'validation'
+                ? 0.25
+                : progress,
           ),
         ],
       ),
@@ -893,13 +1165,20 @@ class _LiveFeedCard extends StatelessWidget {
 }
 
 class _LiveResultsPanel extends StatelessWidget {
-  const _LiveResultsPanel();
+  const _LiveResultsPanel({
+    required this.sessionId,
+  });
+
+  final String sessionId;
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
+      stream: sessionId.isEmpty
+          ? const Stream<QuerySnapshot>.empty()
+          : FirebaseFirestore.instance
           .collection('ballot_live_results')
+          .where('sessionId', isEqualTo: sessionId)
           .snapshots(),
       builder: (context, snapshot) {
         final docs = [...?snapshot.data?.docs];
@@ -1086,6 +1365,8 @@ class _CompletedState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final startedAt = _formatTimestamp(data['startedAt']);
+    final completedAt = _formatTimestamp(data['completedAt']);
     final project = _text(data, 'projectName', 'Official Housing Balloting');
     final block = _text(data, 'block', '-');
 
@@ -1099,6 +1380,12 @@ class _CompletedState extends StatelessWidget {
           title: 'Balloting Completed',
           subtitle: '$project - $block',
           imageAlignment: Alignment.centerRight,
+        ),
+        const SizedBox(height: 18),
+
+        _LiveTimingCard(
+          startedAt: startedAt,
+          completedAt: completedAt,
         ),
         const SizedBox(height: 18),
         _DrawSummaryCard(

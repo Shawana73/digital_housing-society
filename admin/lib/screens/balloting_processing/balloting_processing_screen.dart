@@ -46,9 +46,29 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
     super.dispose();
   }
 
-  void _start() {
-    _viewModel.start();
-    showAdminSnack(context, 'Balloting started');
+  Future<void> _start() async {
+    final success = await _viewModel.start(
+      schemeName: widget.schemeName,
+      schemeSize: widget.schemeSize,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Balloting completed successfully.'),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _viewModel.errorMessage ?? 'Balloting failed.',
+          ),
+        ),
+      );
+    }
   }
 
   void _pause() {
@@ -67,12 +87,15 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
   }
 
   void _complete() {
-    _viewModel.complete();
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, AdminRoutes.results);
-      }
-    });
+    if (_viewModel.progress < 1.0 || _viewModel.isProcessing) {
+      showAdminSnack(context, 'Please complete the balloting first');
+      return;
+    }
+
+    Navigator.pushReplacementNamed(
+      context,
+      AdminRoutes.results,
+    );
   }
 
   @override
@@ -237,7 +260,9 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _complete,
+                  onPressed: _viewModel.progress == 1.0 && !_viewModel.isProcessing
+                      ? _complete
+                      : null,
                   icon: const Icon(Icons.emoji_events_rounded, size: 20),
                   label: const Text('Complete & View Results', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
                   style: FilledButton.styleFrom(
