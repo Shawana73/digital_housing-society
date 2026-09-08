@@ -5,6 +5,12 @@ import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
 import 'reports_viewmodel.dart';
 import 'reports_widgets.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'dart:typed_data';
+import 'package:excel/excel.dart' as xls;
+import 'package:share_plus/share_plus.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -87,10 +93,34 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return '${d.day.toString().padLeft(2, '0')} '
         '${months[d.month - 1]} ${d.year}';
   }
-  void _openReportPreview(String reportTitle) {
+  List<(String, String)> _reportRows(String reportTitle) {
     final isPayment = reportTitle == 'Payment Report';
     final isApplicant = reportTitle == 'Applicant Summary';
     final isPlot = reportTitle == 'Plot Allocation Report';
+
+    if (isPayment) {
+      return [('Total Payments', _viewModel.totalPayments.toString())];
+    }
+    if (isApplicant) {
+      return [
+        ('Total Applicants', _viewModel.totalApplicants.toString()),
+        ('Verified', _viewModel.verifiedApplicants.toString()),
+        ('Pending', _viewModel.pendingApplicants.toString()),
+        ('Rejected', _viewModel.rejectedApplicants.toString()),
+      ];
+    }
+    if (isPlot) {
+      return [
+        ('Total Plots', _viewModel.totalPlots.toString()),
+        ('Available', _viewModel.availablePlots.toString()),
+        ('Booked', _viewModel.bookedPlots.toString()),
+        ('Allocated', _viewModel.allocatedPlots.toString()),
+      ];
+    }
+    return [('Total Records', _viewModel.totalApplicants.toString())];
+  }
+  void _openReportPreview(String reportTitle) {
+    final rows = _reportRows(reportTitle);
 
     showModalBottomSheet(
       context: context,
@@ -117,63 +147,263 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-
-              if (isPayment)
-                _reportInfoRow(
-                  'Total Payments',
-                  _viewModel.totalPayments.toString(),
+              ...rows.map((r) => _reportInfoRow(r.$1, r.$2)),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _exportReportPdf(reportTitle, rows);
+                    },
+                    icon: const Icon(Icons.picture_as_pdf_rounded, color: AdminColors.rejected),
+                    label: const Text('Export PDF'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminColors.rejected,
+                      side: BorderSide(color: AdminColors.rejected.withOpacity(0.4)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
                 ),
-
-              if (isApplicant) ...[
-                _reportInfoRow(
-                  'Total Applicants',
-                  _viewModel.totalApplicants.toString(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _exportReportExcel(reportTitle, rows);
+                    },
+                    icon: const Icon(Icons.table_chart_rounded),
+                    label: const Text('Export Excel'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AdminColors.success,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
                 ),
-                _reportInfoRow(
-                  'Verified',
-                  _viewModel.verifiedApplicants.toString(),
-                ),
-                _reportInfoRow(
-                  'Pending',
-                  _viewModel.pendingApplicants.toString(),
-                ),
-                _reportInfoRow(
-                  'Rejected',
-                  _viewModel.rejectedApplicants.toString(),
-                ),
-              ],
-
-              if (isPlot) ...[
-                _reportInfoRow(
-                  'Total Plots',
-                  _viewModel.totalPlots.toString(),
-                ),
-                _reportInfoRow(
-                  'Available',
-                  _viewModel.availablePlots.toString(),
-                ),
-                _reportInfoRow(
-                  'Booked',
-                  _viewModel.bookedPlots.toString(),
-                ),
-                _reportInfoRow(
-                  'Allocated',
-                  _viewModel.allocatedPlots.toString(),
-                ),
-              ],
-
-              if (!isPayment && !isApplicant && !isPlot)
-                _reportInfoRow(
-                  'Total Records',
-                  _viewModel.totalApplicants.toString(),
-                ),
-
-
+              ]),
             ],
           ),
         );
       },
     );
+  }
+
+  Future<void> _exportReportPdf(String reportTitle, List<(String, String)> rows) async {
+    showAdminSnack(context, 'Generating PDF...');
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.Page(
+        build: (pwContext) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(reportTitle, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 6),
+            pw.Text('Generated: ${DateTime.now().toString().split('.').first}',
+                style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+            pw.SizedBox(height: 16),
+            pw.Table.fromTextArray(
+              headers: ['Metric', 'Value'],
+              data: rows.map((r) => [r.$1, r.$2]).toList(),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+              cellStyle: const pw.TextStyle(fontSize: 10),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      await Printing.layoutPdf(
+        onLayout: (format) async => doc.save(),
+        name: '${reportTitle.replaceAll(' ', '_')}.pdf',
+      );
+      await _viewModel.saveReportRecord(
+        title: reportTitle,
+        subtitle: '${rows.first.$2} ${rows.first.$1}',
+        fileType: 'PDF',
+        count: int.tryParse(rows.first.$2.replaceAll(',', '')) ?? 0,
+      );
+    } catch (e) {
+      if (mounted) showAdminSnack(context, 'PDF export failed: $e');
+    }
+  }
+
+  Future<void> _exportReportExcel(String reportTitle, List<(String, String)> rows) async {
+    showAdminSnack(context, 'Generating Excel...');
+
+    final workbook = xls.Excel.createExcel();
+    final sheet = workbook[reportTitle.length > 31 ? reportTitle.substring(0, 31) : reportTitle];
+    workbook.setDefaultSheet(sheet.sheetName);
+
+    sheet.appendRow([xls.TextCellValue('Metric'), xls.TextCellValue('Value')]);
+    for (final r in rows) {
+      sheet.appendRow([xls.TextCellValue(r.$1), xls.TextCellValue(r.$2)]);
+    }
+
+    final bytes = workbook.save();
+    if (bytes == null) {
+      if (mounted) showAdminSnack(context, 'Excel export failed');
+      return;
+    }
+
+    try {
+      await Share.shareXFiles([
+        XFile.fromData(
+          Uint8List.fromList(bytes),
+          name: '${reportTitle.replaceAll(' ', '_')}.xlsx',
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ),
+      ]);
+      await _viewModel.saveReportRecord(
+        title: reportTitle,
+        subtitle: '${rows.first.$2} ${rows.first.$1}',
+        fileType: 'XLSX',
+        count: int.tryParse(rows.first.$2.replaceAll(',', '')) ?? 0,
+      );
+    } catch (e) {
+      if (mounted) showAdminSnack(context, 'Excel export failed: $e');
+    }
+  }
+
+
+  static const List<String> _allReportTitles = [
+    'Applicant Summary',
+    'Payment Report',
+    'Balloting Report',
+    'Plot Allocation Report',
+  ];
+
+  void _showExportSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf_rounded, color: AdminColors.rejected),
+                title: const Text('Export All as PDF'),
+                subtitle: const Text('All 4 reports combined'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _exportAllPdf();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.table_chart_rounded, color: AdminColors.success),
+                title: const Text('Export All as Excel'),
+                subtitle: const Text('Separate sheet per report'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _exportAllExcel();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _exportAllPdf() async {
+    showAdminSnack(context, 'Generating combined PDF...');
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        build: (pwContext) => [
+          pw.Text('Digital Housing Society — All Reports',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 6),
+          pw.Text('Generated: ${DateTime.now().toString().split('.').first}',
+              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+          pw.SizedBox(height: 16),
+          for (final title in _allReportTitles) ...[
+            pw.Text(title, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 8),
+            pw.Table.fromTextArray(
+              headers: ['Metric', 'Value'],
+              data: _reportRows(title).map((r) => [r.$1, r.$2]).toList(),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+              cellStyle: const pw.TextStyle(fontSize: 10),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            ),
+            pw.SizedBox(height: 18),
+          ],
+        ],
+      ),
+    );
+
+    try {
+      await Printing.layoutPdf(
+        onLayout: (format) async => doc.save(),
+        name: 'all_reports.pdf',
+      );
+      await _viewModel.saveReportRecord(
+        title: 'All Reports',
+        subtitle: '${_allReportTitles.length} reports combined',
+        fileType: 'PDF',
+        count: _viewModel.totalApplicants,
+      );
+    } catch (e) {
+      if (mounted) showAdminSnack(context, 'PDF export failed: $e');
+    }
+  }
+
+  Future<void> _exportAllExcel() async {
+    showAdminSnack(context, 'Generating combined Excel...');
+
+    final workbook = xls.Excel.createExcel();
+    var isFirstSheet = true;
+
+    for (final title in _allReportTitles) {
+      final sheetName = title.length > 31 ? title.substring(0, 31) : title;
+      final sheet = workbook[sheetName];
+      sheet.appendRow([xls.TextCellValue('Metric'), xls.TextCellValue('Value')]);
+      for (final r in _reportRows(title)) {
+        sheet.appendRow([xls.TextCellValue(r.$1), xls.TextCellValue(r.$2)]);
+      }
+      if (isFirstSheet) {
+        workbook.setDefaultSheet(sheetName);
+        isFirstSheet = false;
+      }
+    }
+
+    if (workbook.sheets.containsKey('Sheet1') && workbook.sheets.length > 1) {
+      workbook.delete('Sheet1');
+    }
+
+    final bytes = workbook.save();
+    if (bytes == null) {
+      if (mounted) showAdminSnack(context, 'Excel export failed');
+      return;
+    }
+
+    try {
+      await Share.shareXFiles([
+        XFile.fromData(
+          Uint8List.fromList(bytes),
+          name: 'all_reports.xlsx',
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ),
+      ]);
+      await _viewModel.saveReportRecord(
+        title: 'All Reports',
+        subtitle: '${_allReportTitles.length} reports combined',
+        fileType: 'XLSX',
+        count: _viewModel.totalApplicants,
+      );
+    } catch (e) {
+      if (mounted) showAdminSnack(context, 'Excel export failed: $e');
+    }
   }
 
   Widget _reportInfoRow(String label, String value) {
@@ -221,6 +451,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _searchController.clear();
         _viewModel.clearSearch();
       },
+      onFabTap: _showExportSheet,
+      fabLabel: 'Export',
+      fabIcon: Icons.file_download_rounded,
       isLoading: _viewModel.isLoading,
       body: ListView(
         physics: const BouncingScrollPhysics(),
@@ -237,6 +470,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
             )),
           ]),
           const SizedBox(height: 16),
+          const Text('Overview', style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -.3)),
+          const SizedBox(height: 12),
           ReportsStatsGrid(
             totalApplicants: _viewModel.totalApplicants,
             verifiedApplicants: _viewModel.verifiedApplicants,

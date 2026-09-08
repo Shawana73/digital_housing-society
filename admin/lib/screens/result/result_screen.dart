@@ -5,6 +5,13 @@ import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
 import 'result_viewmodel.dart';
 import 'result_widgets.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:excel/excel.dart' as xls;
+import 'dart:html' as html show AnchorElement, Blob, Url;
+import 'dart:typed_data';
+import 'package:share_plus/share_plus.dart';
 
 class ResultScreen extends StatefulWidget {
   const ResultScreen({super.key});
@@ -27,6 +34,171 @@ class _ResultScreenState extends State<ResultScreen> {
   void _refresh() {
     if (mounted) setState(() {});
   }
+  void _showExportSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf_rounded, color: AdminColors.rejected),
+                title: const Text('Export as PDF'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _exportPdf();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.table_chart_rounded, color: AdminColors.success),
+                title: const Text('Export as Excel'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _exportExcel();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  Future<void> _exportPdf() async {
+    final data = _viewModel.filteredResults;
+    if (data.isEmpty) {
+      showAdminSnack(context, 'No results to export');
+      return;
+    }
+
+    showAdminSnack(context, 'Generating PDF...');
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        build: (pwContext) => [
+          pw.Text('Digital Housing Society — Balloting Result',
+              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 6),
+          pw.Text('Generated: ${DateTime.now().toString().split('.').first}',
+              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+          pw.SizedBox(height: 16),
+          pw.Table.fromTextArray(
+            headers: ['#', 'Name', 'CNIC', 'Plot No.', 'Category', 'Status'],
+            data: data.asMap().entries.map((e) {
+              final i = e.key;
+              final r = e.value;
+              return [
+                (i + 1).toString(),
+                r.applicantName,
+                r.cnic,
+                r.plotNo,
+                r.category,
+                r.selected ? 'Successful' : 'Not Selected',
+              ];
+            }).toList(),
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+            cellStyle: const pw.TextStyle(fontSize: 9),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellAlignment: pw.Alignment.centerLeft,
+          ),
+        ],
+      ),
+    );
+
+    try {
+      await Printing.layoutPdf(
+        onLayout: (format) async => doc.save(),
+        name: 'balloting_result.pdf',
+      );
+    } catch (e) {
+      if (mounted) showAdminSnack(context, 'PDF export failed: $e');
+    }
+  }
+  Future<void> _exportExcel() async {
+    final data = _viewModel.filteredResults;
+    if (data.isEmpty) {
+      showAdminSnack(context, 'No results to export');
+      return;
+    }
+
+    showAdminSnack(context, 'Generating Excel...');
+
+    final workbook = xls.Excel.createExcel();
+    final sheet = workbook['Balloting Result'];
+    workbook.setDefaultSheet('Balloting Result');
+
+    final headers = ['#', 'Name', 'CNIC', 'Plot No.', 'Category', 'Status'];
+    sheet.appendRow(headers.map((h) => xls.TextCellValue(h)).toList());
+
+    for (var i = 0; i < data.length; i++) {
+      final r = data[i];
+      sheet.appendRow([
+        xls.IntCellValue(i + 1),
+        xls.TextCellValue(r.applicantName),
+        xls.TextCellValue(r.cnic),
+        xls.TextCellValue(r.plotNo),
+        xls.TextCellValue(r.category),
+        xls.TextCellValue(r.selected ? 'Successful' : 'Not Selected'),
+      ]);
+    }
+
+    final bytes = workbook.save();
+    if (bytes == null) {
+      if (mounted) showAdminSnack(context, 'Excel export failed');
+      return;
+    }
+
+    try {
+      await Share.shareXFiles(
+        [
+          XFile.fromData(
+            Uint8List.fromList(bytes),
+            name: 'balloting_result.xlsx',
+            mimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          ),
+        ],
+      );
+    } catch (e) {
+      if (mounted) showAdminSnack(context, 'Excel export failed: $e');
+    }
+  }
+  void _showFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _viewModel.filters.map((f) {
+              final isActive = _viewModel.selectedFilter == f;
+              return ListTile(
+                title: Text(
+                  f,
+                  style: TextStyle(
+                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
+                    color: isActive ? AdminColors.primary : AdminColors.darkText,
+                  ),
+                ),
+                trailing: isActive ? const Icon(Icons.check_rounded, color: AdminColors.primary) : null,
+                onTap: () {
+                  _viewModel.setFilter(f);
+                  Navigator.pop(sheetContext);
+                },
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   void dispose() {
@@ -48,7 +220,7 @@ class _ResultScreenState extends State<ResultScreen> {
         _searchController.clear();
         _viewModel.clearSearch();
       },
-      onFabTap: () => showAdminSnack(context, 'Exporting results...'),
+      onFabTap: _showExportSheet,
       fabLabel: 'Export',
       fabIcon: Icons.file_download_rounded,
       isLoading: _viewModel.isLoading,
@@ -56,11 +228,16 @@ class _ResultScreenState extends State<ResultScreen> {
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
         children: [
-          const ResultCelebrationHero(),
+          ResultCelebrationHero(completionDate: _viewModel.completionDate),
           const SizedBox(height: 20),
           const ResultSLabel(text: 'Result Summary'),
           const SizedBox(height: 10),
-          const ResultSummaryGrid(),
+          ResultSummaryGrid(
+            total: _viewModel.totalResults,
+            successful: _viewModel.selectedResults,
+            unsuccessful: _viewModel.notSelectedResults,
+            successRate: _viewModel.successRate,
+          ),
           const SizedBox(height: 20),
           Row(children: [
             Expanded(
@@ -89,7 +266,7 @@ class _ResultScreenState extends State<ResultScreen> {
               color: AdminColors.white,
               borderRadius: BorderRadius.circular(14),
               child: InkWell(
-                onTap: () => showAdminSnack(context, 'Filter clicked'),
+                onTap: _showFilterSheet,
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
                   height: 46,
@@ -146,7 +323,12 @@ class _ResultScreenState extends State<ResultScreen> {
               color: AdminColors.white,
               borderRadius: BorderRadius.circular(14),
               child: InkWell(
-                onTap: () => showAdminSnack(context, 'Viewing all winners'),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AllWinnersScreen(results: _viewModel.filteredResults),
+                  ),
+                ),
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -167,7 +349,7 @@ class _ResultScreenState extends State<ResultScreen> {
           Row(children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => showAdminSnack(context, 'Exporting PDF...'),
+                onPressed: _exportPdf,
                 icon: const Icon(Icons.picture_as_pdf_rounded, color: AdminColors.rejected),
                 label: const Text('Export PDF'),
                 style: OutlinedButton.styleFrom(
@@ -182,7 +364,7 @@ class _ResultScreenState extends State<ResultScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: FilledButton.icon(
-                onPressed: () => showAdminSnack(context, 'Exporting Excel...'),
+                onPressed: _exportExcel,
                 icon: const Icon(Icons.table_chart_rounded),
                 label: const Text('Export Excel'),
                 style: FilledButton.styleFrom(

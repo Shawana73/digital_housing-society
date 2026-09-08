@@ -403,36 +403,6 @@ class DummyData {
         ),
       ];
 
-  static List<BallotingResult> results() => const [
-        BallotingResult(
-          applicantName: 'Areeba Khan',
-          cnic: '35201-9876543-4',
-          plotNo: 'B-214',
-          category: '10 Marla',
-          selected: true,
-        ),
-        BallotingResult(
-          applicantName: 'Hassan Raza',
-          cnic: '37405-4448881-3',
-          plotNo: 'C-330',
-          category: '1 Kanal',
-          selected: true,
-        ),
-        BallotingResult(
-          applicantName: 'Muhammad Ahmed',
-          cnic: '35202-1234567-1',
-          plotNo: '-',
-          category: '5 Marla',
-          selected: false,
-        ),
-        BallotingResult(
-          applicantName: 'Usman Ali',
-          cnic: '34101-2223334-5',
-          plotNo: '-',
-          category: '7 Marla',
-          selected: false,
-        ),
-      ];
 
   static List<AdminNotification> notifications() => [
         AdminNotification(

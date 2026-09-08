@@ -637,7 +637,6 @@ class RecentReportRow extends StatelessWidget {
     final fileIcon = isExcel ? Icons.table_chart_rounded : Icons.picture_as_pdf_rounded;
 
     return PremiumCard(
-      onTap: onTap,
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [

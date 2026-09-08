@@ -240,18 +240,26 @@ class Dealer {
 }
 
 class BallotingResult {
+  final String applicantId;
   final String applicantName;
   final String cnic;
   final String plotNo;
   final String category;
+  final String plotLocation;
+  final String serialNumber;
   final bool selected;
+  final DateTime? ballotingDate;
 
   const BallotingResult({
+    required this.applicantId,
     required this.applicantName,
     required this.cnic,
     required this.plotNo,
     required this.category,
+    required this.plotLocation,
+    required this.serialNumber,
     required this.selected,
+    this.ballotingDate,
   });
 }
 

@@ -68,7 +68,53 @@ class ReportsViewModel extends BaseAdminViewModel {
       59,
     );
 
+    await _saveDateRange();
     await load();
+  }
+  Future<void> saveReportRecord({
+    required String title,
+    required String subtitle,
+    required String fileType,
+    required int count,
+  }) async {
+    try {
+      await _firestore.collection('reports').add({
+        'title': title,
+        'subtitle': subtitle,
+        'fileType': fileType,
+        'count': count,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error saving report record: $e');
+    }
+  }
+  Future<void> _loadSavedDateRange() async {
+    try {
+      final doc = await _firestore.collection('admin_settings').doc('reports_filter').get();
+      if (doc.exists) {
+        final data = doc.data()!;
+        final start = data['startDate'];
+        final end = data['endDate'];
+        if (start is Timestamp && end is Timestamp) {
+          selectedStartDate = start.toDate();
+          selectedEndDate = end.toDate();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading saved date range: $e');
+    }
+  }
+
+  Future<void> _saveDateRange() async {
+    try {
+      await _firestore.collection('admin_settings').doc('reports_filter').set({
+        if (selectedStartDate != null) 'startDate': Timestamp.fromDate(selectedStartDate!),
+        if (selectedEndDate != null) 'endDate': Timestamp.fromDate(selectedEndDate!),
+      });
+    } catch (e) {
+      debugPrint('Error saving date range: $e');
+    }
   }
 
   // ------------------------------------------------------------
@@ -80,15 +126,18 @@ class ReportsViewModel extends BaseAdminViewModel {
     isLoading = true;
     notifyListeners();
 
+    if (selectedStartDate == null && selectedEndDate == null) {
+      await _loadSavedDateRange();
+    }
 
     try {
       await Future.wait([
         _loadApplicants(),
         _loadPlots(),
         _loadPayments(),
+        _loadRecentReports(),
       ]);
 
-      _buildReports();
       await _buildApplicantTrend();
     } catch (e, stackTrace) {
       debugPrint('Error loading reports: $e');
@@ -227,46 +276,21 @@ class ReportsViewModel extends BaseAdminViewModel {
   // RECENT REPORTS
   // ------------------------------------------------------------
 
-  void _buildReports() {
-    final now = Timestamp.now();
+  Future<void> _loadRecentReports() async {
+    try {
+      final snapshot = await _firestore
+          .collection('reports')
+          .orderBy('createdAt', descending: true)
+          .limit(20)
+          .get();
 
-    reports = [
-      ReportModel(
-        documentId: 'applicant-summary',
-        title: 'Applicant Summary',
-        subtitle: '$totalApplicants applicants',
-        fileType: 'Report',
-        count: totalApplicants,
-        createdAt: now,
-      ),
-
-      ReportModel(
-        documentId: 'payment-report',
-        title: 'Payment Report',
-        subtitle: '$totalPayments payments',
-        fileType: 'Report',
-        count: totalPayments,
-        createdAt: now,
-      ),
-
-      ReportModel(
-        documentId: 'balloting-report',
-        title: 'Balloting Report',
-        subtitle: 'Balloting and applicant statistics',
-        fileType: 'Report',
-        count: totalApplicants,
-        createdAt: now,
-      ),
-
-      ReportModel(
-        documentId: 'plot-allocation-report',
-        title: 'Plot Allocation Report',
-        subtitle: '$allocatedPlots allocated plots',
-        fileType: 'Report',
-        count: totalPlots,
-        createdAt: now,
-      ),
-    ];
+      reports = snapshot.docs
+          .map((doc) => ReportModel.fromMap(doc.data(), doc.id))
+          .toList();
+    } catch (e, stackTrace) {
+      debugPrint('Error loading recent reports: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   // ------------------------------------------------------------

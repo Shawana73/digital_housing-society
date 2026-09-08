@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../models/admin_models.dart';
 import '../../theme/admin_theme.dart';
+import '../../widgets/premium_widgets.dart';
 
 class ResultCelebrationHero extends StatelessWidget {
-  const ResultCelebrationHero({super.key});
+  final DateTime? completionDate;
+  const ResultCelebrationHero({super.key, required this.completionDate});
+
+  static String _formatDate(DateTime d) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final hour24 = d.hour;
+    final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+    final period = hour24 >= 12 ? 'PM' : 'AM';
+    final minute = d.minute.toString().padLeft(2, '0');
+    return '${d.day} ${months[d.month - 1]} ${d.year}, $hour12:$minute $period';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,10 +106,13 @@ class ResultCelebrationHero extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
             decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.07), borderRadius: BorderRadius.circular(20)),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.calendar_today_rounded, color: AdminColors.primary, size: 13),
-              SizedBox(width: 7),
-              Text('10 Jul 2026, 11:02 AM', style: TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w700, fontSize: 13)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.calendar_today_rounded, color: AdminColors.primary, size: 13),
+              const SizedBox(width: 7),
+              Text(
+                completionDate == null ? 'Awaiting Completion' : _formatDate(completionDate!),
+                style: const TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w700, fontSize: 13),
+              ),
             ]),
           ),
         ],
@@ -108,17 +122,27 @@ class ResultCelebrationHero extends StatelessWidget {
 }
 
 class ResultSummaryGrid extends StatelessWidget {
-  const ResultSummaryGrid({super.key});
+  final int total;
+  final int successful;
+  final int unsuccessful;
+  final double successRate;
+
+  const ResultSummaryGrid({
+    super.key,
+    required this.total,
+    required this.successful,
+    required this.unsuccessful,
+    required this.successRate,
+  });
 
   @override
   Widget build(BuildContext context) {
     final tiles = [
-      ('Total', '1,284', AdminColors.primary, Icons.groups_rounded),
-      ('Successful', '120', AdminColors.success, Icons.verified_rounded),
-      ('Unsuccessful', '1,164', AdminColors.rejected, Icons.cancel_rounded),
-      ('Success Rate', '9.3%', AdminColors.warning, Icons.percent_rounded),
+      ('Total', total.toString(), AdminColors.primary, Icons.groups_rounded),
+      ('Successful', successful.toString(), AdminColors.success, Icons.verified_rounded),
+      ('Unsuccessful', unsuccessful.toString(), AdminColors.rejected, Icons.cancel_rounded),
+      ('Success Rate', '${successRate.toStringAsFixed(1)}%', AdminColors.warning, Icons.percent_rounded),
     ];
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: tiles.asMap().entries.map((e) {
@@ -224,4 +248,49 @@ class ResultSLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Text(text, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -.3));
+}
+class AllWinnersScreen extends StatelessWidget {
+  final List<BallotingResult> results;
+  const AllWinnersScreen({super.key, required this.results});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AdminColors.background,
+      appBar: AppBar(
+        title: Text('All Winners (${results.length})'),
+        backgroundColor: AdminColors.white,
+        foregroundColor: AdminColors.darkText,
+        elevation: 0,
+      ),
+      body: results.isEmpty
+          ? EmptyState(
+        icon: Icons.emoji_events_outlined,
+        title: 'No results found',
+        subtitle: 'No result matches current search.',
+        buttonText: 'Go Back',
+        onPressed: () => Navigator.pop(context),
+      )
+          : ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: AdminColors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 8))],
+            ),
+            child: Column(
+              children: results.asMap().entries.map((e) {
+                final index = e.key;
+                final result = e.value;
+                final isLast = index == results.length - 1;
+                return WinnerRow(rank: index + 1, result: result, isLast: isLast);
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

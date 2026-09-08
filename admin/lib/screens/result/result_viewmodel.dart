@@ -43,6 +43,12 @@ class ResultViewModel extends BaseAdminViewModel {
     if (totalResults == 0) return 0;
     return (selectedResults / totalResults) * 100;
   }
+  DateTime? get completionDate {
+    final dated = results.where((r) => r.ballotingDate != null).toList();
+    if (dated.isEmpty) return null;
+    dated.sort((a, b) => b.ballotingDate!.compareTo(a.ballotingDate!));
+    return dated.first.ballotingDate;
+  }
 
   @override
   Future<void> load() async {
@@ -57,11 +63,17 @@ class ResultViewModel extends BaseAdminViewModel {
         final data = doc.data();
 
         return BallotingResult(
+          applicantId: data['applicantId']?.toString() ?? doc.id,
           applicantName: data['fullName']?.toString() ?? '',
           cnic: data['cnic']?.toString() ?? '',
           plotNo: data['plotNumber']?.toString() ?? '',
           category: data['plotType']?.toString() ?? '',
+          plotLocation: data['plotLocation']?.toString() ?? '',
+          serialNumber: data['serialNumber']?.toString() ?? '',
           selected: data['isSelected'] == true,
+          ballotingDate: data['ballotingDate'] is Timestamp
+              ? (data['ballotingDate'] as Timestamp).toDate()
+              : null,
         );
       }).toList();
     } catch (e) {
