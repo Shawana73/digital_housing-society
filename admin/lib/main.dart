@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart'; //firebase core package// req
 import 'firebase_options.dart'; //firebase configuration options
 import 'app_routes.dart';  //routes names defined
 import 'models/admin_models.dart';
+import 'screens/splash_screen.dart';
 import 'screens/admin_login/admin_login_screen.dart';
 import 'screens/add_plot/add_plot_screen.dart';
 import 'screens/applicants/applicant_verification_screen.dart';
@@ -39,8 +40,9 @@ class DigitalHousingAdminApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Digital Housing Admin Panel',
       theme: AdminTheme.theme, //overall app visual config
-      initialRoute: AdminRoutes.login, //specify initial route when app gets started
+      initialRoute: AdminRoutes.splash, //specify initial route when app gets started//specify initial route when app gets started
       routes: {  //maps named routes with their screens
+        AdminRoutes.splash: (_) => const SplashScreen(),
         AdminRoutes.login: (_) => const AdminLoginScreen(),
         AdminRoutes.dashboard: (_) => const AdminDashboardScreen(),
         AdminRoutes.applicants: (_) => const ApplicantVerificationScreen(),

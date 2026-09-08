@@ -273,67 +273,86 @@ class SocietyLayoutMap extends StatelessWidget {
   }) {
     final blockPlots = _plotsForBlock(blockLetter);
 
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: const Color(0xFFD8D3EC),
-          width: 1,
+    final content = blockPlots.isEmpty
+        ? const Center(
+      child: Text(
+        'No plots yet',
+        style: TextStyle(
+          color: Color(0xFFAEB0B5),
+          fontSize: 7,
+          fontWeight: FontWeight.w700,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: AdminColors.primary.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(4),
+    )
+        : SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: blockPlots.map((plot) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 3),
+            child: SizedBox(
+              width: 38,
+              child: MapPlotBlock(plot: plot),
             ),
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AdminColors.primary,
-                fontSize: 8,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.4,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: blockPlots.isEmpty
-                ? const Center(
-              child: Text(
-                'No plots yet',
-                style: TextStyle(
-                  color: Color(0xFFAEB0B5),
-                  fontSize: 7,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            )
-                : SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                children: blockPlots.map((plot) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 3),
-                    child: SizedBox(
-                      width: 38,
-                      child: MapPlotBlock(plot: plot),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        ],
+          );
+        }).toList(),
       ),
+    );
+
+    final titleChip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AdminColors.primary.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        title,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: AdminColors.primary,
+          fontSize: 8,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Container below has EdgeInsets.all(6) => 12px vertical padding total.
+        const containerVerticalPadding = 8.0;
+        // Rough minimum height the plots row itself needs (icon + gap + label),
+        // plus a small safety buffer.
+        const plotsRowMinHeight = 30.0;
+        // Rough minimum height the title chip + the gap under it needs.
+        const titleAndGapHeight = 18.0;
+
+        final contentHeight = constraints.maxHeight - containerVerticalPadding;
+        final canShowTitle = contentHeight >= (plotsRowMinHeight + titleAndGapHeight);
+
+        return Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: const Color(0xFFD8D3EC),
+              width: 1,
+            ),
+          ),
+          child: canShowTitle
+              ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              titleChip,
+              const SizedBox(height: 4),
+              Expanded(child: content),
+            ],
+          )
+              : content,
+        );
+      },
     );
   }
 

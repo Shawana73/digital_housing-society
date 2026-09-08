@@ -170,7 +170,7 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
                 crossAxisCount: 2,
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 14,
-                childAspectRatio: 0.50,
+                mainAxisExtent: 380,
               ),
               itemBuilder: (context, index) {
                 final plot = _viewModel.filteredPlots[index];

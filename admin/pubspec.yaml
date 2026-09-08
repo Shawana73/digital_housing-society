@@ -34,6 +34,8 @@ flutter:
     - assets/images/Royal Enclave.png
     - assets/images/Sunshine Residency.png
     - assets/images/admin_purple.png
+    - assets/logo/dhs_logo.png
+    - assets/logo/dhs_icon.png
 
 dependency_overrides:
   firebase_core_web: 3.10.0

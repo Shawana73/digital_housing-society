@@ -397,7 +397,22 @@ class BallotingProcessingViewModel extends ChangeNotifier {
 
       // Winners
       // Winners
+      // Winners
+      var drawnCount = 0;
+
       for (var i = 0; i < winners.length; i++) {
+        // PAUSE: soft-check — wait here (before starting the next winner)
+        // until admin resumes. The winner currently being processed always
+        // finishes first, since this check sits at the top of the loop.
+        while (isPaused) {
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+
+        // STOP: if admin stopped, exit the loop before drawing the next winner.
+        if (!isProcessing) {
+          break;
+        }
+
         final applicant = winners[i];
         final plot = availablePlots[i];
 
@@ -443,7 +458,30 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           'createdAt': Timestamp.now(),
 
         });
+
+        drawnCount++;
         await Future.delayed(const Duration(seconds: 3));
+      }
+
+      // If the loop above broke early because of Stop, do NOT save any
+      // ballot_results or allocate any plots — the draw is incomplete.
+      // The partial ballot_live_results entries already written stay as
+      // history (per the agreed behavior), and ballot_config is marked
+      // 'stopped' so the applicant-facing live screen reflects it too.
+      if (drawnCount < winners.length) {
+        await _firestore.collection('ballot_config').doc('main').set({
+          'status': 'stopped',
+          'stage': 'stopped',
+          'message': 'Balloting was stopped by admin before completion.',
+        }, SetOptions(merge: true));
+
+        isRunning = false;
+        isPaused = false;
+        isProcessing = false;
+        errorMessage = 'Balloting was stopped before completion. No results were saved.';
+        notifyListeners();
+
+        return false;
       }
 
       // Not selected applicants

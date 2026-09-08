@@ -42,12 +42,16 @@ class LoginHeroSection extends StatelessWidget {
                 Container(
                   height: 80,
                   width: 80,
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.18),
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: Colors.white.withOpacity(0.30), width: 1.5),
                   ),
-                  child: const Icon(Icons.home_work_rounded, color: Colors.white, size: 42),
+                  child: Image.asset(
+                    'assets/logo/dhs_icon.png',
+                    fit: BoxFit.contain,
+                  ),
                 ),
                 const SizedBox(height: 18),
                 const Text('Admin Login',

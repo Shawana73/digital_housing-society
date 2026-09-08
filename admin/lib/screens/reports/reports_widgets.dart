@@ -149,7 +149,7 @@ class ReportsStatsGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 1.55,
+        mainAxisExtent: 130,
       ),
       itemBuilder: (context, index) {
         final stat = stats[index];
@@ -589,9 +589,9 @@ class QuickReportsGrid extends StatelessWidget {
       itemCount: items.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 1.25,
+        mainAxisSpacing: 12,
+        mainAxisExtent: 130,
       ),
       itemBuilder: (context, i) {
         final (label, icon) = items[i];

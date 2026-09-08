@@ -1,4 +1,5 @@
 class AdminRoutes {
+  static const String splash = '/splash';
   static const String login = '/login';
   static const String ballotingProcessing = '/balloting-processing';
   static const String results             = '/balloting-result';
