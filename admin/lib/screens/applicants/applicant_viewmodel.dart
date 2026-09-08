@@ -8,11 +8,14 @@ class ApplicantVerificationViewModel extends BaseAdminViewModel {
 
   List<Applicant> applicants = [];
   String selectedFilter = 'All';
+  String sortOption = 'Name (A-Z)';
+
+  List<String> get sortOptions => ['Name (A-Z)', 'Name (Z-A)', 'Status'];
 
   List<String> get filters => ['All', 'Pending', 'Verified', 'Rejected'];
 
   List<Applicant> get filteredApplicants {
-    return applicants.where((applicant) {
+    final result = applicants.where((applicant) {
       final searchText = query.trim().toLowerCase();
 
       final matchesQuery = searchText.isEmpty ||
@@ -25,6 +28,25 @@ class ApplicantVerificationViewModel extends BaseAdminViewModel {
 
       return matchesQuery && matchesFilter;
     }).toList();
+
+    switch (sortOption) {
+      case 'Name (Z-A)':
+        result.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+        break;
+      case 'Status':
+        result.sort((a, b) => a.status.label.compareTo(b.status.label));
+        break;
+      case 'Name (A-Z)':
+      default:
+        result.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    }
+
+    return result;
+  }
+
+  void setSortOption(String value) {
+    sortOption = value;
+    notifyListeners();
   }
 
   @override

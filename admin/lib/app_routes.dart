@@ -19,7 +19,6 @@ class AdminRoutes {
     applicants,
     balloting,
     reports,
-    reports,
     profile,
   ];
 }

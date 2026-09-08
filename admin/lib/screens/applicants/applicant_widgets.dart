@@ -209,11 +209,25 @@ class ApplicantRow extends StatelessWidget {
                     style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11)),
                 const SizedBox(height: 5),
                 Row(children: [
-                  Text(applicant.id, style: const TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 10)),
+                  Flexible(
+                    child: Text(
+                      applicant.id,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 10),
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   Container(width: 3, height: 3, decoration: const BoxDecoration(color: AdminColors.greyText, shape: BoxShape.circle)),
                   const SizedBox(width: 8),
-                  const Text('28 Jun 2026', style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 10)),
+                  const Flexible(
+                    child: Text(
+                      '28 Jun 2026',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 10),
+                    ),
+                  ),
                 ]),
               ],
             ),

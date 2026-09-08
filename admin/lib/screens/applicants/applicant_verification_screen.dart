@@ -66,6 +66,38 @@ class _ApplicantVerificationScreenState extends State<ApplicantVerificationScree
       }
     }
   }
+  void _showSortSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _viewModel.sortOptions.map((option) {
+              final isActive = _viewModel.sortOption == option;
+              return ListTile(
+                title: Text(
+                  option,
+                  style: TextStyle(
+                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
+                    color: isActive ? AdminColors.primary : AdminColors.darkText,
+                  ),
+                ),
+                trailing: isActive ? const Icon(Icons.check_rounded, color: AdminColors.primary) : null,
+                onTap: () {
+                  _viewModel.setSortOption(option);
+                  Navigator.pop(sheetContext);
+                },
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +124,7 @@ class _ApplicantVerificationScreenState extends State<ApplicantVerificationScree
                   style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -.4)),
             ),
             GestureDetector(
-              onTap: () => showAdminSnack(context, 'Sort clicked'),
+              onTap: _showSortSheet,
               child: const Row(mainAxisSize: MainAxisSize.min, children: [
                 Text('Sort', style: TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 13)),
                 SizedBox(width: 4),
