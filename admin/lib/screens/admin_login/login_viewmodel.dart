@@ -18,6 +18,21 @@ class LoginViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String?> resetPassword() async {
+    final email = emailController.text.trim();
+    if (email.isEmpty) {
+      return 'Please enter your email!';
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: email,
+      );
+      return null;
+    } catch (e) {
+      return 'Password reset failed: $e';
+    }
+  }
+
   /// Returns null on success, or an error message string on failure.
   Future<String?> login() async {
     final email = emailController.text.trim();
@@ -26,7 +41,7 @@ class LoginViewModel extends ChangeNotifier {
     if (email.isEmpty || password.isEmpty) {
       return 'Please enter email and password';
     }
-    if(password.length<6){
+    if (password.length < 6) {
       return 'Password must be at least 6 characters';
     }
 

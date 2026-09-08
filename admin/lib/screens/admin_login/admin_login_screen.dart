@@ -112,9 +112,16 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       ),
                       const Spacer(),
                       TextButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          final result = await _viewModel.resetPassword();
+                          if (result != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content:  Text(result)),
+                            );
+                            return;
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Password reset will be connected later.')),
+                            const SnackBar(content:  Text('Password Reset Email sent Successfully!')),
                           );
                         },
                         style: TextButton.styleFrom(
