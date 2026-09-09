@@ -76,6 +76,17 @@ class DhsResponsiveShell extends StatelessWidget {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         foregroundColor: AppColors.primaryText,
+        leading: Builder(
+          builder: (context) => IconButton(
+            tooltip: 'Menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            icon: const Icon(
+              Icons.menu_rounded,
+              color: AppColors.primaryText,
+              size: 26,
+            ),
+          ),
+        ),
         titleSpacing: 4,
         title: Row(
           children: [
@@ -182,11 +193,6 @@ class DhsNavigationPanel extends StatelessWidget {
       label: 'Messages',
       icon: Icons.mark_chat_unread_outlined,
       route: AppConstants.notificationsRoute,
-    ),
-    _DhsNavDestination(
-      label: 'Favourites',
-      icon: Icons.favorite_border_rounded,
-      route: AppConstants.favouritesRoute,
     ),
     _DhsNavDestination(
       label: 'Profile',
@@ -480,7 +486,11 @@ class _MobileNotificationButton extends StatelessWidget {
       icon: const Badge(
         smallSize: 7,
         backgroundColor: AppColors.errorRed,
-        child: Icon(Icons.notifications_none_rounded),
+        child: Icon(
+          Icons.notifications_none_rounded,
+          color: AppColors.primaryText,
+          size: 26,
+        ),
       ),
     );
   }

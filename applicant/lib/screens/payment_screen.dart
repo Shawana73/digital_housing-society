@@ -36,6 +36,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final StorageService _storageService = StorageService();
   XFile? _receiptImage;
   bool _uploadingReceipt = false;
+
   Future<void> _pickReceipt() async {
     final picker = ImagePicker();
 
@@ -70,11 +71,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final applicationDoc = await _firestoreService.getApplication(uid);
       final paymentDoc = await _firestoreService.getPayment(uid);
       setState(() {
-        _application = applicationDoc == null ? null : ApplicationModel.fromFirestore(applicationDoc);
-        _payment = paymentDoc == null ? null : PaymentModel.fromFirestore(paymentDoc);
+        _application =
+        applicationDoc == null ? null : ApplicationModel.fromFirestore(
+            applicationDoc);
+        _payment =
+        paymentDoc == null ? null : PaymentModel.fromFirestore(paymentDoc);
         if (_payment != null) {
           if (_payment!.transactionId.length >= 4) {
-            _cardLast4.text = _payment!.transactionId.substring(_payment!.transactionId.length - 4);
+            _cardLast4.text = _payment!.transactionId.substring(
+                _payment!.transactionId.length - 4);
           }
         }
       });
@@ -92,7 +97,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (_application == null) return _showSnack('Submit an application first.');
     setState(() => _submitting = true);
     try {
-      final ref = 'STRIPE-TEST-${DateTime.now().millisecondsSinceEpoch}';
+      final ref = 'STRIPE-TEST-${DateTime
+          .now()
+          .millisecondsSinceEpoch}';
 
       if (_receiptImage == null) {
         _showSnack('Please select a payment receipt image.');
@@ -105,7 +112,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       final receiptUrl = await _storageService.uploadImage(
         receiptBytes,
-        'payment_receipt_${uid}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        'payment_receipt_${uid}_${DateTime
+            .now()
+            .millisecondsSinceEpoch}.jpg',
       );
 
       await _firestoreService.savePayment({
@@ -124,12 +133,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
       await FirebaseFirestore.instance.collection('activity_logs').add({
         'applicantId': uid,
         'action': 'Payment submitted',
-        'description': 'Applicant submitted a payment of PKR ${_application!.fee}.',
+        'description': 'Applicant submitted a payment of PKR ${_application!
+            .fee}.',
         'type': 'payment',
         'timestamp': FieldValue.serverTimestamp(),
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment submitted successfully.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment submitted successfully.')));
       Navigator.pushReplacementNamed(context, AppConstants.ballotingRoute);
     } catch (e) {
       _showSnack('Payment record could not be saved. Please try again.');
@@ -157,59 +168,59 @@ class _PaymentScreenState extends State<PaymentScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: desktop ? AppBar(title: const Text('Fee Payment'), actions: const [NotificationBell(), SizedBox(width: 8)]) : null,
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple))
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(18),
-                children: [
-                  _AmountCard(amount: amount, status: _payment?.status ?? 'not paid'),
-                  const SizedBox(height: 16),
-                  if (_application == null)
-                    _NoApplicationCard()
-                  else if (_payment != null)
-                    _PaymentSubmittedCard(payment: _payment!, application: _application!)
-                  else ...[
-                    _StripeCard(),
-                    const SizedBox(height: 14),
-                    const SizedBox(height: 14),
-                    AppTextField(
-                      label: 'Test Card Last 4',
-                      hint: '4242',
-                      controller: _cardLast4,
-                      prefixIcon: Icons.credit_card_rounded,
-                      keyboardType: TextInputType.number,
-                      validator: (v) => Validators.required(v, 'Card last 4'),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple))
+            : Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(18),
+            children: [
+              _AmountCard(amount: amount, status: _payment?.status ?? 'not paid'),
+              const SizedBox(height: 16),
+              if (_application == null)
+                _NoApplicationCard()
+              else if (_payment != null)
+                _PaymentSubmittedCard(payment: _payment!, application: _application!)
+              else ...[
+                  _StripeCard(),
+                  const SizedBox(height: 14),
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    label: 'Test Card Last 4',
+                    hint: '4242',
+                    controller: _cardLast4,
+                    prefixIcon: Icons.credit_card_rounded,
+                    keyboardType: TextInputType.number,
+                    validator: (v) => Validators.required(v, 'Card last 4'),
+                  ),
+                  const SizedBox(height: 14),
+                  _StripeHelp(),
+                  const SizedBox(height: 18),
+                  const SizedBox(height: 18),
+
+                  OutlinedButton.icon(
+                    onPressed: _uploadingReceipt ? null : _pickReceipt,
+                    icon: const Icon(Icons.upload_file_rounded),
+                    label: Text(
+                      _receiptImage == null
+                          ? 'Select Payment Receipt'
+                          : 'Receipt Selected',
                     ),
-                    const SizedBox(height: 14),
-                    _StripeHelp(),
-                    const SizedBox(height: 18),
-                      const SizedBox(height: 18),
+                  ),
 
-                      OutlinedButton.icon(
-                        onPressed: _uploadingReceipt ? null : _pickReceipt,
-                        icon: const Icon(Icons.upload_file_rounded),
-                        label: Text(
-                          _receiptImage == null
-                              ? 'Select Payment Receipt'
-                              : 'Receipt Selected',
-                        ),
-                      ),
-
-                      if (_receiptImage != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          _receiptImage!.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                      const SizedBox(height: 18),
-                    PrimaryGradientButton(text: 'Submit Payment', icon: Icons.lock_rounded, isLoading: _submitting, onPressed: _submit),
+                  if (_receiptImage != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _receiptImage!.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ],
+                  const SizedBox(height: 18),
+                  PrimaryGradientButton(text: 'Submit Payment', icon: Icons.lock_rounded, isLoading: _submitting, onPressed: _submit),
                 ],
-              ),
-            ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -305,12 +316,12 @@ class _PaymentSubmittedCard extends StatelessWidget {
   }
 
   Widget _row(String label, String value) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 110, child: Text(label, style: AppTextStyles.captionText)),
-          Expanded(child: Text(value.isEmpty ? '-' : value, textAlign: TextAlign.right, style: AppTextStyles.labelBold)),
-        ]),
-      );
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SizedBox(width: 110, child: Text(label, style: AppTextStyles.captionText)),
+      Expanded(child: Text(value.isEmpty ? '-' : value, textAlign: TextAlign.right, style: AppTextStyles.labelBold)),
+    ]),
+  );
 }
 
 class _NoApplicationCard extends StatelessWidget {

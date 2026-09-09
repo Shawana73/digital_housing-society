@@ -24,7 +24,6 @@ import 'screens/splash_screen.dart';
 import 'screens/plots_screen.dart';
 import 'screens/dealers_screen.dart';
 import 'screens/dealer_registration_screen.dart';
-import 'screens/favourite_plots_screen.dart';
 import 'screens/settings_screen.dart';
 import 'utils/app_constants.dart';
 import 'utils/app_theme.dart';
@@ -78,7 +77,6 @@ class DigitalHousingSocietyApp extends StatelessWidget {
           AppConstants.plotsRoute: (_) => const PlotsScreen(),
           AppConstants.dealersRoute: (_) => const DealersScreen(),
           AppConstants.dealerRegistrationRoute: (_) => const DealerRegistrationScreen(),
-          AppConstants.favouritesRoute: (_) => const FavouritePlotsScreen(),
           AppConstants.settingsRoute: (_) => const SettingsScreen(),
         },
       ),

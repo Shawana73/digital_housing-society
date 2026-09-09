@@ -10,6 +10,7 @@ import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../utils/app_text_styles.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/responsive_shell.dart';
 import '../widgets/status_badge.dart';
 
 class FileUploadScreen extends StatefulWidget {
@@ -229,11 +230,15 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
   @override
   Widget build(BuildContext context) {
     if (_checkingExisting) {
-      return const Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: CircularProgressIndicator(
-              color: AppColors.deepPurple,
+      return DhsResponsiveShell(
+        currentRoute: AppConstants.uploadRoute,
+        mobileTitle: 'Documents',
+        child: const Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.deepPurple,
+              ),
             ),
           ),
         ),
@@ -241,59 +246,67 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
     }
 
     if (_existingUpload != null) {
-      return Scaffold(
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: _SubmittedDocumentsView(
-              data: _existingUpload!,
+      return DhsResponsiveShell(
+        currentRoute: AppConstants.uploadRoute,
+        mobileTitle: 'Documents',
+        child: Scaffold(
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: _SubmittedDocumentsView(
+                data: _existingUpload!,
+              ),
             ),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _HeroCard(
-                count: _selectedCount,
-                total: _slots.length,
-              ),
-              const SizedBox(height: 18),
-              _InfoCard(),
-              const SizedBox(height: 18),
-
-              ..._slots.asMap().entries.map(
-                    (entry) => _DocumentSlotCard(
-                  slot: entry.value,
-                  onPick: () => _pickForSlot(entry.key),
-                  onRemove: () {
-                    setState(() {
-                      _slots[entry.key] =
-                          _slots[entry.key].copyWith(record: null);
-                    });
-                  },
+    return DhsResponsiveShell(
+      currentRoute: AppConstants.uploadRoute,
+      mobileTitle: 'Documents',
+      child: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _HeroCard(
+                  count: _selectedCount,
+                  total: _slots.length,
                 ),
-              ),
+                const SizedBox(height: 18),
+                _InfoCard(),
+                const SizedBox(height: 18),
 
-              const SizedBox(height: 10),
-
-              SizedBox(
-                width: double.infinity,
-                child: PrimaryGradientButton(
-                  text: _loading
-                      ? 'Uploading Documents...'
-                      : 'Submit Documents',
-                  icon: Icons.cloud_upload_rounded,
-                  onPressed: _loading ? null : _submit,
+                ..._slots.asMap().entries.map(
+                      (entry) => _DocumentSlotCard(
+                    slot: entry.value,
+                    onPick: () => _pickForSlot(entry.key),
+                    onRemove: () {
+                      setState(() {
+                        _slots[entry.key] =
+                            _slots[entry.key].copyWith(record: null);
+                      });
+                    },
+                  ),
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: PrimaryGradientButton(
+                    text: _loading
+                        ? 'Uploading Documents...'
+                        : 'Submit Documents',
+                    icon: Icons.cloud_upload_rounded,
+                    onPressed: _loading ? null : _submit,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
