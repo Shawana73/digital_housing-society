@@ -7,33 +7,38 @@ class LoginHeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final isWide = MediaQuery.of(context).size.width >= 700;
+    final radius = isWide ? 28.0 : 0.0;
+
     return Container(
       height: screenHeight * 0.38,
       width: double.infinity,
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(0)),
-        image: DecorationImage(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        image: const DecorationImage(
           image: AssetImage('assets/images/modern_apartment.png'),
           fit: BoxFit.cover,
           alignment: Alignment.centerRight,
         ),
       ),
-      child: Stack(children: [
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF4A28D4).withOpacity(0.72),
-                const Color(0xFF6A3CEF).withOpacity(0.65),
-                const Color(0xFF7B4DFF).withOpacity(0.55),
-              ],
-              stops: const [0.0, 0.55, 1.0],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Stack(children: [
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF4A28D4).withOpacity(0.72),
+                    const Color(0xFF6A3CEF).withOpacity(0.65),
+                    const Color(0xFF7B4DFF).withOpacity(0.55),
+                  ],
+                  stops: const [0.0, 0.55, 1.0],
+                ),
+              ),
             ),
-          ),
-        ),
-        Container(color: const Color(0xFF5A30E8).withOpacity(0.35)),
+            Container(color: const Color(0xFF5A30E8).withOpacity(0.35)),
         SafeArea(
           child: Center(
             child: Column(
@@ -65,6 +70,7 @@ class LoginHeroSection extends StatelessWidget {
           ),
         ),
       ]),
+        ),
     );
   }
 }

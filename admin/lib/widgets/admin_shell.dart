@@ -48,8 +48,47 @@ class AdminShell extends StatelessWidget {
     _openRoute(context, AdminRoutes.bottomRoutes[index]);
   }
 
+  static const double _wideBreakpoint = 800;
+
+  List<NavigationRailDestination> get _railDestinations => const [
+    NavigationRailDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard_rounded), label: Text('Dashboard')),
+    NavigationRailDestination(icon: Icon(Icons.people_outline_rounded), selectedIcon: Icon(Icons.people_rounded), label: Text('Applicants')),
+    NavigationRailDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome_rounded), label: Text('Balloting')),
+    NavigationRailDestination(icon: Icon(Icons.insert_chart_outlined_rounded), selectedIcon: Icon(Icons.insert_chart_rounded), label: Text('Reports')),
+    NavigationRailDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: Text('Profile')),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isWide = width >= _wideBreakpoint;
+
+    final mainContent = Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1000),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: PremiumSearchBar(
+                controller: searchController,
+                hintText: searchHint,
+                onChanged: onSearchChanged,
+                onSubmitted: onSearchSubmitted,
+                onClear: onSearchClear,
+              ),
+            ),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                child: isLoading ? const LoadingState() : body,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
     return Scaffold(
       backgroundColor: AdminColors.background,
       appBar: AppBar(
@@ -116,7 +155,9 @@ class AdminShell extends StatelessWidget {
         icon: Icon(fabIcon),
         label: Text(fabLabel, style: const TextStyle(fontWeight: FontWeight.w900)),
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: isWide
+          ? null
+          : NavigationBar(
         selectedIndex: selectedIndex,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         onDestinationSelected: (index) => _openBottom(context, index),
@@ -128,26 +169,24 @@ class AdminShell extends StatelessWidget {
           NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'Profile'),
         ],
       ),
-      body: Column(
+      body: isWide
+          ? Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-            child: PremiumSearchBar(
-              controller: searchController,
-              hintText: searchHint,
-              onChanged: onSearchChanged,
-              onSubmitted: onSearchSubmitted,
-              onClear: onSearchClear,
-            ),
+          NavigationRail(
+            selectedIndex: selectedIndex,
+            labelType: NavigationRailLabelType.all,
+            backgroundColor: AdminColors.white,
+            selectedIconTheme: const IconThemeData(color: AdminColors.primary),
+            selectedLabelTextStyle: const TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800),
+            unselectedLabelTextStyle: const TextStyle(color: AdminColors.greyText),
+            onDestinationSelected: (index) => _openBottom(context, index),
+            destinations: _railDestinations,
           ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              child: isLoading ? const LoadingState() : body,
-            ),
-          ),
+          const VerticalDivider(width: 1),
+          Expanded(child: mainContent),
         ],
-      ),
+      )
+          : mainContent,
     );
   }
 }

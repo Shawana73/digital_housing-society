@@ -102,6 +102,7 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
   Widget build(BuildContext context) {
     final progress = _viewModel.progress;
     final isRunning = _viewModel.isRunning;
+    final isWide = MediaQuery.of(context).size.width >= 800;
 
     return Scaffold(
       backgroundColor: AdminColors.background,
@@ -160,10 +161,13 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
           ),
         ),
         Expanded(
-          child: ListView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
-            children: [
+          child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: isWide ? 700 : double.infinity),
+                child: ListView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                  children: [
               Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -299,6 +303,8 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
                 ]),
               ),
             ],
+          ),
+        ),
           ),
         ),
       ]),
