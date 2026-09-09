@@ -75,6 +75,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       fabLabel: 'Action',
       fabIcon: Icons.add_rounded,
       isLoading: _viewModel.isLoading,
+      onRefresh: _viewModel.load,
       body: RefreshIndicator(
         color: AdminColors.primary,
         onRefresh: _viewModel.load,
@@ -84,6 +85,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             DashboardHeroCard(
               unreadCount: _viewModel.unreadCount,
+              adminName: _viewModel.adminName,
               onReportsTap: () => _open(AdminRoutes.reports),
               onProfileTap: () => _open(AdminRoutes.profile),
             ),
@@ -105,7 +107,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(children: [
+                   Row(children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +118,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ],
                       ),
                     ),
-                    DashboardGreenBadge(label: '↑ 32%'),
+                    DashboardGreenBadge(
+                      label: _viewModel.weeklyGrowthLabel.isEmpty ? '0%' : _viewModel.weeklyGrowthLabel,
+                    ),
                   ]),
                   const SizedBox(height: 16),
                   SizedBox(height: 165, child: MiniLineChart(values: _viewModel.chartValues)),

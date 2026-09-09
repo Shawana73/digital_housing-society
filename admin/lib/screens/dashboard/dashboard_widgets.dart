@@ -59,9 +59,10 @@ class DashboardGreenBadge extends StatelessWidget {
 /// Hero greeting card
 class DashboardHeroCard extends StatelessWidget {
   final int unreadCount;
+  final String adminName;
   final VoidCallback onReportsTap;
   final VoidCallback onProfileTap;
-  const DashboardHeroCard({super.key, required this.unreadCount, required this.onReportsTap, required this.onProfileTap});
+  const DashboardHeroCard({super.key, required this.unreadCount, required this.adminName, required this.onReportsTap, required this.onProfileTap});
 
   @override
   Widget build(BuildContext context) {
@@ -113,8 +114,8 @@ class DashboardHeroCard extends StatelessWidget {
                 ),
               ]),
               const SizedBox(height: 6),
-              const Text('Admin User 👋',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 26, letterSpacing: -.6)),
+              Text('$adminName 👋',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 26, letterSpacing: -.6)),
               const SizedBox(height: 8),
               const Text('Monitor applicants, plots and\npayments with real-time insights',
                   style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 13, height: 1.45)),

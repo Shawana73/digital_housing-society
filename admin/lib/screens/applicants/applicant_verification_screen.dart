@@ -112,6 +112,7 @@ class _ApplicantVerificationScreenState extends State<ApplicantVerificationScree
         _viewModel.clearSearch();
       },
       isLoading: _viewModel.isLoading,
+      onRefresh: _viewModel.load,
       body: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),

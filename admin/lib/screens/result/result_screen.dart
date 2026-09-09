@@ -289,6 +289,7 @@ class _ResultScreenState extends State<ResultScreen> {
       fabLabel: 'Export',
       fabIcon: Icons.file_download_rounded,
       isLoading: _viewModel.isLoading,
+      onRefresh: _viewModel.load,
       body: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),

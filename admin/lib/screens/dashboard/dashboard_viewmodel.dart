@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/admin_models.dart';
-import '../../data/dummy_data.dart';
 import '../../viewmodels/admin_view_models.dart';
 import '../../theme/admin_theme.dart';
 import '../../app_routes.dart';
@@ -12,12 +11,15 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
 
   List<DashboardStat> stats = [];
 
-  final quickActions = DummyData.quickActions();
+  List<QuickAction> quickActions = [];
 
   List<AdminNotification> notifications = [];
 
   List<ActivityItem> activities = [];
   List<double> chartValues = [];
+
+  String adminName = 'Admin';
+  String weeklyGrowthLabel = '';
 
   @override
   Future<void> load() async {
@@ -43,6 +45,26 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
       final notificationsSnapshot = await _firestore
           .collection('notifications')
           .get();
+
+      final dealersSnapshot =
+      await _firestore.collection('dealers').get();
+
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final adminDoc = await _firestore.collection('admins').doc(uid).get();
+        final adminData = adminDoc.data();
+        final nameFromFirestore = adminData?['name']?.toString().trim();
+
+        if (nameFromFirestore != null && nameFromFirestore.isNotEmpty) {
+          adminName = nameFromFirestore;
+        } else {
+          final authName = FirebaseAuth.instance.currentUser?.displayName;
+          final authEmail = FirebaseAuth.instance.currentUser?.email;
+          adminName = (authName != null && authName.trim().isNotEmpty)
+              ? authName
+              : (authEmail != null ? authEmail.split('@').first : 'Admin');
+        }
+      }
 
       int verifiedApplicants = 0;
       int pendingApplicants = 0;
@@ -74,8 +96,8 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
           allocatedPlots++;
         }
       }
-
       double totalPayments = 0;
+      int pendingPayments = 0;
 
       for (final doc in paymentsSnapshot.docs) {
         final data = doc.data();
@@ -87,10 +109,18 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
           totalPayments +=
               double.tryParse(amount.toString().replaceAll(',', '')) ?? 0;
         }
+
+        final paymentStatus = data['status']?.toString().toLowerCase();
+        if (paymentStatus == 'pending' || paymentStatus == 'submitted') {
+          pendingPayments++;
+        }
       }
+
 
       final now = DateTime.now();
       final growthCounts = List<double>.filled(7, 0);
+      double thisWeekTotal = 0;
+      double lastWeekTotal = 0;
 
       for (final doc in applicantsSnapshot.docs) {
         final data = doc.data();
@@ -113,11 +143,22 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
 
           if (difference >= 0 && difference < 7) {
             growthCounts[6 - difference]++;
+            thisWeekTotal++;
+          } else if (difference >= 7 && difference < 14) {
+            lastWeekTotal++;
           }
         }
       }
 
       chartValues = growthCounts;
+
+      if (lastWeekTotal == 0) {
+        weeklyGrowthLabel = thisWeekTotal > 0 ? '↑ New' : '0%';
+      } else {
+        final percentChange = ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100;
+        final arrow = percentChange >= 0 ? '↑' : '↓';
+        weeklyGrowthLabel = '$arrow ${percentChange.abs().toStringAsFixed(0)}%';
+      }
 
       activities = activitiesSnapshot.docs.map((doc) {
         final data = doc.data();
@@ -231,6 +272,65 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
           icon: Icons.auto_awesome_rounded,
           color: const Color(0xFFEC4899),
           route: AdminRoutes.balloting,
+        ),
+      ];
+
+      quickActions = [
+        QuickAction(
+          title: 'Verify Applicants',
+          subtitle: '$pendingApplicants pending files',
+          icon: Icons.how_to_reg_rounded,
+          route: AdminRoutes.applicants,
+          colors: const [AdminColors.primary, AdminColors.secondary],
+        ),
+        QuickAction(
+          title: 'Verify Payments',
+          subtitle: '$pendingPayments receipts',
+          icon: Icons.payments_rounded,
+          route: AdminRoutes.payments,
+          colors: const [Color(0xFF10B981), Color(0xFF34D399)],
+        ),
+        QuickAction(
+          title: 'Manage Plots',
+          subtitle: '$availablePlots available',
+          icon: Icons.domain_rounded,
+          route: AdminRoutes.plots,
+          colors: const [Color(0xFFF59E0B), Color(0xFFFBBF24)],
+        ),
+        const QuickAction(
+          title: 'Balloting',
+          subtitle: 'Live control',
+          icon: Icons.auto_awesome_rounded,
+          route: AdminRoutes.balloting,
+          colors: [Color(0xFFEC4899), Color(0xFFF472B6)],
+        ),
+        const QuickAction(
+          title: 'Results',
+          subtitle: 'Winner lists',
+          icon: Icons.emoji_events_rounded,
+          route: AdminRoutes.results,
+          colors: [Color(0xFF6366F1), Color(0xFF818CF8)],
+        ),
+        const QuickAction(
+          title: 'Reports',
+          subtitle: 'PDF & Excel',
+          icon: Icons.insert_chart_rounded,
+          route: AdminRoutes.reports,
+          colors: [Color(0xFF0EA5E9), Color(0xFF38BDF8)],
+        ),
+        QuickAction(
+          title: 'Dealers',
+          subtitle: '${dealersSnapshot.docs.length} profiles',
+          icon: Icons.real_estate_agent_rounded,
+          route: AdminRoutes.dealers,
+          colors: const [Color(0xFF7C3AED), Color(0xFFA78BFA)],
+        ),
+        const QuickAction(
+          title: 'Plot Map',
+          subtitle: 'Visual layout',
+          icon: Icons.map_rounded,
+          route: AdminRoutes.plotVisualization,
+          colors: [Color(0xFF0891B2), Color(0xFF22D3EE)],
         ),
       ];
     } catch (e) {

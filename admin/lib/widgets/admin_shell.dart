@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import '../app_routes.dart';
 import '../theme/admin_theme.dart';
 import 'app_snack.dart';
@@ -18,6 +18,7 @@ class AdminShell extends StatelessWidget {
   final String fabLabel;
   final IconData fabIcon;
   final bool isLoading;
+  final Future<void> Function()? onRefresh;
 
   const AdminShell({
     super.key,
@@ -33,6 +34,7 @@ class AdminShell extends StatelessWidget {
     this.fabLabel = 'Action',
     this.fabIcon = Icons.add_rounded,
     this.isLoading = false,
+    this.onRefresh,
   });
 
   void _openRoute(BuildContext context, String route) {
@@ -107,11 +109,23 @@ class AdminShell extends StatelessWidget {
             elevation: 12,
             shadowColor: AdminColors.primary.withOpacity(0.12),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'profile') _openRoute(context, AdminRoutes.profile);
               if (value == 'notifications') _openRoute(context, AdminRoutes.notifications);
-              if (value == 'refresh') showAdminSnack(context, 'Screen refreshed');
-              if (value == 'logout') showAdminSnack(context, 'Logout clicked');
+              if (value == 'refresh') {
+                if (onRefresh != null) {
+                  await onRefresh!();
+                  if (context.mounted) showAdminSnack(context, 'Screen refreshed');
+                } else {
+                  showAdminSnack(context, 'Screen refreshed');
+                }
+              }
+              if (value == 'logout') {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.pushNamedAndRemoveUntil(context, AdminRoutes.login, (route) => false);
+                }
+              }
             },
             itemBuilder: (context) => const [
               PopupMenuItem(value: 'profile', child: PopupMenuRow(icon: Icons.person_rounded, text: 'Profile')),

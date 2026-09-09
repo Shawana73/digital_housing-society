@@ -127,6 +127,7 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
       fabLabel: 'Add Plot',
       fabIcon: Icons.add_home_rounded,
       isLoading: _viewModel.isLoading,
+      onRefresh: _viewModel.load,
       body: Column(
         children: [
           Row(

@@ -52,6 +52,7 @@ class _PlotVisualizationScreenState extends State<PlotVisualizationScreen> {
       fabLabel: 'Center',
       fabIcon: Icons.my_location_rounded,
       isLoading: _viewModel.isLoading,
+      onRefresh: _viewModel.load,
       body: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
