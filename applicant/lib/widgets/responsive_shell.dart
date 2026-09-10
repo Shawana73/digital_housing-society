@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../models/notification_model.dart';
+import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
@@ -18,6 +20,7 @@ class DhsResponsiveShell extends StatelessWidget {
     this.backgroundColor = AppColors.pageBackground,
     this.mobileTitle = 'Digital Housing Society',
     this.showMobileAppBar = true,
+    this.mobileUserName,
   });
 
   final String currentRoute;
@@ -25,6 +28,7 @@ class DhsResponsiveShell extends StatelessWidget {
   final Color backgroundColor;
   final String mobileTitle;
   final bool showMobileAppBar;
+  final String? mobileUserName;
 
   static const double desktopBreakpoint = 980;
 
@@ -118,8 +122,8 @@ class DhsResponsiveShell extends StatelessWidget {
         actions: [
           _MobileNotificationButton(),
           const SizedBox(width: 4),
-          _MobileInitialsAvatar(),
-          const SizedBox(width: 12),
+          _MobileProfileButton(name: mobileUserName),
+          const SizedBox(width: 8),
         ],
       )
           : null,
@@ -479,46 +483,107 @@ class _NavTile extends StatelessWidget {
 class _MobileNotificationButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: 'Notifications',
-      onPressed: () =>
-          Navigator.pushNamed(context, AppConstants.notificationsRoute),
-      icon: const Badge(
-        smallSize: 7,
-        backgroundColor: AppColors.errorRed,
-        child: Icon(
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    if (uid == null) {
+      return IconButton(
+        tooltip: 'Notifications',
+        onPressed: () =>
+            Navigator.pushNamed(context, AppConstants.notificationsRoute),
+        icon: const Icon(
           Icons.notifications_none_rounded,
           color: AppColors.primaryText,
           size: 26,
         ),
-      ),
+      );
+    }
+
+    final service = FirestoreService();
+
+    return StreamBuilder(
+      stream: service.getNotifications(uid),
+      builder: (context, snapshot) {
+        var hasUnread = false;
+
+        if (snapshot.hasData) {
+          final docs = snapshot.data!.docs;
+          hasUnread = docs
+              .map(NotificationModel.fromFirestore)
+              .any((notification) => !notification.isRead);
+        }
+
+        return IconButton(
+          tooltip: 'Notifications',
+          onPressed: () =>
+              Navigator.pushNamed(context, AppConstants.notificationsRoute),
+          icon: Badge(
+            isLabelVisible: hasUnread,
+            smallSize: 7,
+            backgroundColor: AppColors.errorRed,
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              color: AppColors.primaryText,
+              size: 26,
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
-class _MobileInitialsAvatar extends StatelessWidget {
+class _MobileProfileButton extends StatelessWidget {
+  const _MobileProfileButton({this.name});
+
+  final String? name;
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final raw = (user?.displayName ?? user?.email ?? 'Applicant').trim();
-    final initials = raw.isEmpty
-        ? 'A'
-        : raw
+
+    final providedName = name?.trim() ?? '';
+    final fallbackName =
+    (user?.displayName ?? user?.email?.split('@').first ?? 'Applicant')
+        .trim();
+
+    final displayName =
+    providedName.isNotEmpty ? providedName : fallbackName;
+
+    final parts = displayName
         .split(RegExp(r'\s+'))
         .where((part) => part.isNotEmpty)
+        .toList();
+
+    final initials = parts.isEmpty
+        ? 'A'
+        : parts
         .take(2)
         .map((part) => part[0].toUpperCase())
         .join();
 
-    return CircleAvatar(
-      radius: 17,
-      backgroundColor: AppColors.deepPurple,
-      child: Text(
-        initials,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-          fontSize: 12,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () =>
+            Navigator.pushNamed(context, AppConstants.profileRoute),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 3,
+            vertical: 3,
+          ),
+          child: CircleAvatar(
+            radius: 17,
+            backgroundColor: AppColors.deepPurple,
+            child: Text(
+              initials,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
+            ),
+          ),
         ),
       ),
     );

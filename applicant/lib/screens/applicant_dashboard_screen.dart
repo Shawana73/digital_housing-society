@@ -49,163 +49,453 @@ class _ApplicantDashboardScreenState
     return DhsResponsiveShell(
       currentRoute: AppConstants.dashboardRoute,
       mobileTitle: 'Dashboard',
+      mobileUserName: provider.currentApplicant?.fullName,
       child: provider.isLoading && provider.currentApplicant == null
           ? const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primaryPurple,
-              ),
-            )
+        child: CircularProgressIndicator(
+          color: AppColors.primaryPurple,
+        ),
+      )
           : RefreshIndicator(
-              color: AppColors.primaryPurple,
-              onRefresh: () async {
-                if (uid != null) {
-                  await context.read<ApplicantProvider>().loadAll(uid);
-                }
-              },
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.sizeOf(context).width >= 980 ? 24 : 14,
-                  vertical: 18,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1320),
-                    child: Column(
-                      children: [
-                        _TopUtilityRow(
-                          applicant: provider.currentApplicant,
-                        ),
-                        const SizedBox(height: 14),
-                        _DashboardHero(
-                          applicant: provider.currentApplicant,
-                          application: provider.currentApplication,
-                          payment: provider.currentPayment,
-                          uid: uid,
-                        ),
-                        const SizedBox(height: 16),
-                        _StatusCards(
-                          application: provider.currentApplication,
-                          payment: provider.currentPayment,
-                          uid: uid,
-                          service: _service,
-                        ),
-                        const SizedBox(height: 16),
-
-                        _VerificationNotesPanel(uid: uid),
-
-                        const SizedBox(height: 16),
-                        const SizedBox(height: 16),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final wide = constraints.maxWidth >= 900;
-                            if (!wide) {
-                              return Column(
-                                children: [
-                                  const _QuickActionsPanel(),
-                                  const SizedBox(height: 16),
-                                  _FeaturedPlotPanel(service: _service),
-                                ],
-                              );
-                            }
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Expanded(
-                                  flex: 11,
-                                  child: _QuickActionsPanel(),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  flex: 9,
-                                  child: _FeaturedPlotPanel(service: _service),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        _RecentUpdatesPanel(
-                          service: _service,
-                          uid: uid,
-                        ),
-                        const SizedBox(height: 18),
-                        const _DashboardFooter(),
-                      ],
-                    ),
+        color: AppColors.primaryPurple,
+        onRefresh: () async {
+          if (uid != null) {
+            await context.read<ApplicantProvider>().loadAll(uid);
+          }
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.sizeOf(context).width >= 980 ? 24 : 14,
+            vertical: 18,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1320),
+              child: Column(
+                children: [
+                  _TopUtilityRow(
+                    applicant: provider.currentApplicant,
                   ),
-                ),
+                  const SizedBox(height: 14),
+                  _DashboardHero(
+                    applicant: provider.currentApplicant,
+                    application: provider.currentApplication,
+                    payment: provider.currentPayment,
+                    uid: uid,
+                  ),
+                  const SizedBox(height: 16),
+                  _StatusCards(
+                    application: provider.currentApplication,
+                    payment: provider.currentPayment,
+                    uid: uid,
+                    service: _service,
+                  ),
+                  const SizedBox(height: 16),
+
+                  _VerificationNotesPanel(uid: uid),
+
+                  const SizedBox(height: 16),
+                  const SizedBox(height: 16),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final wide = constraints.maxWidth >= 900;
+                      if (!wide) {
+                        return Column(
+                          children: [
+                            const _QuickActionsPanel(),
+                            const SizedBox(height: 16),
+                            _FeaturedPlotPanel(service: _service),
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Expanded(
+                            flex: 11,
+                            child: _QuickActionsPanel(),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 9,
+                            child: _FeaturedPlotPanel(service: _service),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _RecentUpdatesPanel(
+                    service: _service,
+                    uid: uid,
+                  ),
+                  const SizedBox(height: 18),
+                  const _DashboardFooter(),
+                ],
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _TopUtilityRow extends StatelessWidget {
+class _TopUtilityRow extends StatefulWidget {
   const _TopUtilityRow({required this.applicant});
 
   final ApplicantModel? applicant;
 
   @override
+  State<_TopUtilityRow> createState() => _TopUtilityRowState();
+}
+
+class _TopUtilityRowState extends State<_TopUtilityRow> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  static const List<_DashboardSearchItem> _items = [
+    _DashboardSearchItem(
+      title: 'Dashboard',
+      keywords: 'dashboard home',
+      route: AppConstants.dashboardRoute,
+      icon: Icons.dashboard_rounded,
+    ),
+    _DashboardSearchItem(
+      title: 'Explore Plots',
+      keywords: 'plot plots scheme schemes block marla kanal house',
+      route: AppConstants.plotsRoute,
+      icon: Icons.travel_explore_rounded,
+    ),
+    _DashboardSearchItem(
+      title: 'Static Plot Map',
+      keywords: 'static plot map location',
+      route: AppConstants.mapRoute,
+      icon: Icons.map_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'Applications',
+      keywords: 'application applications form submission',
+      route: AppConstants.applicationRoute,
+      icon: Icons.description_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'Balloting',
+      keywords: 'balloting ballot draw',
+      route: AppConstants.ballotingRoute,
+      icon: Icons.casino_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'Balloting Result',
+      keywords: 'balloting result results winner',
+      route: AppConstants.resultRoute,
+      icon: Icons.emoji_events_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'Dealers',
+      keywords: 'dealer dealers',
+      route: AppConstants.dealersRoute,
+      icon: Icons.groups_2_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'Register as Dealer',
+      keywords: 'register dealer registration',
+      route: AppConstants.dealerRegistrationRoute,
+      icon: Icons.add_business_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'Payments',
+      keywords: 'payment payments receipt fee',
+      route: AppConstants.paymentRoute,
+      icon: Icons.account_balance_wallet_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'Documents',
+      keywords: 'document documents upload cnic file files',
+      route: AppConstants.uploadRoute,
+      icon: Icons.folder_copy_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'My Reports',
+      keywords: 'report reports complaint issue',
+      route: AppConstants.myReportsRoute,
+      icon: Icons.summarize_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'Contact Us',
+      keywords: 'contact help support',
+      route: AppConstants.contactRoute,
+      icon: Icons.contact_support_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'FAQ',
+      keywords: 'faq question questions help',
+      route: AppConstants.faqRoute,
+      icon: Icons.quiz_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'Profile',
+      keywords: 'profile account applicant',
+      route: AppConstants.profileRoute,
+      icon: Icons.person_outline_rounded,
+    ),
+    _DashboardSearchItem(
+      title: 'Settings',
+      keywords: 'settings preferences',
+      route: AppConstants.settingsRoute,
+      icon: Icons.settings_outlined,
+    ),
+    _DashboardSearchItem(
+      title: 'Notifications',
+      keywords: 'notification notifications alerts updates',
+      route: AppConstants.notificationsRoute,
+      icon: Icons.notifications_none_rounded,
+    ),
+  ];
+
+  List<_DashboardSearchItem> get _results {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return const [];
+
+    return _items
+        .where(
+          (item) =>
+      item.title.toLowerCase().contains(q) ||
+          item.keywords.contains(q),
+    )
+        .take(6)
+        .toList();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _openResult(_DashboardSearchItem item) {
+    FocusScope.of(context).unfocus();
+    Navigator.pushNamed(context, item.route);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (MediaQuery.sizeOf(context).width < 980) {
-      return const SizedBox.shrink();
-    }
+    final isMobile = MediaQuery.sizeOf(context).width < 980;
 
-    final name = applicant?.fullName.trim().isNotEmpty == true
-        ? applicant!.fullName.trim()
+    final name = widget.applicant?.fullName.trim().isNotEmpty == true
+        ? widget.applicant!.fullName.trim()
         : 'Applicant';
+    final results = _results;
 
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Good day, ${name.split(' ').first} 👋',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.primaryText,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFFE7E7F0),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.deepPurple.withValues(alpha: .05),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  textInputAction: TextInputAction.search,
+                  onChanged: (value) => setState(() => _query = value),
+                  onSubmitted: (_) {
+                    if (results.isNotEmpty) {
+                      _openResult(results.first);
+                    }
+                  },
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.secondaryText,
+                    ),
+                    suffixIcon: _query.trim().isEmpty
+                        ? null
+                        : IconButton(
+                      tooltip: 'Clear search',
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: AppColors.secondaryText,
+                      ),
+                    ),
+                    hintText: 'Search plots, schemes, or anything...',
+                    hintStyle: const TextStyle(
+                      color: AppColors.secondaryText,
+                      fontSize: 13,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 16,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 3),
-              const Text(
-                'Track your application, payments, plots and latest DHS activity.',
-                style: TextStyle(
-                  color: AppColors.secondaryText,
-                  fontSize: 13,
+            ),
+            if (!isMobile) const SizedBox(width: 12),
+            if (!isMobile)
+              IconButton.filledTonal(
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  AppConstants.notificationsRoute,
+                ),
+                icon: const Badge(
+                  smallSize: 8,
+                  backgroundColor: AppColors.errorRed,
+                  child: Icon(Icons.notifications_none_rounded),
                 ),
               ),
-            ],
-          ),
+            if (!isMobile) const SizedBox(width: 10),
+            if (!isMobile)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    AppConstants.profileRoute,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: AppColors.deepPurple,
+                          child: Text(
+                            _initials(name),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 150),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.primaryText,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const Text(
+                                'Applicant',
+                                style: TextStyle(
+                                  color: AppColors.secondaryText,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.secondaryText,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
-        IconButton.filledTonal(
-          onPressed: () => Navigator.pushNamed(
-            context,
-            AppConstants.notificationsRoute,
-          ),
-          icon: const Badge(
-            smallSize: 8,
-            backgroundColor: AppColors.errorRed,
-            child: Icon(Icons.notifications_none_rounded),
-          ),
-        ),
-        const SizedBox(width: 10),
-        CircleAvatar(
-          radius: 19,
-          backgroundColor: AppColors.deepPurple,
-          child: Text(
-            _initials(name),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
+        if (_query.trim().isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE7E7F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .07),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: results.isEmpty
+                    ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'No matching section found.',
+                    style: TextStyle(
+                      color: AppColors.secondaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+                    : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < results.length; i++) ...[
+                      ListTile(
+                        dense: true,
+                        leading: Icon(
+                          results[i].icon,
+                          color: AppColors.deepPurple,
+                        ),
+                        title: Text(
+                          results[i].title,
+                          style: const TextStyle(
+                            color: AppColors.primaryText,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 14,
+                          color: AppColors.secondaryText,
+                        ),
+                        onTap: () => _openResult(results[i]),
+                      ),
+                      if (i != results.length - 1)
+                        const Divider(height: 1),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -219,6 +509,20 @@ class _TopUtilityRow extends StatelessWidget {
     if (parts.isEmpty) return 'A';
     return parts.map((part) => part[0].toUpperCase()).join();
   }
+}
+
+class _DashboardSearchItem {
+  const _DashboardSearchItem({
+    required this.title,
+    required this.keywords,
+    required this.route,
+    required this.icon,
+  });
+
+  final String title;
+  final String keywords;
+  final String route;
+  final IconData icon;
 }
 
 class _DashboardHero extends StatelessWidget {
@@ -247,7 +551,7 @@ class _DashboardHero extends StatelessWidget {
         final journey = snapshot.data ?? const _JourneySnapshot();
 
         return Container(
-          height: compact ? 430 : 370,
+          height: compact ? 430 : 340,
           width: double.infinity,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
@@ -272,13 +576,15 @@ class _DashboardHero extends StatelessWidget {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                         colors: [
-                          const Color(0xFF245BDB).withValues(alpha: .92),
-                          AppColors.deepPurple.withValues(alpha: .83),
-                          const Color(0xFF7B3DF0).withValues(alpha: .67),
+                          Colors.black.withValues(alpha: .62),
+                          Colors.black.withValues(alpha: .34),
+                          Colors.black.withValues(alpha: .08),
+                          Colors.transparent,
                         ],
+                        stops: const [0.0, 0.34, 0.62, 0.82],
                       ),
                     ),
                   ),
@@ -295,7 +601,7 @@ class _DashboardHero extends StatelessWidget {
                         ),
                         const SizedBox(height: 14),
                         Text(
-                          'Hello, $name 👋',
+                          'Hello, $name',
                           maxLines: compact ? 2 : 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -410,11 +716,11 @@ class _JourneyStrip extends StatelessWidget {
                               shape: BoxShape.circle,
                               gradient: completed || active
                                   ? const LinearGradient(
-                                      colors: [
-                                        Color(0xFF6E45F5),
-                                        Color(0xFF9C55F6),
-                                      ],
-                                    )
+                                colors: [
+                                  Color(0xFF6E45F5),
+                                  Color(0xFF9C55F6),
+                                ],
+                              )
                                   : null,
                               color: completed || active
                                   ? null
@@ -427,29 +733,29 @@ class _JourneyStrip extends StatelessWidget {
                               ),
                               boxShadow: active
                                   ? [
-                                      BoxShadow(
-                                        color: AppColors.secondaryPurple
-                                            .withValues(alpha: .65),
-                                        blurRadius: 18,
-                                        spreadRadius: 1,
-                                      ),
-                                    ]
+                                BoxShadow(
+                                  color: AppColors.secondaryPurple
+                                      .withValues(alpha: .65),
+                                  blurRadius: 18,
+                                  spreadRadius: 1,
+                                ),
+                              ]
                                   : const [],
                             ),
                             child: Center(
                               child: completed
                                   ? const Icon(
-                                      Icons.check_rounded,
-                                      color: Colors.white,
-                                      size: 20,
-                                    )
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              )
                                   : Text(
-                                      '${index + 1}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 7),
@@ -534,7 +840,7 @@ class _StatusCards extends StatelessWidget {
       builder: (context, uploadSnapshot) {
         final upload = uploadSnapshot.data?.data() as Map<String, dynamic>?;
         final uploadStatus =
-            (upload?['verificationStatus'] ?? 'Not submitted').toString();
+        (upload?['verificationStatus'] ?? 'Not submitted').toString();
 
         return FutureBuilder<DocumentSnapshot?>(
           future: uid == null
@@ -545,10 +851,10 @@ class _StatusCards extends StatelessWidget {
             final resultText = result == null
                 ? 'Not Available'
                 : (result['status'] ??
-                        result['result'] ??
-                        result['selectionStatus'] ??
-                        'Available')
-                    .toString();
+                result['result'] ??
+                result['selectionStatus'] ??
+                'Available')
+                .toString();
 
             final cards = [
               _StatusData(
@@ -582,8 +888,8 @@ class _StatusCards extends StatelessWidget {
                 final columns = constraints.maxWidth >= 1050
                     ? 4
                     : constraints.maxWidth >= 560
-                        ? 2
-                        : 1;
+                    ? 2
+                    : 1;
                 const gap = 12.0;
                 final width =
                     (constraints.maxWidth - gap * (columns - 1)) / columns;
@@ -594,10 +900,10 @@ class _StatusCards extends StatelessWidget {
                   children: cards
                       .map(
                         (item) => SizedBox(
-                          width: width,
-                          child: _StatusCard(data: item),
-                        ),
-                      )
+                      width: width,
+                      child: _StatusCard(data: item),
+                    ),
+                  )
                       .toList(),
                 );
               },
@@ -730,7 +1036,7 @@ class _StatusCard extends StatelessWidget {
     return text
         .split(RegExp(r'\s+'))
         .map((part) =>
-            part.isEmpty ? part : '${part[0].toUpperCase()}${part.substring(1)}')
+    part.isEmpty ? part : '${part[0].toUpperCase()}${part.substring(1)}')
         .join(' ');
   }
 }
@@ -796,10 +1102,10 @@ class _QuickActionsPanel extends StatelessWidget {
                 children: _actions
                     .map(
                       (action) => SizedBox(
-                        width: width,
-                        child: _ActionTile(data: action),
-                      ),
-                    )
+                    width: width,
+                    child: _ActionTile(data: action),
+                  ),
+                )
                     .toList(),
               );
             },
@@ -840,7 +1146,7 @@ class _FeaturedPlotPanel extends StatelessWidget {
           // the same polished preview plot used by Explore Plots and Map.
           final featuredPlot = plot ??
               DemoData.plotModels.firstWhere(
-                (item) => item.featured,
+                    (item) => item.featured,
                 orElse: () => DemoData.plotModels.first,
               );
 
@@ -886,17 +1192,17 @@ class _FeaturedPlotCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             child: image.isNotEmpty
                 ? Image.network(
-                    image,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Image.asset(
-                      AppAssets.heroBackground,
-                      fit: BoxFit.cover,
-                    ),
-                  )
+              image,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Image.asset(
+                AppAssets.heroBackground,
+                fit: BoxFit.cover,
+              ),
+            )
                 : Image.asset(
-                    AppAssets.heroBackground,
-                    fit: BoxFit.cover,
-                  ),
+              AppAssets.heroBackground,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -938,10 +1244,10 @@ class _FeaturedPlotCard extends StatelessWidget {
               child: Text(
                 plot.price > 0
                     ? NumberFormat.currency(
-                        locale: 'en_PK',
-                        symbol: 'PKR ',
-                        decimalDigits: 0,
-                      ).format(plot.price)
+                  locale: 'en_PK',
+                  symbol: 'PKR ',
+                  decimalDigits: 0,
+                ).format(plot.price)
                     : 'Price on request',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1023,7 +1329,7 @@ class _RecentUpdatesPanel extends StatelessWidget {
                   children: recent
                       .map(
                         (item) => _NotificationRow(notification: item),
-                      )
+                  )
                       .toList(),
                 );
               },
@@ -1301,19 +1607,19 @@ class _ActionTile extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: featured
                 ? const LinearGradient(
-                    colors: [
-                      Color(0xFF5B42E8),
-                      Color(0xFF8B4CF1),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
+              colors: [
+                Color(0xFF5B42E8),
+                Color(0xFF8B4CF1),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            )
                 : const LinearGradient(
-                    colors: [
-                      Color(0xFFF4F2FF),
-                      Color(0xFFEEF5FF),
-                    ],
-                  ),
+              colors: [
+                Color(0xFFF4F2FF),
+                Color(0xFFEEF5FF),
+              ],
+            ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: featured
