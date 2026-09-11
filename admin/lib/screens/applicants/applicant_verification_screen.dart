@@ -111,7 +111,7 @@ class _ApplicantVerificationScreenState extends State<ApplicantVerificationScree
         _searchController.clear();
         _viewModel.clearSearch();
       },
-      isLoading: _viewModel.isLoading,
+                                                                        isLoading: _viewModel.isLoading,
       onRefresh: _viewModel.load,
       body: ListView(
         physics: const BouncingScrollPhysics(),

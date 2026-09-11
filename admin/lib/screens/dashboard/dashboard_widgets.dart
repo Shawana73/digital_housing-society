@@ -67,74 +67,129 @@ class DashboardHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        image: const DecorationImage(
-          image: AssetImage('assets/images/admin_purple.png'),
-          fit: BoxFit.cover,
-          alignment: Alignment.centerRight,
-        ),
-        boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.28), blurRadius: 30, offset: const Offset(0, 14))],
+        boxShadow: [
+          BoxShadow(color: AdminColors.primary.withOpacity(0.35), blurRadius: 40, spreadRadius: -4, offset: const Offset(0, 18)),
+          BoxShadow(color: AdminColors.primary.withOpacity(0.18), blurRadius: 70, spreadRadius: 4, offset: const Offset(0, 26)),
+        ],
       ),
-      child: Stack(children: [
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                const Color(0xFF6A3CEF).withOpacity(0.97),
-                const Color(0xFF8A5BFF).withOpacity(0.88),
-                const Color(0xFF4B1FD6).withOpacity(0.50),
-              ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/admin_purple.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.centerRight,
             ),
           ),
-        ),
-        const Positioned(right: -36, top: -36, child: DashboardGlow(130)),
-        const Positioned(left: -50, bottom: -50, child: DashboardGlow(140, opacity: 0.09)),
-        Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(children: [
-                const Text('Welcome back,',
-                    style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 14)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(color: AdminColors.white, borderRadius: BorderRadius.circular(20)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: AdminColors.success)),
-                    const SizedBox(width: 5),
-                    const Text('Active', style: TextStyle(color: AdminColors.success, fontWeight: FontWeight.w800, fontSize: 12)),
-                  ]),
-                ),
-              ]),
-              const SizedBox(height: 6),
-              Text('$adminName 👋',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 26, letterSpacing: -.6)),
-              const SizedBox(height: 8),
-              const Text('Monitor applicants, plots and\npayments with real-time insights',
-                  style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 13, height: 1.45)),
-              const SizedBox(height: 18),
-              IntrinsicWidth(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    DashboardWhiteButton(text: 'View Reports', icon: Icons.insert_chart_rounded, onTap: onReportsTap),
-                    const SizedBox(height: 10),
-                    DashboardGlassButton(text: 'My Profile', icon: Icons.person_rounded, onTap: onProfileTap),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  const Color(0xFF4B1FD6).withOpacity(0.93),
+                  const Color(0xFF6A3CEF).withOpacity(0.85),
+                  Colors.black.withOpacity(0.45),
+                ],
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.20),
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.10),
                   ],
                 ),
               ),
-              const SizedBox(height: 4),
-            ],
+            ),
           ),
-        ),
-      ]),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    const Color(0xFF4B1FD6).withOpacity(0.22),
+                  ],
+                  stops: const [0.6, 1.0],
+                ),
+              ),
+            ),
+          ),
+          const Positioned(right: -36, top: -36, child: DashboardGlow(130)),
+          const Positioned(left: -50, bottom: -50, child: DashboardGlow(140, opacity: 0.09)),
+          Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(children: [
+                  const Text('Welcome back,',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        shadows: [Shadow(color: Colors.black54, blurRadius: 6, offset: Offset(0, 1))],
+                      )),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(color: AdminColors.white, borderRadius: BorderRadius.circular(20)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: AdminColors.success)),
+                      const SizedBox(width: 5),
+                      const Text('Active', style: TextStyle(color: AdminColors.success, fontWeight: FontWeight.w800, fontSize: 12)),
+                    ]),
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                Text('$adminName ',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 28,
+                      letterSpacing: -.6,
+                      shadows: [Shadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 2))],
+                    )),
+                const SizedBox(height: 8),
+                const Text('Monitor applicants, plots and\npayments with real-time insights',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      height: 1.45,
+                      shadows: [Shadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 1))],
+                    )),
+                const SizedBox(height: 18),
+                IntrinsicWidth(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DashboardWhiteButton(text: 'View Reports', icon: Icons.insert_chart_rounded, onTap: onReportsTap),
+                      const SizedBox(height: 10),
+                      DashboardGlassButton(text: 'My Profile', icon: Icons.person_rounded, onTap: onProfileTap),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }
@@ -441,4 +496,416 @@ class DashboardGlow extends StatelessWidget {
     height: size, width: size,
     decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(opacity)),
   );
+}
+
+// ============================================================
+// Colourful mini stat cards (Total Applicants / Plots / Payments)
+// ============================================================
+
+class DashboardMiniStatsRow extends StatelessWidget {
+  final List<DashboardStat> stats;
+  final void Function(String route) onTap;
+  const DashboardMiniStatsRow({super.key, required this.stats, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      final columns = width >= 1000 ? 3 : (width >= 640 ? 2 : 1);
+
+      if (columns == 1) {
+        return Column(
+          children: [
+            for (int i = 0; i < stats.length; i++) ...[
+              if (i != 0) const SizedBox(height: 12),
+              DashboardMiniStatCard(stat: stats[i], onTap: () => onTap(stats[i].route)),
+            ],
+          ],
+        );
+      }
+
+      const spacing = 12.0;
+      final itemWidth = (width - spacing * (columns - 1)) / columns;
+      return Wrap(
+        spacing: spacing,
+        runSpacing: spacing,
+        children: stats
+            .map((s) => SizedBox(
+          width: itemWidth,
+          child: DashboardMiniStatCard(stat: s, onTap: () => onTap(s.route)),
+        ))
+            .toList(),
+      );
+    });
+  }
+}
+class DashboardMiniStatCard extends StatelessWidget {
+  final DashboardStat stat;
+  final VoidCallback onTap;
+  const DashboardMiniStatCard({super.key, required this.stat, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Container(
+            height: 36, width: 36,
+            decoration: BoxDecoration(color: stat.color, borderRadius: BorderRadius.circular(11)),
+            child: Icon(stat.icon, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(stat.value,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -.4)),
+                const SizedBox(height: 2),
+                Text(stat.title,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 11)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// Application Overview chart card with period tabs
+// ============================================================
+
+enum ChartPeriod { today, week, month, year }
+
+extension ChartPeriodLabel on ChartPeriod {
+  String get label {
+    switch (this) {
+      case ChartPeriod.today:
+        return 'Today';
+      case ChartPeriod.week:
+        return 'This Week';
+      case ChartPeriod.month:
+        return 'This Month';
+      case ChartPeriod.year:
+        return 'This Year';
+    }
+  }
+}
+
+class DashboardPeriodTabs extends StatelessWidget {
+  final ChartPeriod selected;
+  final ValueChanged<ChartPeriod> onChanged;
+  const DashboardPeriodTabs({super.key, required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(color: AdminColors.background, borderRadius: BorderRadius.circular(20)),
+        child: Row(
+          children: ChartPeriod.values.map((p) {
+            final isSelected = p == selected;
+            return GestureDetector(
+              onTap: () => onChanged(p),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: BoxDecoration(
+                  color: isSelected ? AdminColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  p.label,
+                  style: TextStyle(
+                    color: isSelected ? AdminColors.white : AdminColors.greyText,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class DashboardOverviewCard extends StatelessWidget {
+  final ChartPeriod period;
+  final ValueChanged<ChartPeriod> onPeriodChanged;
+  final List<double> chartValues;
+  final int totalThisPeriod;
+  final String peakLabel;
+  final double peakValue;
+  final double averageValue;
+  final VoidCallback onTap;
+  const DashboardOverviewCard({
+    super.key,
+    required this.period,
+    required this.onPeriodChanged,
+    required this.chartValues,
+    required this.totalThisPeriod,
+    required this.peakLabel,
+    required this.peakValue,
+    required this.averageValue,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const DashboardLabel(title: 'Application Overview', subtitle: 'Applications submitted over time'),
+          const SizedBox(height: 14),
+          DashboardPeriodTabs(selected: period, onChanged: onPeriodChanged),
+          const SizedBox(height: 18),
+          SizedBox(height: 165, child: MiniLineChart(values: chartValues)),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: _OverviewFooterStat(label: 'Total this period', value: '$totalThisPeriod')),
+              Expanded(child: _OverviewFooterStat(label: 'Peak', value: peakLabel)),
+              Expanded(child: _OverviewFooterStat(label: 'Average', value: averageValue.toStringAsFixed(0))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverviewFooterStat extends StatelessWidget {
+  final String label;
+  final String value;
+  const _OverviewFooterStat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11)),
+      const SizedBox(height: 4),
+      Text(value, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 15)),
+    ],
+  );
+}
+
+// ============================================================
+// Reusable breakdown donut card (Application Status)
+// ============================================================
+
+class BreakdownSlice {
+  final String label;
+  final int value;
+  final double percent; // 0..1
+  final Color color;
+  const BreakdownSlice({required this.label, required this.value, required this.percent, required this.color});
+}
+
+class DashboardBreakdownDonutCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final int total;
+  final List<BreakdownSlice> slices;
+  final String emptyMessage;
+  const DashboardBreakdownDonutCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.total,
+    required this.slices,
+    this.emptyMessage = 'No data yet',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DashboardLabel(title: title, subtitle: subtitle),
+          const SizedBox(height: 18),
+          if (total == 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 30),
+              child: Center(
+                child: Text(emptyMessage, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 13)),
+              ),
+            )
+          else ...[
+            Center(
+              child: SizedBox(
+                height: 170, width: 170,
+                child: CustomPaint(
+                  painter: _DonutPainter(slices: slices),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('$total', style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 24)),
+                        const Text('Total', style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            ...slices.map((s) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: s.color)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(s.label, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w700, fontSize: 13))),
+                  Text('${s.value}', style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 13)),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: s.color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                    child: Text('${(s.percent * 100).toStringAsFixed(0)}%', style: TextStyle(color: s.color, fontWeight: FontWeight.w800, fontSize: 11)),
+                  ),
+                ],
+              ),
+            )),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DonutPainter extends CustomPainter {
+  final List<BreakdownSlice> slices;
+  _DonutPainter({required this.slices});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final strokeWidth = size.width * 0.16;
+    final rect = Rect.fromLTWH(strokeWidth / 2, strokeWidth / 2, size.width - strokeWidth, size.height - strokeWidth);
+    double startAngle = -1.5708;
+    for (final s in slices) {
+      final sweep = s.percent * 6.28319;
+      final paint = Paint()
+        ..color = s.color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.butt;
+      canvas.drawArc(rect, startAngle, sweep, false, paint);
+      startAngle += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutPainter oldDelegate) => oldDelegate.slices != slices;
+}
+
+// ============================================================
+// Plot Availability progress-list card
+// ============================================================
+
+class DashboardProgressListCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final int total;
+  final String totalLabel;
+  final IconData totalIcon;
+  final List<BreakdownSlice> slices;
+  const DashboardProgressListCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.total,
+    required this.totalLabel,
+    required this.totalIcon,
+    required this.slices,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DashboardLabel(title: title, subtitle: subtitle),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: AdminColors.background, borderRadius: BorderRadius.circular(16)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(totalLabel, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 12)),
+                      const SizedBox(height: 4),
+                      Text('$total', style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 26)),
+                    ],
+                  ),
+                ),
+                Container(
+                  height: 46, width: 46,
+                  decoration: BoxDecoration(color: AdminColors.primary, borderRadius: BorderRadius.circular(14)),
+                  child: Icon(totalIcon, color: Colors.white, size: 22),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          ...slices.map((s) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(width: 9, height: 9, decoration: BoxDecoration(shape: BoxShape.circle, color: s.color)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(s.label, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w700, fontSize: 13))),
+                    Text('${s.value}', style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(color: s.color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                      child: Text('${(s.percent * 100).toStringAsFixed(0)}%', style: TextStyle(color: s.color, fontWeight: FontWeight.w800, fontSize: 11)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: LinearProgressIndicator(
+                    value: s.percent.clamp(0.0, 1.0).toDouble(),
+                    minHeight: 8,
+                    backgroundColor: AdminColors.background,
+                    valueColor: AlwaysStoppedAnimation(s.color),
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+      ),
+    );
+  }
 }

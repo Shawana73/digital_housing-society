@@ -113,7 +113,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
             );
           },
           style: TextButton.styleFrom(
-            foregroundColor: AdminColors.primary,
+            foregroundColor: AdminColors.greyText,
             padding: EdgeInsets.zero,
             textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
           ),
@@ -126,14 +126,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         height: 54,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: AdminColors.primaryGradient,
+            color: AdminColors.primary,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.28), blurRadius: 18, offset: const Offset(0, 8))],
           ),
           child: ElevatedButton(
             onPressed: _handleLogin,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
+              backgroundColor: Colors.deepPurpleAccent,
               shadowColor: Colors.transparent,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),

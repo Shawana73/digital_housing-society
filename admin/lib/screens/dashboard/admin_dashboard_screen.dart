@@ -79,77 +79,114 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       body: RefreshIndicator(
         color: AdminColors.primary,
         onRefresh: _viewModel.load,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-          children: [
-            DashboardHeroCard(
-              unreadCount: _viewModel.unreadCount,
-              adminName: _viewModel.adminName,
-              onReportsTap: () => _open(AdminRoutes.reports),
-              onProfileTap: () => _open(AdminRoutes.profile),
-            ),
-            const SizedBox(height: 24),
-            Row(children: [
-              const Expanded(child: DashboardLabel(title: 'Overview', subtitle: 'Live housing society metrics')),
-              DashboardPillButton(label: 'Refresh', onTap: () { _viewModel.load(); showAdminSnack(context, 'Dashboard refreshed'); }),
-            ]),
-            const SizedBox(height: 12),
-            DashboardStatsGrid(stats: _viewModel.stats, onTap: (r) => _open(r)),
-            const SizedBox(height: 24),
-            const DashboardLabel(title: 'Quick Actions', subtitle: 'Every module is one tap away'),
-            const SizedBox(height: 14),
-            DashboardQuickActionsGrid(actions: _viewModel.quickActions, onTap: (route) => _open(route)),
-            const SizedBox(height: 24),
-            PremiumCard(
-              onTap: () => _open(AdminRoutes.reports),
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   Row(children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Applicant Growth', style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: -.3)),
-                          SizedBox(height: 2),
-                          Text('Monthly Verified Trend', style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 12)),
-                        ],
-                      ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 900;
+
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+              children: [
+                DashboardHeroCard(
+                  unreadCount: _viewModel.unreadCount,
+                  adminName: _viewModel.adminName,
+                  onReportsTap: () => _open(AdminRoutes.reports),
+                  onProfileTap: () => _open(AdminRoutes.profile),
+                ),
+                const SizedBox(height: 24),
+                Row(children: [
+                  const Expanded(child: DashboardLabel(title: 'Overview', subtitle: 'Live housing society metrics')),
+                  DashboardPillButton(label: 'Refresh', onTap: () { _viewModel.load(); showAdminSnack(context, 'Dashboard refreshed'); }),
+                ]),
+                const SizedBox(height: 14),
+                DashboardMiniStatsRow(stats: _viewModel.stats, onTap: (r) => _open(r)),
+                const SizedBox(height: 24),
+
+                if (isWide)
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: DashboardOverviewCard(
+                            period: _viewModel.chartPeriod,
+                            onPeriodChanged: _viewModel.setChartPeriod,
+                            chartValues: _viewModel.chartValues,
+                            totalThisPeriod: _viewModel.totalThisPeriod,
+                            peakLabel: _viewModel.peakLabel,
+                            peakValue: _viewModel.peakValue,
+                            averageValue: _viewModel.averageValue,
+                            onTap: () => _open(AdminRoutes.reports),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: DashboardBreakdownDonutCard(
+                            title: 'Application Status',
+                            subtitle: 'Current breakdown',
+                            total: _viewModel.totalApplicants,
+                            slices: _viewModel.applicationStatusSlices,
+                          ),
+                        ),
+                      ],
                     ),
-                    DashboardGreenBadge(
-                      label: _viewModel.weeklyGrowthLabel.isEmpty ? '0%' : _viewModel.weeklyGrowthLabel,
-                    ),
-                  ]),
+                  )
+                else ...[
+                  DashboardOverviewCard(
+                    period: _viewModel.chartPeriod,
+                    onPeriodChanged: _viewModel.setChartPeriod,
+                    chartValues: _viewModel.chartValues,
+                    totalThisPeriod: _viewModel.totalThisPeriod,
+                    peakLabel: _viewModel.peakLabel,
+                    peakValue: _viewModel.peakValue,
+                    averageValue: _viewModel.averageValue,
+                    onTap: () => _open(AdminRoutes.reports),
+                  ),
                   const SizedBox(height: 16),
-                  SizedBox(height: 165, child: MiniLineChart(values: _viewModel.chartValues)),
+                  DashboardBreakdownDonutCard(
+                    title: 'Application Status',
+                    subtitle: 'Current breakdown',
+                    total: _viewModel.totalApplicants,
+                    slices: _viewModel.applicationStatusSlices,
+                  ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const DashboardLabel(title: 'Recent Activities', subtitle: 'Latest admin movement'),
-            const SizedBox(height: 12),
-            if (_viewModel.filteredActivities.isEmpty)
-              EmptyState(
-                icon: Icons.manage_search_rounded,
-                title: 'No activity found',
-                subtitle: 'Try another keyword or reset the search.',
-                buttonText: 'Reset Search',
-                onPressed: () { _searchController.clear(); _viewModel.clearSearch(); },
-              )
-            else
-              ..._viewModel.filteredActivities.map((a) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: DashboardActivityTile(activity: a, onTap: () => showAdminSnack(context, a.title)),
-              )),
-            const SizedBox(height: 24),
-            DashboardNotificationCard(
-              notifications: _viewModel.notifications,
-              onOpen: () => _open(AdminRoutes.notifications),
-              onRead: () { _viewModel.markAllRead(); showAdminSnack(context, 'All marked as read'); },
-            ),
-          ],
+                const SizedBox(height: 24),
+
+                DashboardProgressListCard(
+                  title: 'Plot Availability',
+                  subtitle: 'Total inventory: ${_viewModel.totalPlots} plots',
+                  total: _viewModel.totalPlots,
+                  totalLabel: 'Total Plots',
+                  totalIcon: Icons.location_on_rounded,
+                  slices: _viewModel.plotSlices,
+                ),
+                const SizedBox(height: 24),
+
+                const DashboardLabel(title: 'Recent Activities', subtitle: 'Latest admin movement'),
+                const SizedBox(height: 12),
+                if (_viewModel.filteredActivities.isEmpty)
+                  EmptyState(
+                    icon: Icons.manage_search_rounded,
+                    title: 'No activity found',
+                    subtitle: 'Try another keyword or reset the search.',
+                    buttonText: 'Reset Search',
+                    onPressed: () { _searchController.clear(); _viewModel.clearSearch(); },
+                  )
+                else
+                  ..._viewModel.filteredActivities.map((a) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: DashboardActivityTile(activity: a, onTap: () => showAdminSnack(context, a.title)),
+                  )),
+                const SizedBox(height: 24),
+                DashboardNotificationCard(
+                  notifications: _viewModel.notifications,
+                  onOpen: () => _open(AdminRoutes.notifications),
+                  onRead: () { _viewModel.markAllRead(); showAdminSnack(context, 'All marked as read'); },
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

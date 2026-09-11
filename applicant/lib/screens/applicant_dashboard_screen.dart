@@ -881,6 +881,12 @@ class _StatusCards extends StatelessWidget {
                 value: resultText,
                 tone: _tone(resultText),
               ),
+              _StatusData(
+                icon: Icons.description_outlined,
+                title: 'Test',
+                value: application?.status ?? 'Not submitted',
+                tone: _tone(application?.status),
+              ),
             ];
 
             return LayoutBuilder(

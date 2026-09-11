@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AdminColors {
-  static const Color primary    = Color(0xFF7B4DFF);
-  static const Color secondary  = Color(0xFF9C6BFF);
+  static const Color primary = Color(0xFF7B4DFF);
+  static const Color secondary = Color(0xFF9C6BFF);
   static const Color background = Color(0xFFF7F6FF);
-  static const Color darkText   = Color(0xFF1F1F39);
-  static const Color greyText   = Color(0xFF8E8EA9);
-  static const Color white      = Color(0xFFFFFFFF);
-  static const Color success    = Color(0xFF22C55E);
-  static const Color warning    = Color(0xFFF59E0B);
-  static const Color rejected   = Color(0xFFEF4444);
-  static const Color border     = Color(0xFFE6E1FF);
-  static const double radius    = 30;
+  static const Color darkText = Color(0xFF1F1F39);
+  static const Color greyText = Color(0xFF8E8EA9);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color success = Color(0xFF22C55E);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color rejected = Color(0xFFEF4444);
+  static const Color border = Color(0xFFE6E1FF);
+
+  static const double radius = 30;
 
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [primary, secondary],
@@ -35,14 +37,62 @@ class AdminTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: AdminColors.background,
-      fontFamily: 'Roboto',
+
+      // Global Poppins font
+      fontFamily: GoogleFonts.poppins().fontFamily,
+
+      // Global text styles
+      textTheme: GoogleFonts.poppinsTextTheme().copyWith(
+        displayLarge: GoogleFonts.poppins(
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          color: AdminColors.darkText,
+          height: 1.2,
+        ),
+        headlineMedium: GoogleFonts.poppins(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: AdminColors.darkText,
+          height: 1.25,
+        ),
+        titleLarge: GoogleFonts.poppins(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: AdminColors.darkText,
+          height: 1.3,
+        ),
+        bodyLarge: GoogleFonts.poppins(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: AdminColors.darkText,
+          height: 1.45,
+        ),
+        bodyMedium: GoogleFonts.poppins(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: AdminColors.greyText,
+          height: 1.45,
+        ),
+        labelLarge: GoogleFonts.poppins(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AdminColors.darkText,
+        ),
+        labelMedium: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AdminColors.greyText,
+        ),
+      ),
+
       appBarTheme: const AppBarTheme(
         backgroundColor: AdminColors.primary,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
-        iconTheme: IconThemeData(color: Colors.white),
-        // ← fixed: was 30, now a balanced 20
+        iconTheme: IconThemeData(
+          color: Colors.white,
+        ),
         titleTextStyle: TextStyle(
           color: Colors.white,
           fontSize: 20,
@@ -50,12 +100,19 @@ class AdminTheme {
           letterSpacing: -.4,
         ),
       ),
+
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AdminColors.darkText,
-        contentTextStyle: const TextStyle(color: AdminColors.white, fontWeight: FontWeight.w700),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        contentTextStyle: const TextStyle(
+          color: AdminColors.white,
+          fontWeight: FontWeight.w700,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
       ),
+
       navigationBarTheme: NavigationBarThemeData(
         height: 76,
         backgroundColor: AdminColors.white,
@@ -63,57 +120,94 @@ class AdminTheme {
         indicatorColor: AdminColors.primary.withOpacity(0.12),
         labelTextStyle: WidgetStateProperty.resolveWith(
               (states) => TextStyle(
-            color: states.contains(WidgetState.selected) ? AdminColors.primary : AdminColors.greyText,
+            color: states.contains(WidgetState.selected)
+                ? AdminColors.primary
+                : AdminColors.greyText,
             fontWeight: FontWeight.w800,
             fontSize: 11,
           ),
         ),
         iconTheme: WidgetStateProperty.resolveWith(
               (states) => IconThemeData(
-            color: states.contains(WidgetState.selected) ? AdminColors.primary : AdminColors.greyText,
+            color: states.contains(WidgetState.selected)
+                ? AdminColors.primary
+                : AdminColors.greyText,
           ),
         ),
       ),
+
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AdminColors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AdminColors.radius),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AdminColors.radius),
-          borderSide: BorderSide(color: AdminColors.primary.withOpacity(0.08)),
+          borderSide: BorderSide(
+            color: AdminColors.primary.withOpacity(0.08),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AdminColors.radius),
-          borderSide: const BorderSide(color: AdminColors.primary, width: 1.4),
+          borderSide: const BorderSide(
+            color: AdminColors.primary,
+            width: 1.4,
+          ),
         ),
-        hintStyle: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600),
+        hintStyle: const TextStyle(
+          color: AdminColors.greyText,
+          fontWeight: FontWeight.w600,
+        ),
       ),
+
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AdminColors.primary,
           foregroundColor: AdminColors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 14,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ),
+
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AdminColors.primary,
-          side: BorderSide(color: AdminColors.primary.withOpacity(0.28)),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          side: BorderSide(
+            color: AdminColors.primary.withOpacity(0.28),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 14,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ),
+
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AdminColors.primary,
-          textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ),
     );
