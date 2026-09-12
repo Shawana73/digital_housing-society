@@ -17,6 +17,12 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  String _searchQuery = '';
+
+  bool _matchesSearch(String label) {
+    if (_searchQuery.isEmpty) return true;
+    return label.toLowerCase().contains(_searchQuery);
+  }
 
   @override
   void initState() {
@@ -37,12 +43,25 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
     if (value == null || value.trim().isEmpty) return 'Required field';
     return null;
   }
+  String? _priceValidator(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Required field';
+    }
+
+    final price = double.tryParse(value.trim());
+
+    if (price == null || price <= 0) {
+      return 'Enter a valid price';
+    }
+
+    return null;
+  }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) {
-      showAdminSnack(context, 'Please fill all required fields');
       return;
     }
+
 
     try {
       await _viewModel.savePlot();
@@ -60,7 +79,18 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
       selectedIndex: 0,
       searchController: _searchController,
       searchHint: 'Search form fields...',
-      onSearchClear: _searchController.clear,
+      onSearchChanged: (value) {
+        setState(() {
+          _searchQuery = value.trim().toLowerCase();
+        });
+      },
+
+      onSearchClear: () {
+        _searchController.clear();
+        setState(() {
+          _searchQuery = '';
+        });
+      },
       onFabTap: _save,
       fabLabel: 'Save',
       fabIcon: Icons.save_rounded,
@@ -76,13 +106,84 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const AddPlotSectionTitle(title: 'New Plot Details', subtitle: 'Add premium inventory to society map'),
-                  const SizedBox(height: 18),
-                  AddPlotField(controller: _viewModel.plotId, label: 'Plot ID', icon: Icons.badge_rounded, validator: _required),
-                  AddPlotField(controller: _viewModel.plotSize, label: 'Plot Size', icon: Icons.aspect_ratio_rounded, validator: _required),
-                  AddPlotField(controller: _viewModel.price, label: 'Plot Price (PKR)', icon: Icons.payments_rounded, validator: _required, keyboardType: TextInputType.number),
-                  AddPlotField(controller: _viewModel.location, label: 'Location', icon: Icons.location_on_rounded, validator: _required),
-                  AddPlotField(controller: _viewModel.description, label: 'Description', icon: Icons.description_rounded, validator: _required, maxLines: 4),
+                  Offstage(
+                    offstage: _searchQuery.isNotEmpty &&
+                        !_matchesSearch('Plot ID') &&
+                        !_matchesSearch('Plot Size') &&
+                        !_matchesSearch('Plot Price (PKR)') &&
+                        !_matchesSearch('Location') &&
+                        !_matchesSearch('Description'),
+                    child: const AddPlotSectionTitle(
+                      title: 'New Plot Details',
+                      subtitle: 'Add premium inventory to society map',
+                    ),
+                  ),
+                  if (_searchQuery.isEmpty ||
+                      _matchesSearch('Plot ID') ||
+                      _matchesSearch('Plot Size') ||
+                      _matchesSearch('Plot Price (PKR)') ||
+                      _matchesSearch('Location') ||
+                      _matchesSearch('Description'))
+                    const SizedBox(height: 18),
+                  Offstage(
+                    offstage: !_matchesSearch('Plot ID'),
+                    child: AddPlotField(
+                      controller: _viewModel.plotId,
+                      label: 'Plot ID',
+                      icon: Icons.badge_rounded,
+                      validator: _required,
+                    ),
+                  ),
+                  Offstage(
+                    offstage: !_matchesSearch('Plot Size'),
+                    child: AddPlotField(
+                      controller: _viewModel.plotSize,
+                      label: 'Plot Size',
+                      icon: Icons.aspect_ratio_rounded,
+                      validator: _required,
+                    ),
+                  ),
+                  Offstage(
+                    offstage: !_matchesSearch('Plot Price (PKR)'),
+                    child: AddPlotField(
+                      controller: _viewModel.price,
+                      label: 'Plot Price (PKR)',
+                      icon: Icons.payments_rounded,
+                      validator: _priceValidator,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  Offstage(
+                    offstage: !_matchesSearch('Location'),
+                    child: AddPlotField(
+                      controller: _viewModel.location,
+                      label: 'Location',
+                      icon: Icons.location_on_rounded,
+                      validator: _required,
+                    ),
+                  ),
+                  Offstage(
+                    offstage: !_matchesSearch('Description'),
+                    child: AddPlotField(
+                      controller: _viewModel.description,
+                      label: 'Description',
+                      icon: Icons.description_rounded,
+                      validator: _required,
+                      maxLines: 4,
+                    ),
+                  ),
+                  if (_searchQuery.isNotEmpty &&
+                      !_matchesSearch('Plot ID') &&
+                      !_matchesSearch('Plot Size') &&
+                      !_matchesSearch('Plot Price (PKR)') &&
+                      !_matchesSearch('Location') &&
+                      !_matchesSearch('Description'))
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text('No matching form fields found'),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   Row(children: [
                     Expanded(child: OutlinedButton.icon(onPressed: () { _viewModel.reset(); showAdminSnack(context, 'Form reset'); }, icon: const Icon(Icons.refresh_rounded), label: const Text('Reset'))),

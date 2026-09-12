@@ -70,8 +70,20 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   Future<bool> start({
     String? schemeName,
     String? schemeSize,
+    String? schemeId,
   }) async {
     if (isProcessing) return false;
+    final configSnapshot =
+    await _firestore.collection('ballot_config').doc('main').get();
+
+    final configData = configSnapshot.data();
+
+    if (configData?['status'] == 'completed' &&
+        configData?['schemeId'] == schemeId) {
+      errorMessage =
+      'Balloting for this scheme has already been completed.';
+      return false;
+    }
 
     try {
       errorMessage = null;
@@ -134,6 +146,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
         'status': 'live',
         'projectName': schemeName ?? 'Official Housing Balloting',
         'block': schemeSize ?? '',
+        'schemeId': schemeId ?? '',
         'message': 'The official housing balloting draw is currently in progress.',
         'currentNumber': '0000',
         'liveFeed': [],
@@ -331,9 +344,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           return plotSize == requiredSize;
         }).toList();
 
-        if (matchingPlots.isNotEmpty) {
-          availablePlots = matchingPlots;
-        }
+        availablePlots = matchingPlots;
       }
 
       if (availablePlots.isEmpty) {
@@ -346,7 +357,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
       // STEP 3 - SECURE RANDOM SHUFFLE
       // --------------------------------------------------------
 
-      final random = Random();
+      final random = Random.secure();
 
       applicants.shuffle(random);
       availablePlots.shuffle(random);
@@ -429,6 +440,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           'serialNumber': '$drawNumber',
           'ballotingDate': now,
           'schemeName': schemeName ?? '',
+          'schemeId': schemeId ?? '',
         });
         final drawProgress = winnerCount == 0
             ? 1.0
@@ -442,6 +454,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           'progress': drawProgress,
           'projectName': schemeName ?? 'Official Housing Balloting',
           'block': schemeSize ?? '',
+          'schemeId': schemeId ?? '',
           'message': 'The official housing balloting draw is currently in progress.',
         }, SetOptions(merge: true));
 
@@ -497,6 +510,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           'serialNumber': '',
           'ballotingDate': now,
           'schemeName': schemeName ?? '',
+          'schemeId': schemeId ?? '',
         });
       }
 

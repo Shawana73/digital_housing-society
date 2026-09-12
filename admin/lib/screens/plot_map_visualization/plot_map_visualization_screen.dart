@@ -83,7 +83,20 @@ class _PlotVisualizationScreenState extends State<PlotVisualizationScreen> {
             ]),
           ),
           const SizedBox(height: 16),
-          AnimatedScale(
+          _viewModel.filteredPlots.isEmpty
+              ? const Padding(
+            padding: EdgeInsets.all(40),
+            child: Center(
+              child: Text(
+                'No matching plots found',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          )
+              : AnimatedScale(
             scale: _viewModel.zoom,
             duration: const Duration(milliseconds: 250),
             child: SocietyLayoutMap(

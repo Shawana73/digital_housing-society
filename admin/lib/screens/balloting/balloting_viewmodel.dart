@@ -232,7 +232,7 @@ class BallotingViewModel extends BaseAdminViewModel {
                 .toLowerCase() ??
                 '';
 
-        if (applicationStatus == 'approved') {
+        if (applicationStatus == 'verified') {
           final applicantId =
           data['applicantId']?.toString();
 

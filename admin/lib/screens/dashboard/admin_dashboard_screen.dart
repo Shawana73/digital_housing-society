@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../widgets/admin_shell.dart';
 import '../../app_routes.dart';
 import '../../theme/admin_theme.dart';
 import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
+import '../../models/admin_models.dart';
+import '../applicant_details/applicant_details_screen.dart';
 import 'dashboard_viewmodel.dart';
 import 'dashboard_widgets.dart';
 
@@ -38,6 +41,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _open(String route) => Navigator.pushNamed(context, route);
+
+  void _onSearchResultTap(DashboardSearchResult result) {
+    switch (result.type) {
+      case DashboardSearchResultType.screen:
+        if (result.route != null) _open(result.route!);
+        break;
+      case DashboardSearchResultType.applicant:
+        final data = result.doc!.data();
+        final applicant = Applicant(
+          id: (data['uid'] ?? result.doc!.id).toString(),
+          name: (data['fullName'] ?? 'Unknown').toString(),
+          cnic: (data['cnic'] ?? '').toString(),
+          phone: (data['phone'] ?? '').toString(),
+          email: (data['email'] ?? '').toString(),
+          address: (data['address'] ?? '').toString(),
+          occupation: '',
+          avatarLetters: (data['fullName'] ?? 'NA').toString().isNotEmpty
+              ? (data['fullName'] ?? 'NA').toString().substring(0, 1).toUpperCase()
+              : 'NA',
+          documents: const [],
+          status: (data['profileStatus']?.toString().toLowerCase() == 'verified')
+              ? VerificationStatus.verified
+              : (data['profileStatus']?.toString().toLowerCase() == 'rejected')
+              ? VerificationStatus.rejected
+              : VerificationStatus.pending,
+        );
+        Navigator.push(context, MaterialPageRoute(builder: (_) => ApplicantDetailsScreen(applicant: applicant)));
+        break;
+      case DashboardSearchResultType.plot:
+        _open(AdminRoutes.plots);
+        break;
+    }
+  }
 
   void _openCreateSheet() {
     showModalBottomSheet(
@@ -87,6 +123,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
               children: [
+                if (_viewModel.hasError)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                    child: Row(children: [
+                      const Icon(Icons.error_outline_rounded, color: Colors.red),
+                      const SizedBox(width: 10),
+                      const Expanded(child: Text('Could not load latest data. Pull down to retry.', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700, fontSize: 13))),
+                    ]),
+                  ),
+                if (_viewModel.query.isNotEmpty) ...[
+                  const DashboardLabel(title: 'Search Results', subtitle: 'Matching screens, applicants & plots'),
+                  const SizedBox(height: 12),
+                  DashboardSearchResultsList(results: _viewModel.searchResults, onResultTap: _onSearchResultTap),
+                  const SizedBox(height: 24),
+                ],
                 DashboardHeroCard(
                   unreadCount: _viewModel.unreadCount,
                   adminName: _viewModel.adminName,
@@ -162,8 +215,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   slices: _viewModel.plotSlices,
                 ),
                 const SizedBox(height: 24),
-
-                const DashboardLabel(title: 'Recent Activities', subtitle: 'Latest admin movement'),
+                Row(children: [
+                  const Expanded(child: DashboardLabel(title: 'Recent Activities', subtitle: 'Latest admin movement')),
+                  DashboardPillButton(label: 'View All', onTap: () => _open(AdminRoutes.reports)),
+                ]),
                 const SizedBox(height: 12),
                 if (_viewModel.filteredActivities.isEmpty)
                   EmptyState(

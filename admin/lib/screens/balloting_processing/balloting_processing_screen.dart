@@ -9,8 +9,10 @@ import 'balloting_processing_widgets.dart';
 class BallotingProcessingScreen extends StatefulWidget {
   final String schemeName;
   final String schemeSize;
+  final String schemeId;
 
-  const BallotingProcessingScreen({super.key, required this.schemeName, required this.schemeSize});
+  const BallotingProcessingScreen({super.key, required this.schemeName, required this.schemeSize,
+  required this.schemeId,});
 
   @override
   State<BallotingProcessingScreen> createState() => _BallotingProcessingScreenState();
@@ -47,9 +49,51 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
   }
 
   Future<void> _start() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AdminColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AdminColors.radius),
+        ),
+        title: const Text(
+          'Start Balloting?',
+          style: TextStyle(
+            color: AdminColors.darkText,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: Text(
+          'You are about to start the official balloting for '
+              '${widget.schemeName} (${widget.schemeSize}).\n\n'
+              'This action will select eligible applicants and allocate available plots.',
+          style: const TextStyle(
+            color: AdminColors.greyText,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AdminColors.primary,
+            ),
+            child: const Text('Start Balloting'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     final success = await _viewModel.start(
       schemeName: widget.schemeName,
       schemeSize: widget.schemeSize,
+      schemeId: widget.schemeId,
     );
 
     if (!mounted) return;

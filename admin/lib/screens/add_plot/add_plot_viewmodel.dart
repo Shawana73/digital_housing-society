@@ -16,7 +16,7 @@ class AddPlotViewModel extends ChangeNotifier {
       documentId: '',
       plotId: plotId.text.trim(),
       plotSize: plotSize.text.trim(),
-      price: double.tryParse(price.text.trim()) ?? 0,
+      price: double.parse(price.text.trim()),
       location: location.text.trim(),
       description: description.text.trim(),
       status: "Available",

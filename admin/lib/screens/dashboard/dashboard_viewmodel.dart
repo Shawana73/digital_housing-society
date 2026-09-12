@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,16 +10,33 @@ import 'dashboard_widgets.dart';
 
 class AdminDashboardViewModel extends BaseAdminViewModel {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
+  bool hasError = false;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _applicantsSub;
   List<DashboardStat> stats = [];
-  List<QuickAction> quickActions = [];
   List<AdminNotification> notifications = [];
   List<ActivityItem> activities = [];
 
   String adminName = 'Admin';
-  String weeklyGrowthLabel = '';
 
   List<DateTime> _applicantDates = [];
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _applicantDocs = [];
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _plotsSub;
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _plotDocs = [];
+  List<DateTime> _plotDates = [];
+
+  static const List<Map<String, dynamic>> _screenShortcuts = [
+    {'title': 'Applicants', 'keywords': ['applicant', 'applicants', 'verify applicant'], 'route': AdminRoutes.applicants, 'icon': Icons.people_alt_rounded},
+    {'title': 'Payments', 'keywords': ['payment', 'payments', 'verify payment'], 'route': AdminRoutes.payments, 'icon': Icons.payments_rounded},
+    {'title': 'Plot Management', 'keywords': ['plot', 'plots', 'manage plots'], 'route': AdminRoutes.plots, 'icon': Icons.domain_rounded},
+    {'title': 'Add Plot', 'keywords': ['add plot', 'new plot'], 'route': AdminRoutes.addPlot, 'icon': Icons.add_home_rounded},
+    {'title': 'Balloting', 'keywords': ['balloting', 'ballot'], 'route': AdminRoutes.balloting, 'icon': Icons.shuffle_rounded},
+    {'title': 'Balloting Results', 'keywords': ['result', 'results', 'balloting result'], 'route': AdminRoutes.results, 'icon': Icons.emoji_events_rounded},
+    {'title': 'Reports', 'keywords': ['report', 'reports'], 'route': AdminRoutes.reports, 'icon': Icons.insert_chart_rounded},
+    {'title': 'Dealers', 'keywords': ['dealer', 'dealers'], 'route': AdminRoutes.dealers, 'icon': Icons.storefront_rounded},
+    {'title': 'Plot Visualization', 'keywords': ['plot map', 'visualization', 'society map'], 'route': AdminRoutes.plotVisualization, 'icon': Icons.map_rounded},
+    {'title': 'Notifications', 'keywords': ['notification', 'notifications'], 'route': AdminRoutes.notifications, 'icon': Icons.notifications_rounded},
+    {'title': 'Profile', 'keywords': ['profile', 'my profile'], 'route': AdminRoutes.profile, 'icon': Icons.person_rounded},
+  ];
 
   // ============================================================
   // APPLICATION OVERVIEW CHART
@@ -65,11 +83,13 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
   @override
   Future<void> load() async {
     isLoading = true;
+    bool hasError = false;
     notifyListeners();
+    _subscribeApplicants();
+    _subscribePlots();
+    hasError = false;
 
     try {
-      final applicantsSnapshot = await _firestore.collection('applicants').get();
-      final plotsSnapshot = await _firestore.collection('plots').get();
       final paymentsSnapshot = await _firestore.collection('payments').get();
       final activitiesSnapshot = await _firestore
           .collection('activity_logs')
@@ -103,97 +123,9 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
         }
       }
 
-      // ------------------------------------------------------
-      // APPLICANTS
-      // ------------------------------------------------------
-      verifiedApplicants = 0;
-      pendingApplicants = 0;
-      rejectedApplicants = 0;
-      _applicantDates = [];
+      _processApplicants();
 
-      for (final doc in applicantsSnapshot.docs) {
-        final data = doc.data();
-        final status = data['profileStatus']?.toString().toLowerCase();
-
-        if (status == 'verified') {
-          verifiedApplicants++;
-        } else if (status == 'pending') {
-          pendingApplicants++;
-        } else if (status == 'rejected') {
-          rejectedApplicants++;
-        }
-
-        final createdAt = data['createdAt'];
-        if (createdAt is Timestamp) _applicantDates.add(createdAt.toDate());
-      }
-      totalApplicants = applicantsSnapshot.docs.length;
-
-      applicationStatusSlices = [
-        BreakdownSlice(
-          label: 'Verified',
-          value: verifiedApplicants,
-          percent: totalApplicants == 0 ? 0 : verifiedApplicants / totalApplicants,
-          color: AdminColors.primary,
-        ),
-        BreakdownSlice(
-          label: 'Pending',
-          value: pendingApplicants,
-          percent: totalApplicants == 0 ? 0 : pendingApplicants / totalApplicants,
-          color: const Color(0xFFF59E0B),
-        ),
-        BreakdownSlice(
-          label: 'Rejected',
-          value: rejectedApplicants,
-          percent: totalApplicants == 0 ? 0 : rejectedApplicants / totalApplicants,
-          color: AdminColors.rejected,
-        ),
-      ];
-
-      // ------------------------------------------------------
-      // PLOTS — Available / Allocated / Booked
-      // ------------------------------------------------------
-      availablePlots = 0;
-      allocatedPlots = 0;
-      bookedPlots = 0;
-      final List<DateTime> plotDates = [];
-
-      for (final doc in plotsSnapshot.docs) {
-        final data = doc.data();
-        final status = data['status']?.toString().toLowerCase();
-
-        if (status == 'available') {
-          availablePlots++;
-        } else if (status == 'allocated') {
-          allocatedPlots++;
-        } else if (status == 'booked') {
-          bookedPlots++;
-        }
-
-        final createdAt = data['createdAt'];
-        if (createdAt is Timestamp) plotDates.add(createdAt.toDate());
-      }
-      totalPlots = plotsSnapshot.docs.length;
-
-      plotSlices = [
-        BreakdownSlice(
-          label: 'Available',
-          value: availablePlots,
-          percent: totalPlots == 0 ? 0 : availablePlots / totalPlots,
-          color: AdminColors.primary,
-        ),
-        BreakdownSlice(
-          label: 'Allocated',
-          value: allocatedPlots,
-          percent: totalPlots == 0 ? 0 : allocatedPlots / totalPlots,
-          color: const Color(0xFF6366F1),
-        ),
-        BreakdownSlice(
-          label: 'Booked',
-          value: bookedPlots,
-          percent: totalPlots == 0 ? 0 : bookedPlots / totalPlots,
-          color: const Color(0xFFF59E0B),
-        ),
-      ];
+      _processPlots();
 
       // ------------------------------------------------------
       // PAYMENTS
@@ -239,35 +171,13 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
 
       verifiedDealers = verifiedCount;
 
-      // ------------------------------------------------------
-      // WEEKLY GROWTH LABEL (kept for backward compatibility)
-      // ------------------------------------------------------
-      final now = DateTime.now();
-      double thisWeekTotal = 0;
-      double lastWeekTotal = 0;
-      for (final date in _applicantDates) {
-        final difference = DateTime(now.year, now.month, now.day)
-            .difference(DateTime(date.year, date.month, date.day))
-            .inDays;
-        if (difference >= 0 && difference < 7) {
-          thisWeekTotal++;
-        } else if (difference >= 7 && difference < 14) {
-          lastWeekTotal++;
-        }
-      }
-      if (lastWeekTotal == 0) {
-        weeklyGrowthLabel = thisWeekTotal > 0 ? '↑ New' : '0%';
-      } else {
-        final percentChange = ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100;
-        final arrow = percentChange >= 0 ? '↑' : '↓';
-        weeklyGrowthLabel = '$arrow ${percentChange.abs().toStringAsFixed(0)}%';
-      }
 
       // ------------------------------------------------------
       // STAT CARDS — 5 total: Applicants, Plots, Payments, Dealers, Pending Payments
       // ------------------------------------------------------
       final applicantMonthly = _monthlyCounts(_applicantDates);
-      final plotMonthly = _monthlyCounts(plotDates);
+      final plotMonthly = _monthlyCounts(_plotDates);
+
       final paymentMonthly = _monthlyCounts(paymentDates);
 
       stats = [
@@ -356,13 +266,127 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
         );
       }).toList();
 
-      _computeChartData();
     } catch (e) {
       debugPrint('Dashboard Firestore error: $e');
+      hasError = true;
     } finally {
       isLoading = false;
       notifyListeners();
     }
+  }
+
+  void _subscribeApplicants() {
+    _applicantsSub?.cancel();
+    _applicantsSub = _firestore.collection('applicants').snapshots().listen((snapshot) {
+      _applicantDocs = snapshot.docs;
+      _processApplicants();
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint('Applicants stream error: $e');
+    });
+  }
+
+  void _processApplicants() {
+    verifiedApplicants = 0;
+    pendingApplicants = 0;
+    rejectedApplicants = 0;
+    _applicantDates = [];
+
+    for (final doc in _applicantDocs) {
+      final data = doc.data();
+      final status = data['profileStatus']?.toString().toLowerCase();
+
+      if (status == 'verified') {
+        verifiedApplicants++;
+      } else if (status == 'pending') {
+        pendingApplicants++;
+      } else if (status == 'rejected') {
+        rejectedApplicants++;
+      }
+
+      final createdAt = data['createdAt'];
+      if (createdAt is Timestamp) _applicantDates.add(createdAt.toDate());
+    }
+    totalApplicants = _applicantDocs.length;
+
+    applicationStatusSlices = [
+      BreakdownSlice(
+        label: 'Verified',
+        value: verifiedApplicants,
+        percent: totalApplicants == 0 ? 0 : verifiedApplicants / totalApplicants,
+        color: AdminColors.primary,
+      ),
+      BreakdownSlice(
+        label: 'Pending',
+        value: pendingApplicants,
+        percent: totalApplicants == 0 ? 0 : pendingApplicants / totalApplicants,
+        color: const Color(0xFFF59E0B),
+      ),
+      BreakdownSlice(
+        label: 'Rejected',
+        value: rejectedApplicants,
+        percent: totalApplicants == 0 ? 0 : rejectedApplicants / totalApplicants,
+        color: AdminColors.rejected,
+      ),
+    ];
+
+    _computeChartData();
+  }
+
+  void _subscribePlots() {
+    _plotsSub?.cancel();
+    _plotsSub = _firestore.collection('plots').snapshots().listen((snapshot) {
+      _plotDocs = snapshot.docs;
+      _processPlots();
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint('Plots stream error: $e');
+    });
+  }
+
+  void _processPlots() {
+    availablePlots = 0;
+    allocatedPlots = 0;
+    bookedPlots = 0;
+
+    _plotDates = [];
+    for (final doc in _plotDocs) {
+      final data = doc.data();
+      final status = data['status']?.toString().toLowerCase();
+
+      if (status == 'available') {
+        availablePlots++;
+      } else if (status == 'allocated') {
+        allocatedPlots++;
+      } else if (status == 'booked') {
+        bookedPlots++;
+      }
+
+      final createdAt = data['createdAt'];
+      if (createdAt is Timestamp) _plotDates.add(createdAt.toDate());
+    }
+    totalPlots = _plotDocs.length;
+
+    plotSlices = [
+      BreakdownSlice(
+        label: 'Available',
+        value: availablePlots,
+        percent: totalPlots == 0 ? 0 : availablePlots / totalPlots,
+        color: AdminColors.primary,
+      ),
+      BreakdownSlice(
+        label: 'Allocated',
+        value: allocatedPlots,
+        percent: totalPlots == 0 ? 0 : allocatedPlots / totalPlots,
+        color: const Color(0xFF6366F1),
+      ),
+      BreakdownSlice(
+        label: 'Booked',
+        value: bookedPlots,
+        percent: totalPlots == 0 ? 0 : bookedPlots / totalPlots,
+        color: const Color(0xFFF59E0B),
+      ),
+    ];
   }
 
   // ============================================================
@@ -509,6 +533,58 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
     return parts.length > 1 ? '$withCommas.${parts[1]}' : withCommas;
   }
 
+  List<DashboardSearchResult> get searchResults {
+    if (query.isEmpty) return [];
+    final results = <DashboardSearchResult>[];
+
+    for (final shortcut in _screenShortcuts) {
+      final keywords = (shortcut['keywords'] as List).cast<String>();
+      final matches = keywords.any((k) => k.contains(query)) || (shortcut['title'] as String).toLowerCase().contains(query);
+      if (matches) {
+        results.add(DashboardSearchResult(
+          title: shortcut['title'] as String,
+          subtitle: 'Go to ${shortcut['title']}',
+          icon: shortcut['icon'] as IconData,
+          type: DashboardSearchResultType.screen,
+          route: shortcut['route'] as String,
+        ));
+      }
+    }
+
+    for (final doc in _applicantDocs) {
+      final data = doc.data();
+      final name = (data['fullName'] ?? '').toString().toLowerCase();
+      final cnic = (data['cnic'] ?? '').toString().toLowerCase();
+      final email = (data['email'] ?? '').toString().toLowerCase();
+      if (name.contains(query) || cnic.contains(query) || email.contains(query)) {
+        results.add(DashboardSearchResult(
+          title: (data['fullName'] ?? 'Unknown Applicant').toString(),
+          subtitle: 'CNIC: ${data['cnic'] ?? 'N/A'}',
+          icon: Icons.person_rounded,
+          type: DashboardSearchResultType.applicant,
+          doc: doc,
+        ));
+      }
+    }
+
+    for (final doc in _plotDocs) {
+      final data = doc.data();
+      final plotId = (data['plotId'] ?? '').toString().toLowerCase();
+      final location = (data['location'] ?? '').toString().toLowerCase();
+      if (plotId.contains(query) || location.contains(query)) {
+        results.add(DashboardSearchResult(
+          title: 'Plot ${data['plotId'] ?? ''}',
+          subtitle: (data['location'] ?? '').toString(),
+          icon: Icons.location_on_rounded,
+          type: DashboardSearchResultType.plot,
+          doc: doc,
+        ));
+      }
+    }
+
+    return results;
+  }
+
   List<ActivityItem> get filteredActivities {
     if (query.isEmpty) return activities;
     return activities
@@ -530,5 +606,12 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
     } catch (e) {
       debugPrint('Error marking dashboard notifications read: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _applicantsSub?.cancel();
+    _plotsSub?.cancel();
+    super.dispose();
   }
 }

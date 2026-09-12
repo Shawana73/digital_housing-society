@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/admin_theme.dart';
 import '../../widgets/premium_widgets.dart';
 import '../../widgets/app_snack.dart';
 import '../../models/admin_models.dart';
 
-// Icon colours for Quick Action items
-const List<Color> kDashboardActionColors = [
-  Color(0xFF7B4DFF),
-];
+
 
 /// Two-line section label.
 class DashboardLabel extends StatelessWidget {
@@ -80,7 +78,7 @@ class DashboardHeroCard extends StatelessWidget {
         child: Stack(children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/admin_purple.png',
+              'assets/images/Green_Valley_Villa.png',
               fit: BoxFit.cover,
               alignment: Alignment.centerRight,
             ),
@@ -145,6 +143,18 @@ class DashboardHeroCard extends StatelessWidget {
                         shadows: [Shadow(color: Colors.black54, blurRadius: 6, offset: Offset(0, 1))],
                       )),
                   const Spacer(),
+                  if (unreadCount > 0) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(20)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.notifications_rounded, color: Colors.white, size: 13),
+                        const SizedBox(width: 4),
+                        Text('$unreadCount new', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                      ]),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                     decoration: BoxDecoration(color: AdminColors.white, borderRadius: BorderRadius.circular(20)),
@@ -248,38 +258,6 @@ class DashboardGlassButton extends StatelessWidget {
   );
 }
 
-class DashboardStatsGrid extends StatelessWidget {
-  final List<DashboardStat> stats;
-  final void Function(String route) onTap;
-  const DashboardStatsGrid({super.key, required this.stats, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = <Widget>[];
-    for (int i = 0; i < stats.length; i += 2) {
-      final left  = stats[i];
-      final right = i + 1 < stats.length ? stats[i + 1] : null;
-      rows.add(
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: DashboardStatCard(stat: left,  onTap: () => onTap(left.route))),
-              const SizedBox(width: 12),
-              Expanded(
-                child: right != null
-                    ? DashboardStatCard(stat: right, onTap: () => onTap(right.route))
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
-        ),
-      );
-      if (i + 2 < stats.length) rows.add(const SizedBox(height: 12));
-    }
-    return Column(children: rows);
-  }
-}
 
 class DashboardStatCard extends StatelessWidget {
   final DashboardStat stat;
@@ -313,66 +291,6 @@ class DashboardStatCard extends StatelessWidget {
   }
 }
 
-class DashboardQuickActionsGrid extends StatelessWidget {
-  final List<QuickAction> actions;
-  final void Function(String route) onTap;
-  const DashboardQuickActionsGrid({super.key, required this.actions, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    const cols = 4;
-    final rows = <Widget>[];
-    for (int i = 0; i < actions.length; i += cols) {
-      final rowItems = actions.sublist(i, (i + cols).clamp(0, actions.length));
-      rows.add(Row(
-        children: List.generate(cols, (j) {
-          if (j < rowItems.length) {
-            final action = rowItems[j];
-            final color = kDashboardActionColors[(i + j) % kDashboardActionColors.length];
-            return Expanded(
-              child: DashboardQuickItem(icon: action.icon, label: action.title, color: color, onTap: () => onTap(action.route)),
-            );
-          }
-          return const Expanded(child: SizedBox());
-        }),
-      ));
-      if (i + cols < actions.length) rows.add(const SizedBox(height: 16));
-    }
-    return Column(children: rows);
-  }
-}
-
-class DashboardQuickItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const DashboardQuickItem({super.key, required this.icon, required this.label, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            height: 58, width: 58,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.28), blurRadius: 10, offset: const Offset(0, 5))],
-            ),
-            child: Icon(icon, color: Colors.white, size: 26),
-          ),
-          const SizedBox(height: 7),
-          Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w700, fontSize: 11, height: 1.2)),
-        ],
-      ),
-    );
-  }
-}
 
 class DashboardActivityTile extends StatelessWidget {
   final ActivityItem activity;
@@ -511,21 +429,23 @@ class DashboardMiniStatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final width = constraints.maxWidth;
-      final columns = width >= 1000 ? 3 : (width >= 640 ? 2 : 1);
+      final columns = width >= 1100 ? 5 : (width >= 800 ? 3 : (width >= 500 ? 2 : 1));
 
       if (columns == 1) {
         return Column(
           children: [
             for (int i = 0; i < stats.length; i++) ...[
-              if (i != 0) const SizedBox(height: 12),
+              if (i != 0) const SizedBox(height: 10),
               DashboardMiniStatCard(stat: stats[i], onTap: () => onTap(stats[i].route)),
             ],
           ],
         );
       }
 
-      const spacing = 12.0;
-      final itemWidth = (width - spacing * (columns - 1)) / columns;
+      const spacing = 10.0;
+      final rawWidth = (width - spacing * (columns - 1)) / columns;
+      final itemWidth = rawWidth.clamp(0, 190).toDouble();
+
       return Wrap(
         spacing: spacing,
         runSpacing: spacing,
@@ -548,15 +468,15 @@ class DashboardMiniStatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return PremiumCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       child: Row(
         children: [
           Container(
-            height: 36, width: 36,
-            decoration: BoxDecoration(color: stat.color, borderRadius: BorderRadius.circular(11)),
-            child: Icon(stat.icon, color: Colors.white, size: 18),
+            height: 32, width: 32,
+            decoration: BoxDecoration(color: stat.color, borderRadius: BorderRadius.circular(10)),
+            child: Icon(stat.icon, color: Colors.white, size: 16),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -564,11 +484,11 @@ class DashboardMiniStatCard extends StatelessWidget {
               children: [
                 Text(stat.value,
                     maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -.4)),
-                const SizedBox(height: 2),
+                    style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: -.3)),
+                const SizedBox(height: 1),
                 Text(stat.title,
                     maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 11)),
+                    style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 10)),
               ],
             ),
           ),
@@ -906,6 +826,73 @@ class DashboardProgressListCard extends StatelessWidget {
           )),
         ],
       ),
+    );
+  }
+}
+
+// ============================================================
+// Global dashboard search
+// ============================================================
+
+enum DashboardSearchResultType { screen, applicant, plot }
+
+class DashboardSearchResult {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final DashboardSearchResultType type;
+  final String? route;
+  final QueryDocumentSnapshot<Map<String, dynamic>>? doc;
+
+  const DashboardSearchResult({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.type,
+    this.route,
+    this.doc,
+  });
+}
+
+class DashboardSearchResultsList extends StatelessWidget {
+  final List<DashboardSearchResult> results;
+  final void Function(DashboardSearchResult result) onResultTap;
+  const DashboardSearchResultsList({super.key, required this.results, required this.onResultTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (results.isEmpty) {
+      return PremiumCard(
+        padding: const EdgeInsets.all(18),
+        child: Row(children: [
+          const Icon(Icons.search_off_rounded, color: AdminColors.greyText),
+          const SizedBox(width: 10),
+          const Expanded(child: Text('No matches found.', style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 13))),
+        ]),
+      );
+    }
+    return Column(
+      children: results.map((r) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: PremiumCard(
+          onTap: () => onResultTap(r),
+          padding: const EdgeInsets.all(14),
+          child: Row(children: [
+            Container(
+              height: 40, width: 40,
+              decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.12), borderRadius: BorderRadius.circular(14)),
+              child: Icon(r.icon, color: AdminColors.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(r.title, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 14)),
+              const SizedBox(height: 3),
+              Text(r.subtitle, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 12)),
+            ])),
+            const Icon(Icons.arrow_forward_ios_rounded, color: AdminColors.greyText, size: 16),
+          ]),
+        ),
+      )).toList(),
     );
   }
 }

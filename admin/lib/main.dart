@@ -52,10 +52,11 @@ class DigitalHousingAdminApp extends StatelessWidget {
         AdminRoutes.balloting: (_) => const BallotingScreen(),
         AdminRoutes.ballotingProcessing: (context) {
           final args = ModalRoute.of(context)!.settings.arguments
-          as Map<String, String>? ?? {};
+          as Map<String, dynamic>? ?? {};
           return BallotingProcessingScreen(
             schemeName: args['name'] ?? 'Green Valley Villas',
-            schemeSize:  args['size'] ?? '5 Marla Villa',
+            schemeSize: args['size'] ?? '5 Marla Villa',
+            schemeId: args['schemeId'] ?? '',
           );
         },
         AdminRoutes.results: (_) => const ResultScreen(),
