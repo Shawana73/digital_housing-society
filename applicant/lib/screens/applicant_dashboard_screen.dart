@@ -862,24 +862,28 @@ class _StatusCards extends StatelessWidget {
                 title: 'Application',
                 value: application?.status ?? 'Not submitted',
                 tone: _tone(application?.status),
+                route: AppConstants.applicationRoute,
               ),
               _StatusData(
                 icon: Icons.folder_copy_outlined,
                 title: 'Documents',
                 value: uploadStatus,
                 tone: _tone(uploadStatus),
+                route: AppConstants.uploadRoute,
               ),
               _StatusData(
                 icon: Icons.account_balance_wallet_outlined,
                 title: 'Payment',
                 value: payment?.status ?? 'Not submitted',
                 tone: _tone(payment?.status),
+                route: AppConstants.paymentRoute,
               ),
               _StatusData(
                 icon: Icons.emoji_events_outlined,
                 title: 'Result',
                 value: resultText,
                 tone: _tone(resultText),
+                route: AppConstants.resultRoute,
               ),
             ];
 
@@ -946,73 +950,79 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tone = _toneColors(data.tone);
 
-    return Container(
-      constraints: const BoxConstraints(minHeight: 112),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE6E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.deepPurple.withValues(alpha: .06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => Navigator.pushNamed(context, data.route),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 112),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE6E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.deepPurple.withValues(alpha: .06),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: tone.$2,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              data.icon,
-              color: tone.$1,
-              size: 23,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.secondaryText,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: tone.$2,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  _titleCase(data.value),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: tone.$1,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                  ),
+                child: Icon(
+                  data.icon,
+                  color: tone.$1,
+                  size: 23,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.secondaryText,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      _titleCase(data.value),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.$1,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: Color(0xFF98A2B3),
+              ),
+            ],
           ),
-          const Icon(
-            Icons.arrow_forward_ios_rounded,
-            size: 14,
-            color: Color(0xFF98A2B3),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1925,12 +1935,14 @@ class _StatusData {
     required this.title,
     required this.value,
     required this.tone,
+    required this.route,
   });
 
   final IconData icon;
   final String title;
   final String value;
   final _StatusTone tone;
+  final String route;
 }
 
 enum _StatusTone {
