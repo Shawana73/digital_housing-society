@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_routes.dart';
 import '../../theme/admin_theme.dart';
 
@@ -49,9 +51,20 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     );
 
     _logoController.forward();
+    Future.delayed(const Duration(milliseconds: 2600), () async {
+      if (!mounted) return;
 
-    Future.delayed(const Duration(milliseconds: 2600), () {
-      if (mounted) {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final prefs = await SharedPreferences.getInstance();
+      final rememberMe = prefs.getBool('remember_me') ?? false;
+
+      if (!mounted) return;
+
+      if (currentUser != null && rememberMe) {
+        Navigator.pushReplacementNamed(context, AdminRoutes.dashboard);
+      } else {
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, AdminRoutes.login);
       }
     });

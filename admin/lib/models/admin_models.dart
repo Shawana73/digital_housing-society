@@ -176,9 +176,9 @@ class Applicant {
     required this.status,
   });
 }
-
 class PaymentRecord {
   final String id;
+  final String applicantId;
   final String applicantName;
   final String transactionId;
   final String amount;
@@ -190,6 +190,7 @@ class PaymentRecord {
 
   PaymentRecord({
     required this.id,
+    required this.applicantId,
     required this.applicantName,
     required this.transactionId,
     required this.amount,
@@ -200,7 +201,6 @@ class PaymentRecord {
     required this.receiptUrl,
   });
 }
-
 class SocietyPlot {
   final String id;
   final String size;

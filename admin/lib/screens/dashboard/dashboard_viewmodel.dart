@@ -167,7 +167,6 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
       debugPrint('Applicants stream error: $e');
     });
   }
-
   void _subscribeApplications() {
     _applicationsSub?.cancel();
     _applicationsSub = _firestore.collection('applications').snapshots().listen((snapshot) {
@@ -200,7 +199,12 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
     for (final doc in _applicantDocs) {
       final data = doc.data();
       final uid = data['uid']?.toString().trim();
-      final status = uid != null ? statusByUid[uid] : null;
+
+      // Prefer the application's status (source of truth when an
+      // application exists); fall back to the applicant's own
+      // profileStatus when no application document exists yet.
+      final status = (uid != null ? statusByUid[uid] : null)
+          ?? data['profileStatus']?.toString().trim().toLowerCase();
 
       if (status == 'verified' || status == 'approved') {
         verifiedApplicants++;
@@ -239,6 +243,7 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
     _computeChartData();
     _rebuildStats();
   }
+
 
   // ============================================================
   // PLOTS

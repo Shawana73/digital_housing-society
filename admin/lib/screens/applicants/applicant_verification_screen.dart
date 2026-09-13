@@ -123,7 +123,10 @@ class _ApplicantVerificationScreenState extends State<ApplicantVerificationScree
               padding: const EdgeInsets.only(bottom: 12),
               child: ApplicantRow(
                 applicant: applicant,
-                onTap: () => Navigator.pushNamed(context, AdminRoutes.applicantDetails, arguments: applicant),
+                onTap: () async {
+                  await Navigator.pushNamed(context, AdminRoutes.applicantDetails, arguments: applicant);
+                  if (mounted) _viewModel.load();
+                },
               ),
             )),
         ],

@@ -5,6 +5,7 @@ import '../../theme/admin_theme.dart';
 import '../../widgets/admin_shell.dart';
 import '../../widgets/premium_widgets.dart';
 import '../../models/scheme_model.dart';
+import 'add_scheme_screen.dart';
 import 'balloting_viewmodel.dart';
 import 'balloting_widgets.dart';
 
@@ -84,8 +85,6 @@ class _BallotingScreenState
     return months[month - 1];
   }
 
-  // FIX (#10): factored out so the same card can be reused in both the
-  // main screen (first N items) and the "View All" screen.
   Widget _buildUpcomingCard(SchemeModel scheme) {
     final eligibleApplicants =
     _viewModel.getEligibleApplicantsForScheme(scheme);
@@ -104,16 +103,26 @@ class _BallotingScreenState
       imagePath: scheme.imagePath,
       eligibleLabel: 'Eligible',
       plotsLabel: 'Plots',
-      onStart: () {
-        Navigator.pushNamed(
+      onStart: () async {
+        // FIX (bug): previously this was a fire-and-forget push, so when
+        // the admin returned from the processing screen (after
+        // completing a balloting, which updates the scheme's status in
+        // Firestore), this screen's already-in-memory list was never
+        // refreshed — the scheme stayed showing under "Upcoming" even
+        // though Firestore already had it marked 'Completed'. Awaiting
+        // the navigation and reloading afterward keeps the list in sync.
+        await Navigator.pushNamed(
           context,
           AdminRoutes.ballotingProcessing,
           arguments: {
             'name': scheme.name,
             'size': scheme.size,
             'schemeId': scheme.documentId,
+            'schemeDate': scheme.date,
           },
         );
+        if (!mounted) return;
+        _viewModel.load();
       },
     );
   }
@@ -136,8 +145,6 @@ class _BallotingScreenState
     );
   }
 
-  // FIX (#9): small inline error banner instead of silently showing an
-  // empty list when the Firestore load fails.
   Widget _buildErrorBanner(String message) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -185,14 +192,21 @@ class _BallotingScreenState
         _searchController.clear();
         _viewModel.clearSearch();
       },
-      onFabTap: () =>
-          Navigator.pushNamed(
-            context,
-            AdminRoutes.results,
-          ),
-      fabLabel: 'Results',
+      // FIX (missing feature): FAB now opens Add New Scheme instead of
+      // the combined Results view. Results are still reachable per-scheme
+      // via each completed scheme's History card.
+      onFabTap: () async {
+        final added = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(builder: (_) => const AddSchemeScreen()),
+        );
+        if (added == true) {
+          _viewModel.load();
+        }
+      },
+      fabLabel: 'Add Scheme',
       fabIcon:
-      Icons.emoji_events_rounded,
+      Icons.add_home_work_rounded,
       isLoading: _viewModel.isLoading,
 
       body: ListView(
@@ -305,8 +319,6 @@ class _BallotingScreenState
                 ),
               ),
 
-              // FIX (#10): now actually navigates to a full list
-              // instead of just showing a snackbar.
               GestureDetector(
                 onTap: () {
                   Navigator.push(
@@ -380,8 +392,6 @@ class _BallotingScreenState
                 ),
               ),
 
-              // FIX (#10): now actually navigates to a full list
-              // instead of just showing a snackbar.
               GestureDetector(
                 onTap: () {
                   Navigator.push(

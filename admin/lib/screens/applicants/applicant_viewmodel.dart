@@ -83,7 +83,7 @@ class ApplicantVerificationViewModel extends BaseAdminViewModel {
         final phone = data['phone']?.toString().trim() ?? applicationData?['contactNumber']?.toString().trim() ?? '';
         final email = data['email']?.toString().trim() ?? '';
         final address = data['address']?.toString().trim() ?? applicationData?['address']?.toString().trim() ?? '';
-        final status = _parseVerificationStatus(applicationData?['status']);
+        final status = _parseVerificationStatus(applicationData?['status'] ?? data['profileStatus']);
 
         loadedApplicants.add(
           Applicant(

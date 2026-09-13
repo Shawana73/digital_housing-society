@@ -18,10 +18,12 @@ class BallotingProcessingViewModel extends ChangeNotifier {
 
   String? errorMessage;
 
-  // FIX (#7/#8): single source of truth for the step list. Previously this
-  // same list literal was duplicated three times (field initializer, a
-  // shadowed local function inside start(), and _resetSteps()). Now every
-  // place that needs a "fresh" list of steps calls _freshSteps().
+  // FIX (missing feature — live transparency): every draw event (a winner
+  // being selected + allocated a plot, or an applicant not selected) is
+  // appended here as it happens, so the admin screen can show it live
+  // instead of only a generic progress bar.
+  final List<DrawFeedEntry> drawFeed = [];
+
   static List<ProcessingStep> _freshSteps() => [
     const ProcessingStep(
       1,
@@ -71,6 +73,17 @@ class BallotingProcessingViewModel extends ChangeNotifier {
     return 'Stopped';
   }
 
+  String _maskCnic(String cnic) {
+    final digits = cnic.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length < 13) return cnic.isEmpty ? '' : '•••••••••••';
+    return 'XXXXX-XXXXXXX-${digits.substring(12, 13)}';
+  }
+
+  String _formatScheduledDate(DateTime d) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
   // ============================================================
   // START BALLOTING
   // ============================================================
@@ -79,28 +92,63 @@ class BallotingProcessingViewModel extends ChangeNotifier {
     String? schemeName,
     String? schemeSize,
     String? schemeId,
+    // FIX (missing feature): the scheme's own balloting date. If provided
+    // and it's still in the future, balloting is blocked from starting
+    // early.
+    DateTime? scheduledDate,
   }) async {
     if (isProcessing) return false;
+
+    if (scheduledDate != null && DateTime.now().isBefore(scheduledDate)) {
+      errorMessage =
+      'This balloting is scheduled for ${_formatScheduledDate(scheduledDate)}. '
+          'It cannot be started before that date.';
+      return false;
+    }
+
+    // FIX (bug — re-run prevention): check the SCHEME's own document
+    // status (not just the shared ballot_config doc, which only tracks
+    // whichever run happened most recently and can't reliably represent
+    // every individual scheme's history).
+    if (schemeId != null && schemeId.isNotEmpty) {
+      final schemeDoc =
+      await _firestore.collection('schemes').doc(schemeId).get();
+
+      final schemeStatus =
+      schemeDoc.data()?['status']?.toString().trim().toLowerCase();
+
+      if (schemeStatus == 'completed') {
+        errorMessage =
+        'Balloting for this scheme has already been completed and cannot be run again.';
+        return false;
+      }
+    }
 
     final configSnapshot =
     await _firestore.collection('ballot_config').doc('main').get();
 
     final configData = configSnapshot.data();
 
-    if (configData?['status'] == 'completed' &&
-        configData?['schemeId'] == schemeId) {
-      errorMessage =
-      'Balloting for this scheme has already been completed.';
-      return false;
-    }
+    // FIX (bug): a run that throws partway through (e.g. "no eligible
+    // applicants") used to leave ballot_config stuck on 'live' forever,
+    // permanently blocking every future balloting attempt for every
+    // scheme. Two safeguards now prevent that:
+    //  1. Stale-lock auto-recovery — if the stuck run started more than
+    //     30 minutes ago, it's treated as abandoned and ignored.
+    //  2. The catch block below now resets ballot_config on failure (see
+    //     further down), so this generally shouldn't happen going
+    //     forward — this is just a safety net.
+    final lockStartedAt = (configData?['startedAt'] as Timestamp?)?.toDate();
+    final lockIsStale = lockStartedAt != null &&
+        DateTime.now().difference(lockStartedAt) > const Duration(minutes: 30);
 
-    // FIX: guard against two different schemes being processed at the
-    // same time (e.g. admin navigates away mid-run and starts another
-    // scheme). Only block if a DIFFERENT scheme is currently live/paused.
+    // Guard against two different schemes being processed at the same
+    // time (e.g. admin navigates away mid-run and starts another scheme).
     if ((configData?['status'] == 'live' ||
         configData?['status'] == 'paused') &&
         configData?['schemeId'] != null &&
-        configData?['schemeId'] != schemeId) {
+        configData?['schemeId'] != schemeId &&
+        !lockIsStale) {
       errorMessage =
       'Another balloting session is currently in progress. '
           'Please finish or stop it before starting a new one.';
@@ -115,6 +163,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
       isPaused = false;
       progress = 0.0;
       steps = _freshSteps();
+      drawFeed.clear();
 
       // --------------------------------------------------------
       // STEP 1 - INITIALIZE
@@ -183,14 +232,21 @@ class BallotingProcessingViewModel extends ChangeNotifier {
         }
       }
 
-      // Approved applications
-      final approvedApplications =
+      // FIX (bug): this used to check for status == 'approved', but every
+      // other part of the app (overview screen's eligible count, uploads,
+      // payments, and the VerificationStatus enum itself: Pending /
+      // Verified / Rejected) uses 'verified' as the reviewed-and-accepted
+      // status. That mismatch meant the overview screen could show
+      // "Eligible: 1" while the actual balloting engine found zero
+      // eligible applicants and failed with "No eligible applicants
+      // found" — now both use the same status value.
+      final verifiedApplications =
       <String, Map<String, dynamic>>{};
 
       for (final doc in applicationsSnapshot.docs) {
         final data = doc.data();
 
-        if (_normalize(data['status']) != 'approved') {
+        if (_normalize(data['status']) != 'verified') {
           continue;
         }
 
@@ -200,7 +256,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           continue;
         }
 
-        approvedApplications[applicantId] = data;
+        verifiedApplications[applicantId] = data;
       }
 
       // Final eligibility:
@@ -208,7 +264,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
       // + Verified documents
       // + Verified payment
 
-      final eligibleApplicantIds = approvedApplications.keys
+      final eligibleApplicantIds = verifiedApplications.keys
           .where((id) {
         if (!verifiedUploads.contains(id) ||
             !verifiedPayments.contains(id)) {
@@ -220,7 +276,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
         }
 
         final application =
-            approvedApplications[id] ?? {};
+            verifiedApplications[id] ?? {};
 
         final applicationPlotType =
             application['plotType']?.toString() ?? '';
@@ -282,7 +338,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
               applicantData['cnicDigits']?.toString() ??
               '',
           'application':
-          approvedApplications[applicantId] ??
+          verifiedApplications[applicantId] ??
               <String, dynamic>{},
         });
       }
@@ -406,8 +462,6 @@ class BallotingProcessingViewModel extends ChangeNotifier {
 
         final drawNumber = i + 1;
 
-        // FIX (#4): also store applicationId so the Result screen's
-        // "search by Application ID" actually works.
         results.add({
           'applicantId': applicant['applicantId'],
           'applicationId':
@@ -423,9 +477,29 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           'schemeName': schemeName ?? '',
           'schemeId': schemeId ?? '',
         });
+
         final drawProgress = winnerCount == 0
             ? 1.0
             : 0.55 + (0.45 * (drawNumber / winnerCount));
+
+        // FIX (missing feature — live transparency): previously `progress`
+        // (the local, UI-bound value) was only updated at big step
+        // boundaries, so the admin's screen appeared frozen during the
+        // actual draw. Now it updates — and notifyListeners() fires — on
+        // every single draw, along with a new drawFeed entry showing
+        // exactly who was drawn and which plot they got.
+        progress = drawProgress;
+
+        drawFeed.add(DrawFeedEntry(
+          serial: drawNumber,
+          applicantName: (applicant['fullName'] ?? '').toString(),
+          cnicMasked: _maskCnic((applicant['cnic'] ?? '').toString()),
+          plotNumber: plot.plotId,
+          isSelected: true,
+          time: DateTime.now(),
+        ));
+
+        notifyListeners();
 
         // Update current draw number for Applicant live screen
         await _firestore.collection('ballot_config').doc('main').set({
@@ -478,7 +552,9 @@ class BallotingProcessingViewModel extends ChangeNotifier {
         return false;
       }
 
-      // Not selected applicants
+      // Not selected applicants — revealed in the live feed all at once,
+      // right after the winner list is finalized (there's no meaningful
+      // "one at a time" order for these, unlike winners).
       for (final applicant in notSelected) {
         results.add({
           'applicantId': applicant['applicantId'],
@@ -495,7 +571,17 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           'schemeName': schemeName ?? '',
           'schemeId': schemeId ?? '',
         });
+
+        drawFeed.add(DrawFeedEntry(
+          serial: 0,
+          applicantName: (applicant['fullName'] ?? '').toString(),
+          cnicMasked: _maskCnic((applicant['cnic'] ?? '').toString()),
+          plotNumber: null,
+          isSelected: false,
+          time: DateTime.now(),
+        ));
       }
+      notifyListeners();
 
       _setStep(4, completed: true);
       progress = 0.75;
@@ -523,11 +609,6 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           final applicantId =
           result['applicantId'].toString();
 
-          // FIX (#1): composite doc ID (schemeId_applicantId) instead of
-          // just applicantId. Previously, if the same applicant was
-          // eligible across two different schemes, the second scheme's
-          // balloting would silently overwrite the first scheme's result
-          // for that applicant.
           final resultRef = _firestore
               .collection('ballot_results')
               .doc('${schemeId ?? "unknown"}_$applicantId');
@@ -598,6 +679,18 @@ class BallotingProcessingViewModel extends ChangeNotifier {
         'progress': 1.0,
       }, SetOptions(merge: true));
 
+      // FIX (bug — history move / re-run prevention): mark the SCHEME
+      // itself as completed. BallotingViewModel splits "Upcoming" vs
+      // "History" purely by scheme.status, so this single write is what
+      // actually moves the scheme into Balloting History, and — combined
+      // with the guard at the top of start() — stops it from ever being
+      // run again.
+      if (schemeId != null && schemeId.isNotEmpty) {
+        await _firestore.collection('schemes').doc(schemeId).set({
+          'status': 'Completed',
+        }, SetOptions(merge: true));
+      }
+
       progress = 1.0;
       isProcessing = false;
       isRunning = false;
@@ -619,6 +712,22 @@ class BallotingProcessingViewModel extends ChangeNotifier {
         'BALLOTING ERROR: $e',
       );
 
+      // FIX (bug): previously, if start() threw after ballot_config was
+      // already marked 'live' (Step 1 sets this before any validation
+      // that can fail), the doc stayed stuck on 'live' forever — blocking
+      // every future balloting run. Now it's reset here so a failed run
+      // doesn't lock out all future ones.
+      try {
+        await _firestore.collection('ballot_config').doc('main').set({
+          'status': 'ready',
+          'stage': 'error',
+          'message': errorMessage,
+        }, SetOptions(merge: true));
+      } catch (_) {
+        // Best-effort only — don't let a logging failure mask the
+        // original error.
+      }
+
       return false;
     }
   }
@@ -627,10 +736,6 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   // UI CONTROLS
   // ============================================================
 
-  // FIX (#5 - missing feature/bug): pause/resume now also sync the
-  // 'ballot_config/main' document, so the applicant-facing live screen
-  // (which reads that document) correctly reflects a paused state instead
-  // of appearing frozen on "in progress".
   Future<void> pause() async {
     if (!isProcessing) return;
 

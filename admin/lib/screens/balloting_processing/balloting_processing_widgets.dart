@@ -7,11 +7,6 @@ class ProcessingControlBtn extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-
-  /// FIX (#12 - missing feature): buttons now visually + functionally
-  /// disable themselves when the action doesn't make sense in the current
-  /// state (e.g. "Resume" when nothing is paused), instead of always being
-  /// tappable regardless of state.
   final bool enabled;
 
   const ProcessingControlBtn({
@@ -136,6 +131,80 @@ class ProcessingStepTile extends StatelessWidget {
           ),
         ),
       ]),
+    );
+  }
+}
+
+/// FIX (missing feature — live transparency): one event in the admin's
+/// real-time draw feed. Either a winner being drawn + allocated a plot, or
+/// (once the winner list is finalized) an applicant not selected this run.
+class DrawFeedEntry {
+  /// Draw order number (1, 2, 3...). 0 for "not selected" entries, since
+  /// those aren't drawn one-by-one — they're everyone left over once
+  /// winners are chosen.
+  final int serial;
+  final String applicantName;
+  final String cnicMasked;
+  final String? plotNumber;
+  final bool isSelected;
+  final DateTime time;
+
+  const DrawFeedEntry({
+    required this.serial,
+    required this.applicantName,
+    required this.cnicMasked,
+    required this.plotNumber,
+    required this.isSelected,
+    required this.time,
+  });
+}
+
+class DrawFeedTile extends StatelessWidget {
+  final DrawFeedEntry entry;
+  const DrawFeedTile({super.key, required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = entry.isSelected ? AdminColors.success : AdminColors.rejected;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            height: 30,
+            width: 30,
+            decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+            child: Icon(entry.isSelected ? Icons.check_rounded : Icons.close_rounded, color: color, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.serial > 0
+                      ? 'Draw #${entry.serial.toString().padLeft(4, '0')} — ${entry.applicantName}'
+                      : entry.applicantName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 12.5),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  entry.cnicMasked,
+                  style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 10.5),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            entry.isSelected ? (entry.plotNumber ?? '—') : 'Not Selected',
+            style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 11.5),
+          ),
+        ],
+      ),
     );
   }
 }

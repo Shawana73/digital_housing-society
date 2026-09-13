@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginViewModel extends ChangeNotifier {
   final TextEditingController emailController = TextEditingController();
@@ -29,10 +31,11 @@ class LoginViewModel extends ChangeNotifier {
       );
       return null;
     } catch (e) {
-      return 'Password reset failed: $e';
+      return 'Could not send reset email. Please check the address and try again.';
     }
   }
 
+  /// Returns null on success, or an error message string on failure.
   /// Returns null on success, or an error message string on failure.
   Future<String?> login() async {
     final email = emailController.text.trim();
@@ -46,16 +49,30 @@ class LoginViewModel extends ChangeNotifier {
     }
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
+      final uid = credential.user?.uid;
+      if (uid == null) {
+        return 'Something went wrong. Please try again.';
+      }
+
+      final adminDoc = await FirebaseFirestore.instance.collection('admins').doc(uid).get();
+      if (!adminDoc.exists) {
+        await FirebaseAuth.instance.signOut();
+        return 'You are not authorized to access the admin panel.';
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('remember_me', rememberMe);
+
       return null;
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        return 'No admin account found with this email.';
-      } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+      if (e.code == 'user-not-found' ||
+          e.code == 'wrong-password' ||
+          e.code == 'invalid-credential') {
         return 'Incorrect email or password.';
       } else if (e.code == 'invalid-email') {
         return 'Please enter a valid email address.';

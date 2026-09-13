@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';  //flutter package , framework libraray
 import 'package:firebase_core/firebase_core.dart'; //firebase core package// required for Firebase initialization
 import 'firebase_options.dart'; //firebase configuration options
@@ -57,12 +58,11 @@ class DigitalHousingAdminApp extends StatelessWidget {
             schemeName: args['name'] ?? 'Green Valley Villas',
             schemeSize: args['size'] ?? '5 Marla Villa',
             schemeId: args['schemeId'] ?? '',
+            // FIX (missing feature): scheme's balloting date, used by the
+            // processing screen to block starting before that date.
+            schemeDate: (args['schemeDate'] as Timestamp?)?.toDate(),
           );
         },
-        // FIX (#2): results route now reads schemeId/schemeName from the
-        // navigation arguments (same pattern already used above for
-        // ballotingProcessing), so the Result screen only shows the
-        // relevant scheme's results when opened from a scheme's history.
         AdminRoutes.results: (context) {
           final args = ModalRoute.of(context)!.settings.arguments
           as Map<String, dynamic>? ?? {};

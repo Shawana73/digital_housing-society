@@ -412,15 +412,12 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
           .limit(1)
           .get();
 
-      if (applicationQuery.docs.isEmpty) {
-        throw Exception('Application not found for ${applicant!.name}');
-      }
-
-      final applicationDoc = applicationQuery.docs.first;
       final batch = _firestore.batch();
-
-      batch.update(applicationDoc.reference, {'status': firestoreStatus});
       batch.update(applicantDoc.reference, {'profileStatus': firestoreStatus});
+
+      if (applicationQuery.docs.isNotEmpty) {
+        batch.update(applicationQuery.docs.first.reference, {'status': firestoreStatus});
+      }
 
       await batch.commit();
 
