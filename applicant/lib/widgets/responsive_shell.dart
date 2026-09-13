@@ -65,7 +65,7 @@ class DhsResponsiveShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: backgroundColor,
       drawer: Drawer(
-        width: MediaQuery.sizeOf(context).width.clamp(280.0, 340.0),
+        width: (MediaQuery.sizeOf(context).width * 0.86).clamp(275.0, 315.0),
         child: SafeArea(
           child: DhsNavigationPanel(
             currentRoute: currentRoute,
@@ -214,151 +214,273 @@ class DhsNavigationPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      child: Column(
-        children: [
-          _brand(),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-              itemCount: _destinations.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 4),
-              itemBuilder: (context, index) {
-                final destination = _destinations[index];
-                final selected = currentRoute == destination.route;
-                return _NavTile(
-                  destination: destination,
-                  selected: selected,
-                  onTap: () => _navigate(context, destination.route),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
-            child: Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFFF3F0FF),
-                        Color(0xFFEFF5FF),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFE3DDFC)),
+      child: ClipRect(
+        child: Stack(
+          children: [
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFFFFFFFF),
+                      Color(0xFFFCFBFF),
+                      Color(0xFFF9F6FF),
+                    ],
+                    stops: [0.0, 0.60, 1.0],
                   ),
-                  child: const Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Color(0xFFE9E2FF),
-                        child: Icon(
-                          Icons.support_agent_rounded,
-                          color: AppColors.deepPurple,
+                ),
+              ),
+            ),
+            const Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _SidebarBottomWavePainter(),
+                ),
+              ),
+            ),
+            Column(
+              children: [
+                _brand(),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      const tileHeight = 44.0;
+                      const horizontalPadding = 14.0;
+                      const verticalPadding = 6.0;
+
+                      final totalTileHeight =
+                          tileHeight * _destinations.length;
+                      final freeSpace = constraints.maxHeight -
+                          totalTileHeight -
+                          (verticalPadding * 2);
+
+                      final gap = _destinations.length > 1
+                          ? (freeSpace / (_destinations.length - 1))
+                          .clamp(1.5, 10.0)
+                          .toDouble()
+                          : 0.0;
+
+                      final fitsWithoutScroll = freeSpace >=
+                          gap * (_destinations.length - 1);
+
+                      return ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                          vertical: verticalPadding,
+                        ),
+                        physics: fitsWithoutScroll
+                            ? const NeverScrollableScrollPhysics()
+                            : const BouncingScrollPhysics(),
+                        itemCount: _destinations.length,
+                        separatorBuilder: (_, __) =>
+                            SizedBox(height: gap),
+                        itemBuilder: (context, index) {
+                          final destination = _destinations[index];
+                          return SizedBox(
+                            height: tileHeight,
+                            child: _buildDestinationTile(
+                              context,
+                              destination,
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 18),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFE9E2F8),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8FB),
+                      borderRadius: BorderRadius.circular(17),
+                      border: Border.all(
+                        color: const Color(0xFFF3DDE9),
+                      ),
+                    ),
+                    child: TextButton.icon(
+                      onPressed: () => _logout(context),
+                      icon: const Icon(
+                        Icons.logout_rounded,
+                        size: 20,
+                      ),
+                      label: const Text(
+                        'Logout',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
                         ),
                       ),
-                      SizedBox(width: 10),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.errorRed,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 11,
+                        ),
+                        alignment: Alignment.centerLeft,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(17),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 7, 18, 16),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 31,
+                        height: 32,
+                        child: CustomPaint(
+                          painter: _CommunityMarkPainter(),
+                        ),
+                      ),
+                      SizedBox(width: 9),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Need Help?',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.primaryText,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'DHS support is here for you.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.secondaryText,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          'Building\nBetter Communities',
+                          style: TextStyle(
+                            color: AppColors.deepPurple,
+                            fontSize: 10.5,
+                            height: 1.10,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: () => _logout(context),
-                    icon: const Icon(Icons.logout_rounded),
-                    label: const Text('Logout'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.errorRed,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      alignment: Alignment.centerLeft,
-                    ),
-                  ),
-                ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildDestinationTile(
+      BuildContext context,
+      _DhsNavDestination destination,
+      ) {
+    final selected = currentRoute == destination.route;
+    void onTap() => _navigate(context, destination.route);
+    if (destination.route != AppConstants.notificationsRoute) {
+      return _NavTile(
+        destination: destination,
+        selected: selected,
+        onTap: onTap,
+      );
+    }
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return _NavTile(
+        destination: destination,
+        selected: selected,
+        onTap: onTap,
+      );
+    }
+
+    final service = FirestoreService();
+
+    return StreamBuilder(
+      stream: service.getNotifications(uid),
+      builder: (context, snapshot) {
+        var hasUnread = false;
+
+        if (snapshot.hasData) {
+          hasUnread = snapshot.data!.docs
+              .map(NotificationModel.fromFirestore)
+              .any((notification) => !notification.isRead);
+        }
+
+        return _NavTile(
+          destination: destination,
+          selected: selected,
+          onTap: onTap,
+          showIndicator: hasUnread,
+        );
+      },
     );
   }
 
   Widget _brand() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F0FF),
-              borderRadius: BorderRadius.circular(15),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(6, 6, 8, 6),
+        decoration: BoxDecoration(
+          color: const Color(0xF7FFFFFF),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x127B55E7),
+              blurRadius: 20,
+              offset: Offset(0, 7),
             ),
-            child: Image.asset(
-              AppAssets.logo,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.apartment_rounded,
-                color: AppColors.deepPurple,
-                size: 30,
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F1FF),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Image.asset(
+                AppAssets.logo,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.apartment_rounded,
+                  color: AppColors.deepPurple,
+                  size: 30,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'DHS',
-                  style: TextStyle(
-                    color: Color(0xFF24305B),
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'DHS',
+                    style: TextStyle(
+                      color: Color(0xFF24305B),
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
                   ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'DIGITAL HOUSING SOCIETY',
-                  style: TextStyle(
-                    color: AppColors.deepPurple,
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .35,
+                  SizedBox(height: 4),
+                  Text(
+                    'DIGITAL HOUSING SOCIETY',
+                    style: TextStyle(
+                      color: AppColors.deepPurple,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .35,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -371,15 +493,10 @@ class DhsNavigationPanel extends StatelessWidget {
       return;
     }
 
-    // Use the stable root navigator. The drawer subtree is disposed as soon
-    // as it closes, so navigating with the drawer's BuildContext can fail.
     navigator.pushReplacementNamed(route);
   }
 
   Future<void> _logout(BuildContext context) async {
-    // Keep the drawer route alive while asking for confirmation. Popping the
-    // drawer first disposes this context on mobile and previously prevented
-    // the logout dialog / navigation from completing.
     final navigator = Navigator.of(context, rootNavigator: true);
 
     final confirmed = await showDialog<bool>(
@@ -420,64 +537,282 @@ class _NavTile extends StatelessWidget {
     required this.destination,
     required this.selected,
     required this.onTap,
+    this.showIndicator = false,
   });
 
   final _DhsNavDestination destination;
   final bool selected;
   final VoidCallback onTap;
+  final bool showIndicator;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? const Color(0xFFF0ECFF) : Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(15),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+        borderRadius: BorderRadius.circular(15),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 170),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 8,
+          ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: selected
-                ? const Border(
-              left: BorderSide(
-                color: AppColors.primaryPurple,
-                width: 3,
-              ),
+            borderRadius: BorderRadius.circular(15),
+            gradient: selected
+                ? const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Color(0xFF6537F3),
+                Color(0xFF8744FF),
+              ],
             )
+                : null,
+            boxShadow: selected
+                ? const [
+              BoxShadow(
+                color: Color(0x386B3EF5),
+                blurRadius: 17,
+                offset: Offset(0, 7),
+              ),
+            ]
                 : null,
           ),
           child: Row(
             children: [
               Icon(
                 destination.icon,
-                size: 21,
+                size: 20,
                 color: selected
-                    ? AppColors.deepPurple
-                    : const Color(0xFF667085),
+                    ? Colors.white
+                    : const Color(0xFF26345F),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 11),
               Expanded(
-                child: Text(
-                  destination.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected
-                        ? AppColors.deepPurple
-                        : const Color(0xFF344054),
-                    fontWeight:
-                    selected ? FontWeight.w800 : FontWeight.w600,
-                    fontSize: 13.5,
-                  ),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        destination.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : const Color(0xFF26345F),
+                          fontWeight:
+                          selected ? FontWeight.w800 : FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    if (showIndicator) ...[
+                      const SizedBox(width: 8),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(0xFFFF4567),
+                          shape: BoxShape.circle,
+                        ),
+                        child: SizedBox(
+                          width: 8,
+                          height: 8,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
+              if (selected)
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: Colors.white,
+                ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _SidebarBottomWavePainter extends CustomPainter {
+  const _SidebarBottomWavePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final topWave = Paint()
+      ..color = const Color(0xFFF0E8FF)
+      ..style = PaintingStyle.fill;
+
+    final topPath = Path()
+      ..moveTo(0, size.height - 138)
+      ..cubicTo(
+        size.width * 0.20,
+        size.height - 154,
+        size.width * 0.44,
+        size.height - 128,
+        size.width * 0.62,
+        size.height - 143,
+      )
+      ..cubicTo(
+        size.width * 0.80,
+        size.height - 158,
+        size.width * 0.92,
+        size.height - 139,
+        size.width,
+        size.height - 145,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(topPath, topWave);
+
+    final middleWave = Paint()
+      ..color = const Color(0xFFDCCEFF)
+      ..style = PaintingStyle.fill;
+
+    final middlePath = Path()
+      ..moveTo(0, size.height - 70)
+      ..cubicTo(
+        size.width * 0.18,
+        size.height - 112,
+        size.width * 0.38,
+        size.height - 106,
+        size.width * 0.52,
+        size.height - 70,
+      )
+      ..cubicTo(
+        size.width * 0.68,
+        size.height - 28,
+        size.width * 0.81,
+        size.height - 106,
+        size.width,
+        size.height - 88,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(middlePath, middleWave);
+
+    final lowerWave = Paint()
+      ..color = const Color(0xFFCDB9FF)
+      ..style = PaintingStyle.fill;
+
+    final lowerPath = Path()
+      ..moveTo(0, size.height - 8)
+      ..cubicTo(
+        size.width * 0.22,
+        size.height - 72,
+        size.width * 0.50,
+        size.height - 20,
+        size.width * 0.70,
+        size.height - 52,
+      )
+      ..cubicTo(
+        size.width * 0.84,
+        size.height - 70,
+        size.width * 0.92,
+        size.height - 40,
+        size.width,
+        size.height - 55,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(lowerPath, lowerWave);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _CommunityMarkPainter extends CustomPainter {
+  const _CommunityMarkPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.deepPurple
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final stem = Path()
+      ..moveTo(size.width * 0.50, size.height * 0.90)
+      ..cubicTo(
+        size.width * 0.48,
+        size.height * 0.68,
+        size.width * 0.47,
+        size.height * 0.52,
+        size.width * 0.40,
+        size.height * 0.38,
+      );
+    canvas.drawPath(stem, paint);
+
+    final rightStem = Path()
+      ..moveTo(size.width * 0.50, size.height * 0.90)
+      ..cubicTo(
+        size.width * 0.53,
+        size.height * 0.67,
+        size.width * 0.60,
+        size.height * 0.48,
+        size.width * 0.72,
+        size.height * 0.31,
+      );
+    canvas.drawPath(rightStem, paint);
+
+    final leftLeaf = Path()
+      ..moveTo(size.width * 0.40, size.height * 0.41)
+      ..cubicTo(
+        size.width * 0.18,
+        size.height * 0.39,
+        size.width * 0.12,
+        size.height * 0.24,
+        size.width * 0.19,
+        size.height * 0.16,
+      )
+      ..cubicTo(
+        size.width * 0.33,
+        size.height * 0.17,
+        size.width * 0.43,
+        size.height * 0.24,
+        size.width * 0.40,
+        size.height * 0.41,
+      );
+    canvas.drawPath(leftLeaf, paint);
+
+    final rightLeaf = Path()
+      ..moveTo(size.width * 0.68, size.height * 0.34)
+      ..cubicTo(
+        size.width * 0.69,
+        size.height * 0.14,
+        size.width * 0.82,
+        size.height * 0.08,
+        size.width * 0.91,
+        size.height * 0.10,
+      )
+      ..cubicTo(
+        size.width * 0.91,
+        size.height * 0.24,
+        size.width * 0.83,
+        size.height * 0.35,
+        size.width * 0.68,
+        size.height * 0.34,
+      );
+    canvas.drawPath(rightLeaf, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _MobileNotificationButton extends StatelessWidget {
