@@ -36,36 +36,6 @@ class _ApplicantVerificationScreenState extends State<ApplicantVerificationScree
     _searchController.dispose();
     super.dispose();
   }
-
-  Future<void> _confirmStatus(Applicant applicant, bool approve) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AdminColors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminColors.radius)),
-        title: Text(approve ? 'Approve Applicant?' : 'Reject Applicant?',
-            style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900)),
-        content: Text(
-          '${applicant.name} will be marked as ${approve ? 'verified' : 'rejected'}.',
-          style: const TextStyle(color: AdminColors.greyText),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(approve ? 'Approve' : 'Reject')),
-        ],
-      ),
-    );
-    if (result == true) {
-      if (approve) {
-        await _viewModel.approve(applicant);
-      } else {
-        await _viewModel.reject(applicant);
-      }
-      if (mounted) {
-        showAdminSnack(context, '${applicant.name} ${approve ? 'approved' : 'rejected'}');
-      }
-    }
-  }
   void _showSortSheet() {
     showModalBottomSheet(
       context: context,

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../app_routes.dart';
 import '../../theme/admin_theme.dart';
 import '../../widgets/admin_shell.dart';
-import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
+import '../../models/scheme_model.dart';
 import 'balloting_viewmodel.dart';
 import 'balloting_widgets.dart';
 
@@ -84,6 +84,88 @@ class _BallotingScreenState
     return months[month - 1];
   }
 
+  // FIX (#10): factored out so the same card can be reused in both the
+  // main screen (first N items) and the "View All" screen.
+  Widget _buildUpcomingCard(SchemeModel scheme) {
+    final eligibleApplicants =
+    _viewModel.getEligibleApplicantsForScheme(scheme);
+
+    final availablePlots =
+    _viewModel.getAvailablePlotsForScheme(scheme);
+
+    return BallotingSchemeCard(
+      name: scheme.name,
+      size: scheme.size,
+      eligibleApplicants: eligibleApplicants,
+      availablePlots: availablePlots,
+      date: _formatDate(scheme.date.toDate()),
+      status: scheme.status,
+      statusColor: AdminColors.primary,
+      imagePath: scheme.imagePath,
+      eligibleLabel: 'Eligible',
+      plotsLabel: 'Plots',
+      onStart: () {
+        Navigator.pushNamed(
+          context,
+          AdminRoutes.ballotingProcessing,
+          arguments: {
+            'name': scheme.name,
+            'size': scheme.size,
+            'schemeId': scheme.documentId,
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHistoryCard(SchemeModel scheme) {
+    return BallotingHistoryCard(
+      name: scheme.name,
+      size: scheme.size,
+      date: _formatDate(scheme.date.toDate()),
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          AdminRoutes.results,
+          arguments: {
+            'schemeId': scheme.documentId,
+            'schemeName': scheme.name,
+          },
+        );
+      },
+    );
+  }
+
+  // FIX (#9): small inline error banner instead of silently showing an
+  // empty list when the Firestore load fails.
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AdminColors.rejected.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AdminColors.rejected.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: AdminColors.rejected, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: AdminColors.rejected, fontWeight: FontWeight.w700, fontSize: 12.5),
+            ),
+          ),
+          TextButton(
+            onPressed: _viewModel.load,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final upcomingSchemes =
@@ -126,6 +208,9 @@ class _BallotingScreenState
         ),
 
         children: [
+          if (_viewModel.errorMessage != null)
+            _buildErrorBanner(_viewModel.errorMessage!),
+
           // =====================================================
           // BALLOTING OVERVIEW
           // =====================================================
@@ -155,7 +240,7 @@ class _BallotingScreenState
                   ),
                 ),
 
-                 BallotingVDivider(),
+                const BallotingVDivider(),
 
                 Expanded(
                   child:
@@ -170,7 +255,7 @@ class _BallotingScreenState
                   ),
                 ),
 
-                BallotingVDivider(),
+                const BallotingVDivider(),
 
                 Expanded(
                   child:
@@ -185,7 +270,7 @@ class _BallotingScreenState
                   ),
                 ),
 
-                BallotingVDivider(),
+                const BallotingVDivider(),
 
                 Expanded(
                   child:
@@ -220,11 +305,20 @@ class _BallotingScreenState
                 ),
               ),
 
+              // FIX (#10): now actually navigates to a full list
+              // instead of just showing a snackbar.
               GestureDetector(
                 onTap: () {
-                  showAdminSnack(
+                  Navigator.push(
                     context,
-                    'Showing all upcoming ballotings',
+                    MaterialPageRoute(
+                      builder: (_) => SchemeListScreen(
+                        title: 'All Upcoming Ballotings',
+                        cards: upcomingSchemes
+                            .map(_buildUpcomingCard)
+                            .toList(),
+                      ),
+                    ),
                   );
                 },
                 child: const Text(
@@ -260,80 +354,14 @@ class _BallotingScreenState
               ),
             )
           else
-            ...upcomingSchemes.map(
-                  (scheme) {
-                final eligibleApplicants =
-                _viewModel
-                    .getEligibleApplicantsForScheme(
-                  scheme,
-                );
-
-                final availablePlots =
-                _viewModel
-                    .getAvailablePlotsForScheme(
-                  scheme,
-                );
-
-                return Padding(
-                  padding:
-                  const EdgeInsets.only(
-                    bottom: 14,
-                  ),
-
-                  child:
-                  BallotingSchemeCard(
-                    name: scheme.name,
-
-                    size: scheme.size,
-
-                    // Scheme-wise eligible applicants
-                    eligibleApplicants:
-                    eligibleApplicants,
-
-                    // Scheme-wise available plots
-                    availablePlots:
-                    availablePlots,
-
-                    date: _formatDate(
-                      scheme.date.toDate(),
-                    ),
-
-                    status:
-                    scheme.status,
-
-                    statusColor:
-                    AdminColors.primary,
-
-                    imagePath:
-                    scheme.imagePath,
-
-                    eligibleLabel:
-                    'Eligible',
-
-                    plotsLabel:
-                    'Plots',
-
-                    onStart: () {
-                      Navigator.pushNamed(
-                        context,
-                        AdminRoutes
-                            .ballotingProcessing,
-
-                        arguments: {
-                          'name':
-                          scheme.name,
-
-                          'size':
-                          scheme.size,
-
-                          'schemeId':
-                          scheme.documentId,
-                        },
-                      );
-                    },
-                  ),
-                );
-              },
+            ...upcomingSchemes.take(5).map(
+                  (scheme) => Padding(
+                padding:
+                const EdgeInsets.only(
+                  bottom: 14,
+                ),
+                child: _buildUpcomingCard(scheme),
+              ),
             ),
 
           const SizedBox(height: 8),
@@ -352,11 +380,20 @@ class _BallotingScreenState
                 ),
               ),
 
+              // FIX (#10): now actually navigates to a full list
+              // instead of just showing a snackbar.
               GestureDetector(
                 onTap: () {
-                  showAdminSnack(
+                  Navigator.push(
                     context,
-                    'Showing all balloting history',
+                    MaterialPageRoute(
+                      builder: (_) => SchemeListScreen(
+                        title: 'All Balloting History',
+                        cards: completedSchemes
+                            .map(_buildHistoryCard)
+                            .toList(),
+                      ),
+                    ),
                   );
                 },
                 child: const Text(
@@ -392,37 +429,13 @@ class _BallotingScreenState
               ),
             )
           else
-            ...completedSchemes.map(
+            ...completedSchemes.take(5).map(
                   (scheme) => Padding(
                 padding:
                 const EdgeInsets.only(
                   bottom: 14,
                 ),
-
-                child:
-                BallotingHistoryCard(
-                  name: scheme.name,
-
-                  size: scheme.size,
-
-                  date: _formatDate(
-                    scheme.date.toDate(),
-                  ),
-
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      AdminRoutes.results,
-                      arguments: {
-                        'schemeId':
-                        scheme.documentId,
-
-                        'schemeName':
-                        scheme.name,
-                      },
-                    );
-                  },
-                ),
+                child: _buildHistoryCard(scheme),
               ),
             ),
         ],

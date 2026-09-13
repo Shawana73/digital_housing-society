@@ -11,18 +11,52 @@ import 'dashboard_widgets.dart';
 class AdminDashboardViewModel extends BaseAdminViewModel {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool hasError = false;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _applicantsSub;
+
   List<DashboardStat> stats = [];
   List<AdminNotification> notifications = [];
   List<ActivityItem> activities = [];
 
   String adminName = 'Admin';
 
-  List<DateTime> _applicantDates = [];
+  // ============================================================
+  // APPLICANTS
+  // ============================================================
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _applicantsSub;
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _applicantDocs = [];
+  List<DateTime> _applicantDates = [];
+
+  // ============================================================
+  // APPLICATIONS (source of truth for verification status)
+  // ============================================================
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _applicationsSub;
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _applicationDocs = [];
+
+  // ============================================================
+  // PLOTS
+  // ============================================================
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _plotsSub;
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _plotDocs = [];
   List<DateTime> _plotDates = [];
+
+  // ============================================================
+  // PAYMENTS
+  // ============================================================
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _paymentsSub;
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _paymentDocs = [];
+  List<DateTime> _paymentDates = [];
+  double _totalPaymentsAmount = 0;
+
+  // ============================================================
+  // DEALERS
+  // ============================================================
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _dealersSub;
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _dealerDocs = [];
+
+  // ============================================================
+  // ACTIVITIES & NOTIFICATIONS
+  // ============================================================
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _activitiesSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _notificationsSub;
 
   static const List<Map<String, dynamic>> _screenShortcuts = [
     {'title': 'Applicants', 'keywords': ['applicant', 'applicants', 'verify applicant'], 'route': AdminRoutes.applicants, 'icon': Icons.people_alt_rounded},
@@ -65,7 +99,7 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
   List<BreakdownSlice> applicationStatusSlices = [];
 
   // ============================================================
-  // PLOT AVAILABILITY BREAKDOWN — Available / Allocated / Booked
+  // PLOT AVAILABILITY BREAKDOWN
   // ============================================================
   int totalPlots = 0;
   int availablePlots = 0;
@@ -74,7 +108,7 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
   List<BreakdownSlice> plotSlices = [];
 
   // ============================================================
-  // DEALERS & PENDING PAYMENTS (for the extra mini stat cards)
+  // DEALERS & PENDING PAYMENTS
   // ============================================================
   int totalDealers = 0;
   int verifiedDealers = 0;
@@ -83,29 +117,18 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
   @override
   Future<void> load() async {
     isLoading = true;
-    bool hasError = false;
-    notifyListeners();
-    _subscribeApplicants();
-    _subscribePlots();
     hasError = false;
+    notifyListeners();
+
+    _subscribeApplicants();
+    _subscribeApplications();
+    _subscribePlots();
+    _subscribePayments();
+    _subscribeDealers();
+    _subscribeActivities();
+    _subscribeNotifications();
 
     try {
-      final paymentsSnapshot = await _firestore.collection('payments').get();
-      final activitiesSnapshot = await _firestore
-          .collection('activity_logs')
-          .orderBy('timestamp', descending: true)
-          .limit(10)
-          .get();
-      final notificationsSnapshot = await _firestore.collection('notifications').get();
-
-      List<QueryDocumentSnapshot<Map<String, dynamic>>> dealersDocs = [];
-      try {
-        final dealersSnapshot = await _firestore.collection('dealers').get();
-        dealersDocs = dealersSnapshot.docs;
-      } catch (e) {
-        debugPrint('Dealers collection not available yet: $e');
-      }
-
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
         final adminDoc = await _firestore.collection('admins').doc(uid).get();
@@ -122,150 +145,6 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
               : (authEmail != null ? authEmail.split('@').first : 'Admin');
         }
       }
-
-      _processApplicants();
-
-      _processPlots();
-
-      // ------------------------------------------------------
-      // PAYMENTS
-      // ------------------------------------------------------
-      double totalPayments = 0;
-      pendingPayments = 0;
-      final List<DateTime> paymentDates = [];
-
-      for (final doc in paymentsSnapshot.docs) {
-        final data = doc.data();
-        final amount = data['amount'];
-
-        if (amount is num) {
-          totalPayments += amount.toDouble();
-        } else if (amount != null) {
-          totalPayments += double.tryParse(amount.toString().replaceAll(',', '')) ?? 0;
-        }
-
-        final paymentStatus = data['status']?.toString().toLowerCase();
-        if (paymentStatus == 'pending' || paymentStatus == 'submitted') {
-          pendingPayments++;
-        }
-
-        final createdAt = data['createdAt'] ?? data['date'];
-        if (createdAt is Timestamp) paymentDates.add(createdAt.toDate());
-      }
-
-      // ------------------------------------------------------
-      // DEALERS — Active count (falls back to total if no status field)
-      // ------------------------------------------------------
-      // ------------------------------------------------------
-      // DEALERS — Verified count (real-time once dealer verification
-      // screen writes status: 'verified' on each dealer document)
-      // ------------------------------------------------------
-      totalDealers = dealersDocs.length;
-      int verifiedCount = 0;
-
-      for (final doc in dealersDocs) {
-        final data = doc.data();
-        final status = data['status']?.toString().toLowerCase();
-        if (status == 'verified') verifiedCount++;
-      }
-
-      verifiedDealers = verifiedCount;
-
-
-      // ------------------------------------------------------
-      // STAT CARDS — 5 total: Applicants, Plots, Payments, Dealers, Pending Payments
-      // ------------------------------------------------------
-      final applicantMonthly = _monthlyCounts(_applicantDates);
-      final plotMonthly = _monthlyCounts(_plotDates);
-
-      final paymentMonthly = _monthlyCounts(paymentDates);
-
-      stats = [
-        DashboardStat(
-          title: 'Total Applicants',
-          value: totalApplicants.toString(),
-          trend: '${_percentLabel(applicantMonthly.thisMonth, applicantMonthly.lastMonth)} this month',
-          icon: Icons.people_alt_rounded,
-          color: AdminColors.primary,
-          route: AdminRoutes.applicants,
-        ),
-        DashboardStat(
-          title: 'Total Plots',
-          value: totalPlots.toString(),
-          trend: '${_percentLabel(plotMonthly.thisMonth, plotMonthly.lastMonth)} this month',
-          icon: Icons.domain_rounded,
-          color: const Color(0xFF6366F1),
-          route: AdminRoutes.plots,
-        ),
-        DashboardStat(
-          title: 'Total Payments',
-          value: 'PKR ${_formatAmount(totalPayments)}',
-          trend: '${_percentLabel(paymentMonthly.thisMonth, paymentMonthly.lastMonth)} this month',
-          icon: Icons.account_balance_wallet_rounded,
-          color: const Color(0xFFF59E0B),
-          route: AdminRoutes.payments,
-        ),
-        DashboardStat(
-          title: 'Verified Dealers',
-          value: verifiedDealers.toString(),
-          trend: '$totalDealers total',
-          icon: Icons.verified_rounded,
-          color: const Color(0xFF14B8A6),
-          route: AdminRoutes.dealers,
-        ),
-        DashboardStat(
-          title: 'Pending Payments',
-          value: pendingPayments.toString(),
-          trend: 'Needs review',
-          icon: Icons.pending_actions_rounded,
-          color: const Color(0xFFEF4444),
-          route: AdminRoutes.payments,
-        ),
-      ];
-
-      // ------------------------------------------------------
-      // ACTIVITIES & NOTIFICATIONS
-      // ------------------------------------------------------
-      activities = activitiesSnapshot.docs.map((doc) {
-        final data = doc.data();
-        final action = data['action']?.toString() ?? '';
-        final description = data['description']?.toString() ?? '';
-        final type = data['type']?.toString().toLowerCase() ?? '';
-        final timestamp = data['timestamp'];
-
-        String time = '';
-        if (timestamp is Timestamp) {
-          final dateTime = timestamp.toDate();
-          time = '${dateTime.day.toString().padLeft(2, '0')}/'
-              '${dateTime.month.toString().padLeft(2, '0')}/'
-              '${dateTime.year} '
-              '${dateTime.hour.toString().padLeft(2, '0')}:'
-              '${dateTime.minute.toString().padLeft(2, '0')}';
-        }
-
-        final positive = type == 'success' || type == 'verified' || type == 'approved';
-
-        return ActivityItem(
-          title: action,
-          subtitle: description,
-          time: time,
-          positive: positive,
-          icon: _activityIcon(type),
-        );
-      }).toList();
-
-      notifications = notificationsSnapshot.docs.map((doc) {
-        final data = doc.data();
-        return AdminNotification(
-          id: doc.id,
-          title: data['title']?.toString() ?? '',
-          message: data['message']?.toString() ?? '',
-          time: data['time']?.toString() ?? '',
-          icon: Icons.notifications_rounded,
-          unread: data['unread'] ?? true,
-        );
-      }).toList();
-
     } catch (e) {
       debugPrint('Dashboard Firestore error: $e');
       hasError = true;
@@ -275,6 +154,9 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
     }
   }
 
+  // ============================================================
+  // APPLICANTS
+  // ============================================================
   void _subscribeApplicants() {
     _applicantsSub?.cancel();
     _applicantsSub = _firestore.collection('applicants').snapshots().listen((snapshot) {
@@ -286,22 +168,46 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
     });
   }
 
+  void _subscribeApplications() {
+    _applicationsSub?.cancel();
+    _applicationsSub = _firestore.collection('applications').snapshots().listen((snapshot) {
+      _applicationDocs = snapshot.docs;
+      _processApplicants();
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint('Applications stream error: $e');
+    });
+  }
+
   void _processApplicants() {
     verifiedApplicants = 0;
     pendingApplicants = 0;
     rejectedApplicants = 0;
     _applicantDates = [];
 
+    // Build applicantId (uid) -> application status map — same source of
+    // truth used by the Applicant Verification screen.
+    final Map<String, String> statusByUid = {};
+    for (final appDoc in _applicationDocs) {
+      final appData = appDoc.data();
+      final applicantId = appData['applicantId']?.toString().trim();
+      final status = appData['status']?.toString().trim().toLowerCase() ?? '';
+      if (applicantId != null && applicantId.isNotEmpty) {
+        statusByUid[applicantId] = status;
+      }
+    }
+
     for (final doc in _applicantDocs) {
       final data = doc.data();
-      final status = data['profileStatus']?.toString().toLowerCase();
+      final uid = data['uid']?.toString().trim();
+      final status = uid != null ? statusByUid[uid] : null;
 
-      if (status == 'verified') {
+      if (status == 'verified' || status == 'approved') {
         verifiedApplicants++;
-      } else if (status == 'pending') {
-        pendingApplicants++;
-      } else if (status == 'rejected') {
+      } else if (status == 'rejected' || status == 'reject') {
         rejectedApplicants++;
+      } else {
+        pendingApplicants++;
       }
 
       final createdAt = data['createdAt'];
@@ -331,8 +237,12 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
     ];
 
     _computeChartData();
+    _rebuildStats();
   }
 
+  // ============================================================
+  // PLOTS
+  // ============================================================
   void _subscribePlots() {
     _plotsSub?.cancel();
     _plotsSub = _firestore.collection('plots').snapshots().listen((snapshot) {
@@ -348,8 +258,8 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
     availablePlots = 0;
     allocatedPlots = 0;
     bookedPlots = 0;
-
     _plotDates = [];
+
     for (final doc in _plotDocs) {
       final data = doc.data();
       final status = data['status']?.toString().toLowerCase();
@@ -385,6 +295,197 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
         value: bookedPlots,
         percent: totalPlots == 0 ? 0 : bookedPlots / totalPlots,
         color: const Color(0xFFF59E0B),
+      ),
+    ];
+
+    _rebuildStats();
+  }
+
+  // ============================================================
+  // PAYMENTS
+  // ============================================================
+  void _subscribePayments() {
+    _paymentsSub?.cancel();
+    _paymentsSub = _firestore.collection('payments').snapshots().listen((snapshot) {
+      _paymentDocs = snapshot.docs;
+      _processPayments();
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint('Payments stream error: $e');
+    });
+  }
+
+  void _processPayments() {
+    double totalPayments = 0;
+    pendingPayments = 0;
+    _paymentDates = [];
+
+    for (final doc in _paymentDocs) {
+      final data = doc.data();
+      final amount = data['amount'];
+
+      if (amount is num) {
+        totalPayments += amount.toDouble();
+      } else if (amount != null) {
+        totalPayments += double.tryParse(amount.toString().replaceAll(',', '')) ?? 0;
+      }
+
+      final paymentStatus = data['status']?.toString().toLowerCase();
+      if (paymentStatus == 'pending' || paymentStatus == 'submitted') {
+        pendingPayments++;
+      }
+
+      final createdAt = data['createdAt'] ?? data['date'];
+      if (createdAt is Timestamp) _paymentDates.add(createdAt.toDate());
+    }
+
+    _totalPaymentsAmount = totalPayments;
+    _rebuildStats();
+  }
+
+  // ============================================================
+  // DEALERS
+  // ============================================================
+  void _subscribeDealers() {
+    _dealersSub?.cancel();
+    _dealersSub = _firestore.collection('dealers').snapshots().listen((snapshot) {
+      _dealerDocs = snapshot.docs;
+      _processDealers();
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint('Dealers stream error: $e');
+    });
+  }
+
+  void _processDealers() {
+    totalDealers = _dealerDocs.length;
+    int verifiedCount = 0;
+
+    for (final doc in _dealerDocs) {
+      final data = doc.data();
+      final status = data['status']?.toString().toLowerCase();
+      if (status == 'verified') verifiedCount++;
+    }
+
+    verifiedDealers = verifiedCount;
+    _rebuildStats();
+  }
+
+  // ============================================================
+  // ACTIVITIES
+  // ============================================================
+  void _subscribeActivities() {
+    _activitiesSub?.cancel();
+    _activitiesSub = _firestore
+        .collection('activity_logs')
+        .orderBy('timestamp', descending: true)
+        .limit(10)
+        .snapshots()
+        .listen((snapshot) {
+      activities = snapshot.docs.map((doc) {
+        final data = doc.data();
+        final action = data['action']?.toString() ?? '';
+        final description = data['description']?.toString() ?? '';
+        final type = data['type']?.toString().toLowerCase() ?? '';
+        final timestamp = data['timestamp'];
+
+        String time = '';
+        if (timestamp is Timestamp) {
+          final dateTime = timestamp.toDate();
+          time = '${dateTime.day.toString().padLeft(2, '0')}/'
+              '${dateTime.month.toString().padLeft(2, '0')}/'
+              '${dateTime.year} '
+              '${dateTime.hour.toString().padLeft(2, '0')}:'
+              '${dateTime.minute.toString().padLeft(2, '0')}';
+        }
+
+        final positive = type == 'success' || type == 'verified' || type == 'approved';
+
+        return ActivityItem(
+          title: action,
+          subtitle: description,
+          time: time,
+          positive: positive,
+          icon: _activityIcon(type),
+        );
+      }).toList();
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint('Activities stream error: $e');
+    });
+  }
+
+  // ============================================================
+  // NOTIFICATIONS
+  // ============================================================
+  void _subscribeNotifications() {
+    _notificationsSub?.cancel();
+    _notificationsSub = _firestore.collection('notifications').snapshots().listen((snapshot) {
+      notifications = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return AdminNotification(
+          id: doc.id,
+          title: data['title']?.toString() ?? '',
+          message: data['message']?.toString() ?? '',
+          time: data['time']?.toString() ?? '',
+          icon: Icons.notifications_rounded,
+          unread: data['unread'] ?? true,
+        );
+      }).toList();
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint('Notifications stream error: $e');
+    });
+  }
+
+  // ============================================================
+  // STAT CARDS — rebuilt whenever any contributing source changes
+  // ============================================================
+  void _rebuildStats() {
+    final applicantMonthly = _monthlyCounts(_applicantDates);
+    final plotMonthly = _monthlyCounts(_plotDates);
+    final paymentMonthly = _monthlyCounts(_paymentDates);
+
+    stats = [
+      DashboardStat(
+        title: 'Total Applicants',
+        value: totalApplicants.toString(),
+        trend: '${_percentLabel(applicantMonthly.thisMonth, applicantMonthly.lastMonth)} this month',
+        icon: Icons.people_alt_rounded,
+        color: AdminColors.primary,
+        route: AdminRoutes.applicants,
+      ),
+      DashboardStat(
+        title: 'Total Plots',
+        value: totalPlots.toString(),
+        trend: '${_percentLabel(plotMonthly.thisMonth, plotMonthly.lastMonth)} this month',
+        icon: Icons.domain_rounded,
+        color: const Color(0xFF6366F1),
+        route: AdminRoutes.plots,
+      ),
+      DashboardStat(
+        title: 'Total Payments',
+        value: 'PKR ${_formatAmount(_totalPaymentsAmount)}',
+        trend: '${_percentLabel(paymentMonthly.thisMonth, paymentMonthly.lastMonth)} this month',
+        icon: Icons.account_balance_wallet_rounded,
+        color: const Color(0xFFF59E0B),
+        route: AdminRoutes.payments,
+      ),
+      DashboardStat(
+        title: 'Verified Dealers',
+        value: verifiedDealers.toString(),
+        trend: '$totalDealers total',
+        icon: Icons.verified_rounded,
+        color: const Color(0xFF14B8A6),
+        route: AdminRoutes.dealers,
+      ),
+      DashboardStat(
+        title: 'Pending Payments',
+        value: pendingPayments.toString(),
+        trend: 'Needs review',
+        icon: Icons.pending_actions_rounded,
+        color: const Color(0xFFEF4444),
+        route: AdminRoutes.payments,
       ),
     ];
   }
@@ -518,7 +619,6 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
     }
   }
 
-  // Adds thousand separators, e.g. 160000 -> "160,000"
   String _formatAmount(double amount) {
     final isWhole = amount == amount.roundToDouble();
     final fixed = isWhole ? amount.toInt().toString() : amount.toStringAsFixed(2);
@@ -533,6 +633,9 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
     return parts.length > 1 ? '$withCommas.${parts[1]}' : withCommas;
   }
 
+  // ============================================================
+  // GLOBAL SEARCH
+  // ============================================================
   List<DashboardSearchResult> get searchResults {
     if (query.isEmpty) return [];
     final results = <DashboardSearchResult>[];
@@ -598,10 +701,12 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
 
   void markAllRead() async {
     try {
+      final batch = _firestore.batch();
       for (final notification in notifications) {
-        await _firestore.collection('notifications').doc(notification.id).update({'unread': false});
+        batch.update(_firestore.collection('notifications').doc(notification.id), {'unread': false});
         notification.unread = false;
       }
+      await batch.commit();
       notifyListeners();
     } catch (e) {
       debugPrint('Error marking dashboard notifications read: $e');
@@ -611,7 +716,12 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
   @override
   void dispose() {
     _applicantsSub?.cancel();
+    _applicationsSub?.cancel();
     _plotsSub?.cancel();
+    _paymentsSub?.cancel();
+    _dealersSub?.cancel();
+    _activitiesSub?.cancel();
+    _notificationsSub?.cancel();
     super.dispose();
   }
 }

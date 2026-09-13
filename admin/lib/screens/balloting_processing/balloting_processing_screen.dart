@@ -12,7 +12,7 @@ class BallotingProcessingScreen extends StatefulWidget {
   final String schemeId;
 
   const BallotingProcessingScreen({super.key, required this.schemeName, required this.schemeSize,
-  required this.schemeId,});
+    required this.schemeId,});
 
   @override
   State<BallotingProcessingScreen> createState() => _BallotingProcessingScreenState();
@@ -89,6 +89,7 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
     );
 
     if (confirmed != true) return;
+    if (!mounted) return;
 
     final success = await _viewModel.start(
       schemeName: widget.schemeName,
@@ -115,13 +116,15 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
     }
   }
 
-  void _pause() {
-    _viewModel.pause();
+  Future<void> _pause() async {
+    await _viewModel.pause();
+    if (!mounted) return;
     showAdminSnack(context, 'Balloting paused');
   }
 
-  void _resume() {
-    _viewModel.resume();
+  Future<void> _resume() async {
+    await _viewModel.resume();
+    if (!mounted) return;
     showAdminSnack(context, 'Balloting resumed');
   }
 
@@ -139,6 +142,10 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
     Navigator.pushReplacementNamed(
       context,
       AdminRoutes.results,
+      arguments: {
+        'schemeId': widget.schemeId,
+        'schemeName': widget.schemeName,
+      },
     );
   }
 
@@ -146,6 +153,8 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
   Widget build(BuildContext context) {
     final progress = _viewModel.progress;
     final isRunning = _viewModel.isRunning;
+    final isProcessing = _viewModel.isProcessing;
+    final isPaused = _viewModel.isPaused;
     final isWide = MediaQuery.of(context).size.width >= 800;
 
     return Scaffold(
@@ -206,149 +215,175 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
         ),
         Expanded(
           child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isWide ? 700 : double.infinity),
-                child: ListView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
-                  children: [
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF5A30E8), Color(0xFF7B4DFF), Color(0xFF9C6BFF)],
-                  ),
-                ),
-                padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
-                child: Column(children: [
-                  AnimatedBuilder(
-                    animation: _pulseAnim,
-                    builder: (_, child) => Transform.scale(scale: isRunning ? _pulseAnim.value : 1.0, child: child),
-                    child: SizedBox(
-                      height: 200,
-                      width: 200,
-                      child: Stack(alignment: Alignment.center, children: [
-                        AnimatedBuilder(
-                          animation: _rotateController,
-                          builder: (_, child) => Transform.rotate(angle: isRunning ? _rotateController.value * 2 * math.pi : 0, child: child),
-                          child: CustomPaint(size: const Size(200, 200), painter: DottedRingPainter()),
-                        ),
-                        Container(
-                          height: 168,
-                          width: 168,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.08), blurRadius: 24, spreadRadius: 4)],
-                          ),
-                        ),
-                        CustomPaint(size: const Size(168, 168), painter: ArcPainter(progress: progress)),
-                        Column(mainAxisSize: MainAxisSize.min, children: [
-                          Container(
-                            height: 44,
-                            width: 44,
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), shape: BoxShape.circle),
-                            child: const Icon(Icons.casino_rounded, color: Colors.white, size: 24),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(_viewModel.statusLabel, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 12)),
-                          Text('${(progress * 100).round()}%',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 34, letterSpacing: -1)),
-                        ]),
-                      ]),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isWide ? 700 : double.infinity),
+              child: ListView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                children: [
+                  Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF5A30E8), Color(0xFF7B4DFF), Color(0xFF9C6BFF)],
+                      ),
                     ),
+                    padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
+                    child: Column(children: [
+                      AnimatedBuilder(
+                        animation: _pulseAnim,
+                        builder: (_, child) => Transform.scale(scale: isRunning ? _pulseAnim.value : 1.0, child: child),
+                        child: SizedBox(
+                          height: 200,
+                          width: 200,
+                          child: Stack(alignment: Alignment.center, children: [
+                            AnimatedBuilder(
+                              animation: _rotateController,
+                              builder: (_, child) => Transform.rotate(angle: isRunning ? _rotateController.value * 2 * math.pi : 0, child: child),
+                              child: CustomPaint(size: const Size(200, 200), painter: DottedRingPainter()),
+                            ),
+                            Container(
+                              height: 168,
+                              width: 168,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.08), blurRadius: 24, spreadRadius: 4)],
+                              ),
+                            ),
+                            CustomPaint(size: const Size(168, 168), painter: ArcPainter(progress: progress)),
+                            Column(mainAxisSize: MainAxisSize.min, children: [
+                              Container(
+                                height: 44,
+                                width: 44,
+                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), shape: BoxShape.circle),
+                                child: const Icon(Icons.casino_rounded, color: Colors.white, size: 24),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(_viewModel.statusLabel, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 12)),
+                              Text('${(progress * 100).round()}%',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 34, letterSpacing: -1)),
+                            ]),
+                          ]),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(100),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 6,
+                          backgroundColor: Colors.white.withOpacity(0.18),
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('This may take a few minutes', style: TextStyle(color: Colors.white60, fontWeight: FontWeight.w600, fontSize: 13)),
+                    ]),
                   ),
                   const SizedBox(height: 16),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(100),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 6,
-                      backgroundColor: Colors.white.withOpacity(0.18),
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('This may take a few minutes', style: TextStyle(color: Colors.white60, fontWeight: FontWeight.w600, fontSize: 13)),
-                ]),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                decoration: BoxDecoration(
-                  color: AdminColors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 10))],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ProcessingControlBtn(icon: Icons.play_arrow_rounded, label: 'Start', color: AdminColors.success, onTap: _start),
-                    ProcessingControlBtn(icon: Icons.pause_rounded, label: 'Pause', color: AdminColors.warning, onTap: _pause),
-                    ProcessingControlBtn(icon: Icons.restart_alt_rounded, label: 'Resume', color: AdminColors.primary, onTap: _resume),
-                    ProcessingControlBtn(icon: Icons.stop_rounded, label: 'Stop', color: AdminColors.rejected, onTap: _stop),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AdminColors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 10))],
-                ),
-                child: Column(
-                  children: _viewModel.steps.asMap().entries.map((e) {
-                    return ProcessingStepTile(step: e.value, isLast: e.key == _viewModel.steps.length - 1);
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _viewModel.progress == 1.0 && !_viewModel.isProcessing
-                      ? _complete
-                      : null,
-                  icon: const Icon(Icons.emoji_events_rounded, size: 20),
-                  label: const Text('Complete & View Results', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AdminColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.06), borderRadius: BorderRadius.circular(16)),
-                child: Row(children: [
                   Container(
-                    height: 42,
-                    width: 42,
-                    decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.12), borderRadius: BorderRadius.circular(14)),
-                    child: const Icon(Icons.verified_user_rounded, color: AdminColors.primary, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    decoration: BoxDecoration(
+                      color: AdminColors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 10))],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Text('Secure  •  Transparent  •  Fair',
-                            style: TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 12)),
-                        SizedBox(height: 3),
-                        Text('Our digital balloting system ensures complete fairness and transparency.',
-                            style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11, height: 1.4)),
+                        // FIX (#12): buttons now disable themselves based on
+                        // the current run state instead of always being active.
+                        ProcessingControlBtn(
+                          icon: Icons.play_arrow_rounded,
+                          label: 'Start',
+                          color: AdminColors.success,
+                          onTap: _start,
+                          enabled: !isProcessing,
+                        ),
+                        ProcessingControlBtn(
+                          icon: Icons.pause_rounded,
+                          label: 'Pause',
+                          color: AdminColors.warning,
+                          onTap: _pause,
+                          enabled: isProcessing && !isPaused,
+                        ),
+                        ProcessingControlBtn(
+                          icon: Icons.restart_alt_rounded,
+                          label: 'Resume',
+                          color: AdminColors.primary,
+                          onTap: _resume,
+                          enabled: isPaused,
+                        ),
+                        ProcessingControlBtn(
+                          icon: Icons.stop_rounded,
+                          label: 'Stop',
+                          color: AdminColors.rejected,
+                          onTap: _stop,
+                          enabled: isProcessing,
+                        ),
                       ],
                     ),
                   ),
-                ]),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AdminColors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 10))],
+                    ),
+                    child: Column(
+                      children: _viewModel.steps.asMap().entries.map((e) {
+                        return ProcessingStepTile(step: e.value, isLast: e.key == _viewModel.steps.length - 1);
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _viewModel.progress == 1.0 && !_viewModel.isProcessing
+                          ? _complete
+                          : null,
+                      icon: const Icon(Icons.emoji_events_rounded, size: 20),
+                      label: const Text('Complete & View Results', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AdminColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.06), borderRadius: BorderRadius.circular(16)),
+                    child: Row(children: [
+                      Container(
+                        height: 42,
+                        width: 42,
+                        decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.12), borderRadius: BorderRadius.circular(14)),
+                        child: const Icon(Icons.verified_user_rounded, color: AdminColors.primary, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Secure  •  Transparent  •  Fair',
+                                style: TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 12)),
+                            SizedBox(height: 3),
+                            Text('Our digital balloting system ensures complete fairness and transparency.',
+                                style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11, height: 1.4)),
+                          ],
+                        ),
+                      ),
+                    ]),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
           ),
         ),
       ]),

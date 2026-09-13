@@ -13,7 +13,14 @@ import 'dart:typed_data';
 import 'package:share_plus/share_plus.dart';
 
 class ResultScreen extends StatefulWidget {
-  const ResultScreen({super.key});
+  // FIX (#2): scheme-aware. When opened from a scheme's history card,
+  // schemeId/schemeName are passed so only that scheme's results show.
+  // When opened from the general "Results" FAB, both are null and all
+  // schemes' results are shown (previous behavior).
+  final String? schemeId;
+  final String? schemeName;
+
+  const ResultScreen({super.key, this.schemeId, this.schemeName});
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -27,11 +34,21 @@ class _ResultScreenState extends State<ResultScreen> {
   void initState() {
     super.initState();
     _viewModel.addListener(_refresh);
-    _viewModel.load();
+    _viewModel.load(
+      schemeId: widget.schemeId,
+      schemeName: widget.schemeName,
+    );
   }
 
   void _refresh() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _reload() {
+    return _viewModel.load(
+      schemeId: widget.schemeId,
+      schemeName: widget.schemeName,
+    );
   }
 
   void _showExportSheet() {
@@ -74,6 +91,50 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
+  // FIX (#3 - security): confirmation dialog shown before any export that
+  // contains unmasked CNIC numbers, so admins can't accidentally share
+  // sensitive data without realizing what's in the file.
+  Future<bool> _confirmExport(String format) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AdminColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AdminColors.radius),
+        ),
+        title: const Text(
+          'Export Sensitive Data?',
+          style: TextStyle(
+            color: AdminColors.darkText,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: Text(
+          'This $format file will contain applicants\' full names and '
+              'unmasked CNIC numbers. Only share it through secure '
+              'channels with authorized people.',
+          style: const TextStyle(
+            color: AdminColors.greyText,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: AdminColors.primary),
+            child: const Text('Export'),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed == true;
+  }
+
   Future<void> _exportPdf() async {
     final data = _viewModel.filteredResults;
 
@@ -81,6 +142,10 @@ class _ResultScreenState extends State<ResultScreen> {
       showAdminSnack(context, 'No results to export');
       return;
     }
+
+    final confirmed = await _confirmExport('PDF');
+    if (!confirmed) return;
+    if (!mounted) return;
 
     showAdminSnack(context, 'Generating PDF...');
 
@@ -146,6 +211,9 @@ class _ResultScreenState extends State<ResultScreen> {
         onLayout: (format) async => doc.save(),
         name: 'balloting_result.pdf',
       );
+
+      // FIX (#6): audit log entry, after a successful export.
+      await _viewModel.logExport(format: 'PDF', recordCount: data.length);
     } catch (e) {
       if (mounted) {
         showAdminSnack(context, 'PDF export failed: $e');
@@ -160,6 +228,10 @@ class _ResultScreenState extends State<ResultScreen> {
       showAdminSnack(context, 'No results to export');
       return;
     }
+
+    final confirmed = await _confirmExport('Excel');
+    if (!confirmed) return;
+    if (!mounted) return;
 
     showAdminSnack(context, 'Generating Excel...');
 
@@ -216,6 +288,9 @@ class _ResultScreenState extends State<ResultScreen> {
           ),
         ],
       );
+
+      // FIX (#6): audit log entry, after a successful export.
+      await _viewModel.logExport(format: 'Excel', recordCount: data.length);
     } catch (e) {
       if (mounted) {
         showAdminSnack(context, 'Excel export failed: $e');
@@ -265,6 +340,34 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AdminColors.rejected.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AdminColors.rejected.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: AdminColors.rejected, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: AdminColors.rejected, fontWeight: FontWeight.w700, fontSize: 12.5),
+            ),
+          ),
+          TextButton(
+            onPressed: _reload,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _viewModel.removeListener(_refresh);
@@ -276,7 +379,9 @@ class _ResultScreenState extends State<ResultScreen> {
   @override
   Widget build(BuildContext context) {
     return AdminShell(
-      title: 'Balloting Result',
+      title: widget.schemeName != null
+          ? 'Result — ${widget.schemeName}'
+          : 'Balloting Result',
       selectedIndex: 2,
       searchController: _searchController,
       searchHint: 'Search by Application ID or Name...',
@@ -289,11 +394,13 @@ class _ResultScreenState extends State<ResultScreen> {
       fabLabel: 'Export',
       fabIcon: Icons.file_download_rounded,
       isLoading: _viewModel.isLoading,
-      onRefresh: _viewModel.load,
+      onRefresh: _reload,
       body: ListView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
         children: [
+          if (_viewModel.errorMessage != null)
+            _buildErrorBanner(_viewModel.errorMessage!),
           ResultCelebrationHero(
             completionDate: _viewModel.completionDate,
           ),

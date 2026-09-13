@@ -239,8 +239,12 @@ class Dealer {
   });
 }
 
+/// FIX: added `applicationId` so results can be searched/matched by the
+/// applicant's application number (previously missing, which made the
+/// "Search by Application ID" hint in Result screen non-functional).
 class BallotingResult {
   final String applicantId;
+  final String applicationId;
   final String applicantName;
   final String cnic;
   final String plotNo;
@@ -252,6 +256,7 @@ class BallotingResult {
 
   const BallotingResult({
     required this.applicantId,
+    this.applicationId = '',
     required this.applicantName,
     required this.cnic,
     required this.plotNo,

@@ -40,7 +40,7 @@ class DigitalHousingAdminApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Digital Housing Admin Panel',
       theme: AdminTheme.theme, //overall app visual config
-      initialRoute: AdminRoutes.splash, //specify initial route when app gets started//specify initial route when app gets started
+      initialRoute: AdminRoutes.splash, //specify initial route when app gets started
       routes: {  //maps named routes with their screens
         AdminRoutes.splash: (_) => const SplashScreen(),
         AdminRoutes.login: (_) => const AdminLoginScreen(),
@@ -59,7 +59,18 @@ class DigitalHousingAdminApp extends StatelessWidget {
             schemeId: args['schemeId'] ?? '',
           );
         },
-        AdminRoutes.results: (_) => const ResultScreen(),
+        // FIX (#2): results route now reads schemeId/schemeName from the
+        // navigation arguments (same pattern already used above for
+        // ballotingProcessing), so the Result screen only shows the
+        // relevant scheme's results when opened from a scheme's history.
+        AdminRoutes.results: (context) {
+          final args = ModalRoute.of(context)!.settings.arguments
+          as Map<String, dynamic>? ?? {};
+          return ResultScreen(
+            schemeId: args['schemeId'] as String?,
+            schemeName: args['schemeName'] as String?,
+          );
+        },
         AdminRoutes.reports: (_) => const ReportsScreen(),
         AdminRoutes.dealers: (_) => const DealerVerificationScreen(),
         AdminRoutes.plotVisualization: (_) => const PlotVisualizationScreen(),

@@ -342,15 +342,6 @@ class DashboardNotificationCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           const Expanded(child: DashboardLabel(title: 'Notifications', subtitle: 'Priority admin alerts')),
-          PopupMenuButton<String>(
-            color: AdminColors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            onSelected: (v) => v == 'open' ? onOpen() : onRead(),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'open', child: PopupMenuRow(icon: Icons.open_in_new_rounded, text: 'Open')),
-              PopupMenuItem(value: 'read', child: PopupMenuRow(icon: Icons.done_all_rounded,    text: 'Mark Read')),
-            ],
-          ),
         ]),
         const SizedBox(height: 12),
         ...notifications.take(3).map((n) => ListTile(

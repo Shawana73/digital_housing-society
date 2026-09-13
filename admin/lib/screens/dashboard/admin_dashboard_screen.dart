@@ -7,6 +7,7 @@ import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
 import '../../models/admin_models.dart';
 import '../applicant_details/applicant_details_screen.dart';
+import 'all_recent_activities.dart';
 import 'dashboard_viewmodel.dart';
 import 'dashboard_widgets.dart';
 
@@ -217,7 +218,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SizedBox(height: 24),
                 Row(children: [
                   const Expanded(child: DashboardLabel(title: 'Recent Activities', subtitle: 'Latest admin movement')),
-                  DashboardPillButton(label: 'View All', onTap: () => _open(AdminRoutes.reports)),
+                  DashboardPillButton(
+                    label: 'View All',
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllActivitiesScreen())),
+                  ),
                 ]),
                 const SizedBox(height: 12),
                 if (_viewModel.filteredActivities.isEmpty)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/admin_models.dart';
 import '../../theme/admin_theme.dart';
@@ -17,7 +18,6 @@ class ApplicantDetailsScreen extends StatefulWidget {
 }
 
 class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
-  final TextEditingController _searchController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
   final ApplicantDetailsViewModel _viewModel = ApplicantDetailsViewModel();
 
@@ -39,7 +39,6 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
   void dispose() {
     _viewModel.removeListener(_refresh);
     _viewModel.dispose();
-    _searchController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -93,14 +92,24 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                   ),
                 )
               else
-                const SizedBox(
-                  height: 220,
+                SizedBox(
+                  height: 120,
                   child: Center(
-                    child: Text(
-                      'PDF preview will be connected next.',
+                    child: FilledButton.icon(
+                      onPressed: document.fileUrl.isEmpty
+                          ? null
+                          : () async {
+                        final uri = Uri.tryParse(document.fileUrl);
+                        if (uri != null) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                      label: const Text('Open Document'),
                     ),
                   ),
                 ),
+
 
               const SizedBox(height: 16),
 
@@ -190,9 +199,6 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
       return AdminShell(
         title: 'Applicant Details',
         selectedIndex: 1,
-        searchController: _searchController,
-        searchHint: 'Search inside applicant profile...',
-        onSearchClear: () => _searchController.clear(),
         isLoading: _viewModel.isLoading,
         body: const Center(child: Text('Unable to load applicant details')),
       );
@@ -201,10 +207,6 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
     return AdminShell(
       title: 'Applicant Details',
       selectedIndex: 1,
-      searchController: _searchController,
-      searchHint: 'Search inside applicant profile...',
-      onSearchClear: () => _searchController.clear(),
-      onSearchSubmitted: (value) => showAdminSnack(context, 'Searching $value'),
       onFabTap: null,
       isLoading: _viewModel.isLoading,
       body: ListView(
@@ -327,6 +329,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
 
                 if (_viewModel.notes.isEmpty)
                   const Padding(
+
                     padding: EdgeInsets.only(bottom: 14),
                     child: Text(
                       'No verification notes have been added yet.',
@@ -413,35 +416,116 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
             ),
           ),
           const SizedBox(height: 18),
-          Row(children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _setStatus(VerificationStatus.rejected),
-                icon: const Icon(Icons.close_rounded, size: 18),
-                label: const Text('Reject Applicant'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AdminColors.rejected,
-                  side: BorderSide(color: AdminColors.rejected.withOpacity(0.4)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: () => _setStatus(VerificationStatus.verified),
-                icon: const Icon(Icons.check_circle_rounded, size: 18),
-                label: const Text('Verify Applicant'),
-                style: FilledButton.styleFrom(backgroundColor: AdminColors.primary, padding: const EdgeInsets.symmetric(vertical: 14)),
-              ),
-            ),
-          ]),
+          _buildStatusActionArea(applicant),
         ],
       ),
     );
   }
+  Future<void> _confirmAndSetStatus(VerificationStatus status) async {
+    final actionLabel = status == VerificationStatus.verified
+        ? 'Verify'
+        : status == VerificationStatus.rejected
+        ? 'Reject'
+        : 'Reopen';
 
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AdminColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminColors.radius)),
+        title: Text('$actionLabel Applicant?',
+            style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900)),
+        content: Text(
+          status == VerificationStatus.pending
+              ? '${widget.applicant.name} will be reopened for review. Previous decision will be cleared.'
+              : '${widget.applicant.name} will be marked as ${status.label}.',
+          style: const TextStyle(color: AdminColors.greyText),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(actionLabel)),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      await _setStatus(status);
+    }
+  }
+
+  Widget _buildStatusActionArea(Applicant applicant) {
+    if (applicant.status == VerificationStatus.pending) {
+      return Row(children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _confirmAndSetStatus(VerificationStatus.rejected),
+            icon: const Icon(Icons.close_rounded, size: 18),
+            label: const Text('Reject Applicant'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AdminColors.rejected,
+              side: BorderSide(color: AdminColors.rejected.withOpacity(0.4)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => _confirmAndSetStatus(VerificationStatus.verified),
+            icon: const Icon(Icons.check_circle_rounded, size: 18),
+            label: const Text('Verify Applicant'),
+            style: FilledButton.styleFrom(backgroundColor: AdminColors.primary, padding: const EdgeInsets.symmetric(vertical: 14)),
+          ),
+        ),
+      ]);
+    }
+
+    final isVerified = applicant.status == VerificationStatus.verified;
+    final bannerColor = isVerified ? AdminColors.success : AdminColors.rejected;
+    final bannerText = isVerified
+        ? 'This applicant has been verified'
+        : 'This applicant has been rejected';
+    final bannerIcon = isVerified ? Icons.check_circle_rounded : Icons.cancel_rounded;
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: bannerColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(AdminColors.radius),
+            border: Border.all(color: bannerColor.withOpacity(0.3)),
+          ),
+          child: Row(children: [
+            Icon(bannerIcon, color: bannerColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(bannerText,
+                  style: TextStyle(color: bannerColor, fontWeight: FontWeight.w800, fontSize: 13)),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _confirmAndSetStatus(VerificationStatus.pending),
+            icon: const Icon(Icons.replay_rounded, size: 18),
+            label: const Text('Reopen for Review'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AdminColors.darkText,
+              side: BorderSide(color: AdminColors.darkText.withOpacity(0.2)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
   Widget _buildTabContent(Applicant applicant) {
+    final locked = applicant.status != VerificationStatus.pending;
+
     switch (_tabIndex) {
       case 0:
         return DocumentsTab(
@@ -449,10 +533,14 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
           onPreview: (document) {
             _showDocumentPreview(document);
           },
-          onVerify: (index) async {
+          onVerify: locked
+              ? null
+              : (index) async {
             await _viewModel.updateDocumentStatus(index, 'verified');
           },
-          onReject: (index) async {
+          onReject: locked
+              ? null
+              : (index) async {
             await _viewModel.updateDocumentStatus(index, 'rejected');
           },
         );

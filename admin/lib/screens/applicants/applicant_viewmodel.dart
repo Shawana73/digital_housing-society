@@ -138,64 +138,6 @@ class ApplicantVerificationViewModel extends BaseAdminViewModel {
     notifyListeners();
   }
 
-  Future<void> approve(Applicant applicant) async {
-    await _updateApplicationStatus(applicant, VerificationStatus.verified);
-  }
-
-  Future<void> reject(Applicant applicant) async {
-    await _updateApplicationStatus(applicant, VerificationStatus.rejected);
-  }
-
-  Future<void> _updateApplicationStatus(Applicant applicant, VerificationStatus newStatus) async {
-    try {
-      final newStatusLabel = newStatus.label;
-
-      final applicantQuery = await _firestore
-          .collection('applicants')
-          .where('cnic', isEqualTo: applicant.cnic)
-          .limit(1)
-          .get();
-
-      if (applicantQuery.docs.isEmpty) {
-        throw Exception('Applicant not found for ${applicant.name}');
-      }
-
-      final applicantDoc = applicantQuery.docs.first;
-      final applicantData = applicantDoc.data();
-      final uid = applicantData['uid']?.toString().trim();
-
-      if (uid == null || uid.isEmpty) {
-        throw Exception('Applicant UID not found for ${applicant.name}');
-      }
-
-      final applicationQuery = await _firestore
-          .collection('applications')
-          .where('applicantId', isEqualTo: uid)
-          .limit(1)
-          .get();
-
-      if (applicationQuery.docs.isEmpty) {
-        throw Exception('Application not found for ${applicant.name}');
-      }
-
-      final applicationDoc = applicationQuery.docs.first;
-      final batch = _firestore.batch();
-
-      batch.update(applicationDoc.reference, {'status': newStatusLabel});
-      batch.update(applicantDoc.reference, {'profileStatus': newStatusLabel});
-
-      await batch.commit();
-
-      applicant.status = newStatus;
-      notifyListeners();
-
-      debugPrint('${applicant.name} status updated successfully to $newStatusLabel');
-    } catch (e, stackTrace) {
-      debugPrint('FIRESTORE UPDATE ERROR: $e');
-      debugPrintStack(stackTrace: stackTrace);
-      rethrow;
-    }
-  }
 
   String _getAvatarLetters(String name) {
     final parts = name.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();

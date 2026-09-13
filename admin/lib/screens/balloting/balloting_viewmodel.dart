@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../viewmodels/admin_view_models.dart';
 import '../../models/admin_models.dart';
@@ -23,6 +24,10 @@ class BallotingViewModel extends BaseAdminViewModel {
 
   List<SchemeModel> schemes = [];
   List<SchemeModel> filteredSchemes = [];
+
+  // FIX (#9): surfaced load errors so the UI can show a retry banner
+  // instead of silently showing an empty list.
+  String? errorMessage;
 
   // Scheme-wise counts
   final Map<String, int> eligibleApplicantsByScheme = {};
@@ -119,6 +124,7 @@ class BallotingViewModel extends BaseAdminViewModel {
   @override
   Future<void> load() async {
     isLoading = true;
+    errorMessage = null;
     notifyListeners();
 
     try {
@@ -389,12 +395,12 @@ class BallotingViewModel extends BaseAdminViewModel {
             status = BallotingLiveStatus.running;
             break;
 
-          case 'completed':
-            status = BallotingLiveStatus.completed;
-            break;
-
           case 'paused':
             status = BallotingLiveStatus.paused;
+            break;
+
+          case 'completed':
+            status = BallotingLiveStatus.completed;
             break;
 
           case 'stopped':
@@ -416,37 +422,39 @@ class BallotingViewModel extends BaseAdminViewModel {
         status = BallotingLiveStatus.ready;
       }
     } catch (e) {
-      print(
-        'ERROR LOADING BALLOTING DATA: $e',
-      );
+      debugPrint('ERROR LOADING BALLOTING DATA: $e');
+      errorMessage =
+      'Could not load balloting data. Pull down to retry.';
     }
 
     isLoading = false;
     notifyListeners();
   }
 
-  void search(String query) {
-    final value = query.trim().toLowerCase();
+  @override
+  void search(String value) {
+    final normalized = value.trim().toLowerCase();
 
-    if (value.isEmpty) {
+    if (normalized.isEmpty) {
       filteredSchemes = List.from(schemes);
     } else {
       filteredSchemes = schemes.where((scheme) {
         return scheme.name
             .toLowerCase()
-            .contains(value) ||
+            .contains(normalized) ||
             scheme.size
                 .toLowerCase()
-                .contains(value) ||
+                .contains(normalized) ||
             scheme.status
                 .toLowerCase()
-                .contains(value);
+                .contains(normalized);
       }).toList();
     }
 
     notifyListeners();
   }
 
+  @override
   void clearSearch() {
     filteredSchemes = List.from(schemes);
     notifyListeners();

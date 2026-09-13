@@ -91,13 +91,13 @@ class ApplicantStatsBanner extends StatelessWidget {
                     ],
                   ),
                   child: Row(children: [
-                    Expanded(child: ApplicantStatTile(icon: Icons.groups_rounded, iconColor: AdminColors.primary, label: 'Total', value: '$total', trend: '+12.8%')),
+                    Expanded(child: ApplicantStatTile(icon: Icons.groups_rounded, iconColor: AdminColors.primary, label: 'Total', value: '$total')),
                     ApplicantVDivider(),
-                    Expanded(child: ApplicantStatTile(icon: Icons.hourglass_top_rounded, iconColor: AdminColors.warning, label: 'Pending', value: '$pending', trend: '+8.4%')),
+                    Expanded(child: ApplicantStatTile(icon: Icons.hourglass_top_rounded, iconColor: AdminColors.warning, label: 'Pending', value: '$pending')),
                     ApplicantVDivider(),
-                    Expanded(child: ApplicantStatTile(icon: Icons.verified_rounded, iconColor: AdminColors.success, label: 'Verified', value: '$verified', trend: '+16.2%')),
+                    Expanded(child: ApplicantStatTile(icon: Icons.verified_rounded, iconColor: AdminColors.success, label: 'Verified', value: '$verified')),
                     ApplicantVDivider(),
-                    Expanded(child: ApplicantStatTile(icon: Icons.cancel_rounded, iconColor: AdminColors.rejected, label: 'Rejected', value: '$rejected', trend: '-2.1%', trendDown: true)),
+                    Expanded(child: ApplicantStatTile(icon: Icons.cancel_rounded, iconColor: AdminColors.rejected, label: 'Rejected', value: '$rejected')),
                   ]),
                 ),
               ),
@@ -125,16 +125,12 @@ class ApplicantStatTile extends StatelessWidget {
   final Color iconColor;
   final String label;
   final String value;
-  final String trend;
-  final bool trendDown;
   const ApplicantStatTile({
     super.key,
     required this.icon,
     required this.iconColor,
     required this.label,
     required this.value,
-    required this.trend,
-    this.trendDown = false,
   });
 
   @override
@@ -153,16 +149,6 @@ class ApplicantStatTile extends StatelessWidget {
         Text(label, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 10)),
         const SizedBox(height: 2),
         Text(value, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -.4)),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: (trendDown ? AdminColors.rejected : AdminColors.success).withOpacity(0.10),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(trend,
-              style: TextStyle(color: trendDown ? AdminColors.rejected : AdminColors.success, fontWeight: FontWeight.w800, fontSize: 9)),
-        ),
       ],
     );
   }
@@ -208,49 +194,17 @@ class ApplicantRow extends StatelessWidget {
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11)),
                 const SizedBox(height: 5),
-                Row(children: [
-                  Flexible(
-                    child: Text(
-                      applicant.id,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 10),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(width: 3, height: 3, decoration: const BoxDecoration(color: AdminColors.greyText, shape: BoxShape.circle)),
-                  const SizedBox(width: 8),
-                  const Flexible(
-                    child: Text(
-                      '28 Jun 2026',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 10),
-                    ),
-                  ),
-                ]),
+                Text(
+                  applicant.id,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 10),
+                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              StatusPill(label: applicant.status.label, color: applicant.status.color),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ApplicantRoundIconButton(
-                    icon: Icons.visibility_outlined,
-                    background: AdminColors.background,
-                    iconColor: AdminColors.darkText,
-                    onTap: onTap,
-                  ),
-                ],
-              ),
-            ],
-          ),
+          StatusPill(label: applicant.status.label, color: applicant.status.color),
         ],
       ),
     );

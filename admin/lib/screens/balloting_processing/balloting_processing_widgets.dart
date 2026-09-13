@@ -7,26 +7,45 @@ class ProcessingControlBtn extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-  const ProcessingControlBtn({super.key, required this.icon, required this.label, required this.color, required this.onTap});
+
+  /// FIX (#12 - missing feature): buttons now visually + functionally
+  /// disable themselves when the action doesn't make sense in the current
+  /// state (e.g. "Resume" when nothing is paused), instead of always being
+  /// tappable regardless of state.
+  final bool enabled;
+
+  const ProcessingControlBtn({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          height: 58,
-          width: 58,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: color.withOpacity(0.32), blurRadius: 14, offset: const Offset(0, 6))],
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.38,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            height: 58,
+            width: 58,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: enabled
+                  ? [BoxShadow(color: color.withOpacity(0.32), blurRadius: 14, offset: const Offset(0, 6))]
+                  : [],
+            ),
+            child: Icon(icon, color: Colors.white, size: 28),
           ),
-          child: Icon(icon, color: Colors.white, size: 28),
-        ),
-        const SizedBox(height: 7),
-        Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12)),
-      ]),
+          const SizedBox(height: 7),
+          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12)),
+        ]),
+      ),
     );
   }
 }

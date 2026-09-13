@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/admin_models.dart';
 import '../../viewmodels/admin_view_models.dart'; // for BaseAdminViewModel
-
 class ApplicantDetailsViewModel extends BaseAdminViewModel {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -336,9 +336,13 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
       throw Exception('Note cannot be empty.');
     }
 
+    final currentAdminName = FirebaseAuth.instance.currentUser?.displayName
+        ?? FirebaseAuth.instance.currentUser?.email?.split('@').first
+        ?? 'Admin';
+
     final note = {
       'text': text,
-      'adminName': 'Ayesha Khan',
+      'adminName': currentAdminName,
       'createdAt': Timestamp.now(),
     };
 

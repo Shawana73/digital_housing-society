@@ -28,6 +28,8 @@ class BallotingOverviewTile extends StatelessWidget {
 }
 
 class BallotingVDivider extends StatelessWidget {
+  const BallotingVDivider({super.key});
+
   @override
   Widget build(BuildContext context) => Container(width: 1, height: 60, margin: const EdgeInsets.symmetric(horizontal: 6), color: AdminColors.border);
 }
@@ -222,4 +224,48 @@ class BallotingSectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(text,
       style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -.3));
+}
+
+/// FIX (#10 - missing feature): dedicated "View All" screen, used for both
+/// Upcoming Ballotings and Balloting History. Uses ListView.builder so large
+/// lists stay performant (lazy rendering) rather than a full in-memory
+/// Column of widgets.
+class SchemeListScreen extends StatelessWidget {
+  final String title;
+  final List<Widget> cards;
+
+  const SchemeListScreen({
+    super.key,
+    required this.title,
+    required this.cards,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AdminColors.background,
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: AdminColors.white,
+        foregroundColor: AdminColors.darkText,
+        elevation: 0,
+      ),
+      body: cards.isEmpty
+          ? const Center(
+        child: Text(
+          'Nothing to show here.',
+          style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700),
+        ),
+      )
+          : ListView.builder(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: cards.length,
+        itemBuilder: (context, index) => Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: cards[index],
+        ),
+      ),
+    );
+  }
 }

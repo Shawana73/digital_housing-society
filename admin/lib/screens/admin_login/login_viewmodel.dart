@@ -50,6 +50,7 @@ class LoginViewModel extends ChangeNotifier {
         email: email,
         password: password,
       );
+
       return null;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {

@@ -10,13 +10,19 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   double progress = 0.0;
+  int eligibleApplicantsCount = 0;
+  int availablePlotsCount = 0;
   bool isRunning = false;
   bool isPaused = false;
   bool isProcessing = false;
 
   String? errorMessage;
 
-  List<ProcessingStep> steps = [
+  // FIX (#7/#8): single source of truth for the step list. Previously this
+  // same list literal was duplicated three times (field initializer, a
+  // shadowed local function inside start(), and _resetSteps()). Now every
+  // place that needs a "fresh" list of steps calls _freshSteps().
+  static List<ProcessingStep> _freshSteps() => [
     const ProcessingStep(
       1,
       'Initializing Balloting',
@@ -55,6 +61,8 @@ class BallotingProcessingViewModel extends ChangeNotifier {
     ),
   ];
 
+  List<ProcessingStep> steps = _freshSteps();
+
   String get statusLabel {
     if (isPaused) return 'Paused';
     if (isProcessing) return 'Running...';
@@ -73,6 +81,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
     String? schemeId,
   }) async {
     if (isProcessing) return false;
+
     final configSnapshot =
     await _firestore.collection('ballot_config').doc('main').get();
 
@@ -85,6 +94,19 @@ class BallotingProcessingViewModel extends ChangeNotifier {
       return false;
     }
 
+    // FIX: guard against two different schemes being processed at the
+    // same time (e.g. admin navigates away mid-run and starts another
+    // scheme). Only block if a DIFFERENT scheme is currently live/paused.
+    if ((configData?['status'] == 'live' ||
+        configData?['status'] == 'paused') &&
+        configData?['schemeId'] != null &&
+        configData?['schemeId'] != schemeId) {
+      errorMessage =
+      'Another balloting session is currently in progress. '
+          'Please finish or stop it before starting a new one.';
+      return false;
+    }
+
     try {
       errorMessage = null;
 
@@ -92,47 +114,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
       isRunning = true;
       isPaused = false;
       progress = 0.0;
-
-      void _resetSteps() {
-        steps = [
-          const ProcessingStep(
-            1,
-            'Initializing Balloting',
-            'Preparing system and data',
-            completed: false,
-          ),
-          const ProcessingStep(
-            2,
-            'Validating Eligible Applicants',
-            'Checking applicant eligibility',
-            completed: false,
-          ),
-          const ProcessingStep(
-            3,
-            'Shuffling Applicants Securely',
-            'Randomizing applicants list',
-            completed: false,
-          ),
-          const ProcessingStep(
-            4,
-            'Selecting Successful Applicants',
-            'Based on available plots',
-            completed: false,
-          ),
-          const ProcessingStep(
-            5,
-            'Assigning Plot Numbers',
-            'Allocating plots to winners',
-            completed: false,
-          ),
-          const ProcessingStep(
-            6,
-            'Finalizing Results',
-            'Saving results and updating status',
-            completed: false,
-          ),
-        ];
-      }
+      steps = _freshSteps();
 
       // --------------------------------------------------------
       // STEP 1 - INITIALIZE
@@ -220,10 +202,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
 
         approvedApplications[applicantId] = data;
       }
-      debugPrint('APPROVED APPLICATIONS: $approvedApplications');
-      debugPrint('VERIFIED UPLOADS: $verifiedUploads');
-      debugPrint('VERIFIED PAYMENTS: $verifiedPayments');
-      debugPrint('SCHEME SIZE: $schemeSize');
+
       // Final eligibility:
       // Approved application
       // + Verified documents
@@ -307,7 +286,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
               <String, dynamic>{},
         });
       }
-
+      eligibleApplicantsCount = applicants.length;
       // --------------------------------------------------------
       // STEP 3 - GET AVAILABLE PLOTS
       // --------------------------------------------------------
@@ -352,6 +331,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           'No available plots found for this balloting.',
         );
       }
+      availablePlotsCount = availablePlots.length;
 
       // --------------------------------------------------------
       // STEP 3 - SECURE RANDOM SHUFFLE
@@ -406,9 +386,6 @@ class BallotingProcessingViewModel extends ChangeNotifier {
 
       final results = <Map<String, dynamic>>[];
 
-      // Winners
-      // Winners
-      // Winners
       var drawnCount = 0;
 
       for (var i = 0; i < winners.length; i++) {
@@ -429,8 +406,12 @@ class BallotingProcessingViewModel extends ChangeNotifier {
 
         final drawNumber = i + 1;
 
+        // FIX (#4): also store applicationId so the Result screen's
+        // "search by Application ID" actually works.
         results.add({
           'applicantId': applicant['applicantId'],
+          'applicationId':
+          applicant['application']?['applicationId']?.toString() ?? '',
           'fullName': applicant['fullName'],
           'cnic': applicant['cnic'],
           'plotNumber': plot.plotId,
@@ -463,13 +444,13 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           'applicationNumber':
           applicant['application']?['applicationId']?.toString() ?? '',
           'sessionId': sessionId,
+          'schemeId': schemeId ?? '',
           'cnic': applicant['cnic'] ?? '',
           'plotNumber': plot.plotId,
           'text':
           'Draw #${drawNumber.toString().padLeft(4, '0')} completed - Plot ${plot.plotId} allocated.',
           'time': Timestamp.now(),
           'createdAt': Timestamp.now(),
-
         });
 
         drawnCount++;
@@ -501,6 +482,8 @@ class BallotingProcessingViewModel extends ChangeNotifier {
       for (final applicant in notSelected) {
         results.add({
           'applicantId': applicant['applicantId'],
+          'applicationId':
+          applicant['application']?['applicationId']?.toString() ?? '',
           'fullName': applicant['fullName'],
           'cnic': applicant['cnic'],
           'plotNumber': '',
@@ -540,9 +523,14 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           final applicantId =
           result['applicantId'].toString();
 
+          // FIX (#1): composite doc ID (schemeId_applicantId) instead of
+          // just applicantId. Previously, if the same applicant was
+          // eligible across two different schemes, the second scheme's
+          // balloting would silently overwrite the first scheme's result
+          // for that applicant.
           final resultRef = _firestore
               .collection('ballot_results')
-              .doc(applicantId);
+              .doc('${schemeId ?? "unknown"}_$applicantId');
 
           batch.set(
             resultRef,
@@ -639,22 +627,46 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   // UI CONTROLS
   // ============================================================
 
-  void pause() {
+  // FIX (#5 - missing feature/bug): pause/resume now also sync the
+  // 'ballot_config/main' document, so the applicant-facing live screen
+  // (which reads that document) correctly reflects a paused state instead
+  // of appearing frozen on "in progress".
+  Future<void> pause() async {
     if (!isProcessing) return;
 
     isPaused = true;
     isRunning = false;
 
     notifyListeners();
+
+    try {
+      await _firestore.collection('ballot_config').doc('main').set({
+        'status': 'paused',
+        'stage': 'paused',
+        'message': 'Balloting has been paused by the admin.',
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Failed to sync paused state: $e');
+    }
   }
 
-  void resume() {
+  Future<void> resume() async {
     if (!isProcessing) return;
 
     isPaused = false;
     isRunning = true;
 
     notifyListeners();
+
+    try {
+      await _firestore.collection('ballot_config').doc('main').set({
+        'status': 'live',
+        'stage': 'selecting',
+        'message': 'The official housing balloting draw is currently in progress.',
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Failed to sync resumed state: $e');
+    }
   }
 
   void stop() {
@@ -720,44 +732,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   }
 
   void _resetSteps() {
-    steps = [
-      const ProcessingStep(
-        1,
-        'Initializing Balloting',
-        'Preparing system and data',
-        completed: false,
-      ),
-      const ProcessingStep(
-        2,
-        'Validating Eligible Applicants',
-        'Checking applicant eligibility',
-        completed: false,
-      ),
-      const ProcessingStep(
-        3,
-        'Shuffling Applicants Securely',
-        'Randomizing applicants list',
-        completed: false,
-      ),
-      const ProcessingStep(
-        4,
-        'Selecting Successful Applicants',
-        'Based on available plots',
-        completed: false,
-      ),
-      const ProcessingStep(
-        5,
-        'Assigning Plot Numbers',
-        'Allocating plots to winners',
-        completed: false,
-      ),
-      const ProcessingStep(
-        6,
-        'Finalizing Results',
-        'Saving results and updating status',
-        completed: false,
-      ),
-    ];
+    steps = _freshSteps();
   }
 
   void _setStep(

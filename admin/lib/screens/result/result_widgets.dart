@@ -3,6 +3,25 @@ import '../../models/admin_models.dart';
 import '../../theme/admin_theme.dart';
 import '../../widgets/premium_widgets.dart';
 
+/// FIX (#3 - security): masks a CNIC for on-screen display, showing only
+/// the last digit (e.g. "XXXXX-XXXXXXX-1"). The full, unmasked CNIC is
+/// still used for PDF/Excel export (which is gated behind its own
+/// confirmation dialog in result_screen.dart) — this function only affects
+/// what's rendered directly in the UI list.
+String maskCnic(String cnic) {
+  final digitsOnly = cnic.replaceAll(RegExp(r'[^0-9]'), '');
+
+  if (digitsOnly.isEmpty) return '';
+
+  if (digitsOnly.length < 13) {
+    // Unexpected/short format — still avoid showing it raw.
+    return '•••••••••••';
+  }
+
+  final lastDigit = digitsOnly.substring(12, 13);
+  return 'XXXXX-XXXXXXX-$lastDigit';
+}
+
 class ResultCelebrationHero extends StatelessWidget {
   final DateTime? completionDate;
   const ResultCelebrationHero({super.key, required this.completionDate});
@@ -213,7 +232,9 @@ class WinnerRow extends StatelessWidget {
                 maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 13)),
             const SizedBox(height: 2),
-            Text(result.cnic, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 10.5)),
+            // FIX (#3 - security): CNIC is masked on-screen; full value is
+            // only ever included in exports, which require confirmation.
+            Text(maskCnic(result.cnic), style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 10.5)),
           ])),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -249,6 +270,7 @@ class ResultSLabel extends StatelessWidget {
   Widget build(BuildContext context) =>
       Text(text, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -.3));
 }
+
 class AllWinnersScreen extends StatelessWidget {
   final List<BallotingResult> results;
   const AllWinnersScreen({super.key, required this.results});
@@ -271,25 +293,28 @@ class AllWinnersScreen extends StatelessWidget {
         buttonText: 'Go Back',
         onPressed: () => Navigator.pop(context),
       )
-          : ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: AdminColors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 8))],
-            ),
-            child: Column(
-              children: results.asMap().entries.map((e) {
-                final index = e.key;
-                final result = e.value;
-                final isLast = index == results.length - 1;
-                return WinnerRow(rank: index + 1, result: result, isLast: isLast);
-              }).toList(),
-            ),
-          ),
-        ],
+      // FIX (#11 - performance): ListView.builder instead of eagerly
+      // building a Column with every row in memory at once. Matters
+      // once a scheme has hundreds/thousands of applicants.
+          : Container(
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AdminColors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 8))],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListView.builder(
+          padding: EdgeInsets.zero,
+          itemCount: results.length,
+          itemBuilder: (context, index) {
+            return WinnerRow(
+              rank: index + 1,
+              result: results[index],
+              isLast: index == results.length - 1,
+            );
+          },
+        ),
       ),
     );
   }
