@@ -24,6 +24,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.1
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -31,3 +32,8 @@ flutter:
     - assets/logos/
     - assets/backgrounds/
     - assets/dealers/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logos/dhs_icon.png"
