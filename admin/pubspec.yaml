@@ -26,6 +26,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -41,6 +42,12 @@ flutter:
     - assets/images/housing_society.png
     - assets/logo/dhs_logo.png
     - assets/logo/dhs_icon.png
+    - assets/logo/dhs_app_icon.png
 
 dependency_overrides:
   firebase_core_web: 3.10.0
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo/dhs_app_icon.png"
