@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../app_routes.dart';
 import '../theme/admin_theme.dart';
 import 'app_snack.dart';
@@ -181,6 +181,9 @@ class AdminShell extends StatelessWidget {
 
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('remember_me', false);
 
     if (context.mounted) {
       Navigator.pushNamedAndRemoveUntil(
@@ -587,9 +590,11 @@ class AdminShell extends StatelessWidget {
         ],
       ),
       drawer: isWide ? null : _mobileDrawer(context),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: onFabTap == null
+          ? null
+          : FloatingActionButton.extended(
         heroTag: 'fab-$title',
-        onPressed: onFabTap ?? () => showAdminSnack(context, '$fabLabel clicked'),
+        onPressed: onFabTap,
         backgroundColor: AdminColors.primary,
         foregroundColor: AdminColors.white,
         elevation: 10,

@@ -45,8 +45,15 @@ class _DealerVerificationScreenState extends State<DealerVerificationScreen> {
         child: PremiumCard(
           padding: const EdgeInsets.all(20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            CircleAvatar(radius: 34, backgroundColor: AdminColors.primary.withOpacity(0.12), child: const Icon(Icons.real_estate_agent_rounded, color: AdminColors.primary, size: 34)),
-            const SizedBox(height: 12),
+            CircleAvatar(
+              radius: 34,
+              backgroundColor: AdminColors.primary.withValues(alpha: 0.12),
+              child: const Icon(
+                Icons.real_estate_agent_rounded,
+                color: AdminColors.primary,
+                size: 34,
+              ),
+            ),            const SizedBox(height: 12),
             Text(dealer.name, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 20)),
             const SizedBox(height: 8),
             StatusPill(label: dealer.status.label, color: dealer.status.color),
@@ -63,16 +70,21 @@ class _DealerVerificationScreenState extends State<DealerVerificationScreen> {
     );
   }
 
-  void _approve(Dealer dealer) {
-    _viewModel.approve(dealer);
+  Future<void> _approve(Dealer dealer) async {
+    await _viewModel.approve(dealer);
+
+    if (!mounted) return;
+
     showAdminSnack(context, '${dealer.name} approved');
   }
 
-  void _reject(Dealer dealer) {
-    _viewModel.reject(dealer);
+  Future<void> _reject(Dealer dealer) async {
+    await _viewModel.reject(dealer);
+
+    if (!mounted) return;
+
     showAdminSnack(context, '${dealer.name} rejected');
   }
-
   @override
   Widget build(BuildContext context) {
     return AdminShell(

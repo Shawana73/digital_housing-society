@@ -28,6 +28,7 @@ class PaymentVerificationViewModel extends BaseAdminViewModel {
   }
 
   @override
+  @override
   Future<void> load() async {
     isLoading = true;
     notifyListeners();
@@ -35,35 +36,32 @@ class PaymentVerificationViewModel extends BaseAdminViewModel {
     try {
       payments.clear();
 
-      final snapshot = await _firestore
+      final paymentsSnapshot = await _firestore
           .collection('payments')
           .orderBy('submittedAt', descending: true)
           .get();
 
-      for (final doc in snapshot.docs) {
+      // Load all applicants once and build a uid -> name map, instead of
+      // running a separate Firestore query per payment (N+1 problem).
+      final applicantsSnapshot = await _firestore.collection('applicants').get();
+      final Map<String, String> nameByUid = {};
+      for (final doc in applicantsSnapshot.docs) {
         final data = doc.data();
-
-        final applicantId = data['applicantId']?.toString() ?? '';
-
-        String applicantName = 'Unknown Applicant';
-
-        if (applicantId.isNotEmpty) {
-          final applicantSnapshot = await _firestore
-              .collection('applicants')
-              .where('uid', isEqualTo: applicantId)
-              .limit(1)
-              .get();
-
-          if (applicantSnapshot.docs.isNotEmpty) {
-            applicantName =
-                applicantSnapshot.docs.first.data()['fullName']?.toString() ??
-                    'Unknown Applicant';
-          }
+        final uid = data['uid']?.toString();
+        if (uid != null && uid.isNotEmpty) {
+          nameByUid[uid] = data['fullName']?.toString() ?? 'Unknown Applicant';
         }
+      }
+
+      for (final doc in paymentsSnapshot.docs) {
+        final data = doc.data();
+        final applicantId = data['applicantId']?.toString() ?? '';
+        final applicantName = nameByUid[applicantId] ?? 'Unknown Applicant';
 
         payments.add(
           PaymentRecord(
             id: doc.id,
+            applicantId: applicantId,
             applicantName: applicantName,
             transactionId:
             data['transactionId']?.toString() ?? 'Not available',
@@ -152,7 +150,7 @@ class PaymentVerificationViewModel extends BaseAdminViewModel {
       });
 
       await _firestore.collection('activity_logs').add({
-        'applicantId': payment.id,
+        'applicantId': payment.applicantId,
         'action': 'Payment verified',
         'description':
         'Admin verified the payment of ${payment.amount}.',
@@ -176,7 +174,7 @@ class PaymentVerificationViewModel extends BaseAdminViewModel {
       });
 
       await _firestore.collection('activity_logs').add({
-        'applicantId': payment.id,
+        'applicantId': payment.applicantId,
         'action': 'Payment rejected',
         'description':
         'Admin rejected the payment of ${payment.amount}.',

@@ -275,52 +275,7 @@ class DummyData {
         ),
       ];
 
-  static List<PaymentRecord> payments() => [
-        PaymentRecord(
-          id: 'PAY-001',
-          applicantName: 'Muhammad Ahmed',
-          transactionId: 'TXN-DH-882913',
-          amount: 'PKR 450,000',
-          date: '24 Jun 2026',
-          method: 'Bank Transfer',
-          receiptNo: 'RCT-8891',
-          status: PaymentStatus.pending,
-          receiptUrl: 'url',
-        ),
-        PaymentRecord(
-          id: 'PAY-002',
-          applicantName: 'Areeba Khan',
-          transactionId: 'TXN-DH-882914',
-          amount: 'PKR 750,000',
-          date: '23 Jun 2026',
-          method: 'Online Transfer',
-          receiptNo: 'RCT-8892',
-          status: PaymentStatus.verified,
-          receiptUrl: 'url',
-        ),
-        PaymentRecord(
-          id: 'PAY-003',
-          applicantName: 'Usman Ali',
-          transactionId: 'TXN-DH-882915',
-          amount: 'PKR 300,000',
-          date: '23 Jun 2026',
-          method: 'Cash Deposit',
-          receiptNo: 'RCT-8893',
-          status: PaymentStatus.pending,
-          receiptUrl: 'url',
-        ),
-        PaymentRecord(
-          id: 'PAY-004',
-          applicantName: 'Sana Malik',
-          transactionId: 'TXN-DH-882916',
-          amount: 'PKR 650,000',
-          date: '22 Jun 2026',
-          method: 'Bank Transfer',
-          receiptNo: 'RCT-8894',
-          status: PaymentStatus.rejected,
-          receiptUrl: 'url',
-        ),
-      ];
+
 
   static List<SocietyPlot> plots() => [
         SocietyPlot(

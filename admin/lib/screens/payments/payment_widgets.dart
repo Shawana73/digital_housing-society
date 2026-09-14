@@ -13,6 +13,8 @@ class PaymentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLocked = payment.status != PaymentStatus.pending;
+
     return PremiumCard(
       onTap: onPreview,
       child: Column(
@@ -27,20 +29,6 @@ class PaymentCard extends StatelessWidget {
               Text(payment.transactionId, style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 12)),
             ])),
             StatusPill(label: payment.status.label, color: payment.status.color),
-            PopupMenuButton<String>(
-              color: AdminColors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              onSelected: (value) {
-                if (value == 'receipt') onPreview();
-                if (value == 'approve') onApprove();
-                if (value == 'reject') onReject();
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'receipt', child: PopupMenuRow(icon: Icons.receipt_long_rounded, text: 'View Receipt')),
-                PopupMenuItem(value: 'approve', child: PopupMenuRow(icon: Icons.check_circle_rounded, text: 'Approve')),
-                PopupMenuItem(value: 'reject', child: PopupMenuRow(icon: Icons.cancel_rounded, text: 'Reject')),
-              ],
-            ),
           ]),
           const SizedBox(height: 12),
           Row(children: [
@@ -54,15 +42,42 @@ class PaymentCard extends StatelessWidget {
             title: 'Receipt Image',
             subtitle: payment.receiptNo,
             icon: Icons.image_rounded,
-            verified: payment.status != PaymentStatus.rejected,
+            verified: payment.status == PaymentStatus.verified,
             onTap: onPreview,
           ),
           const SizedBox(height: 14),
-          Row(children: [
-            Expanded(child: OutlinedButton.icon(onPressed: onReject, icon: const Icon(Icons.close_rounded), label: const Text('Reject'))),
-            const SizedBox(width: 10),
-            Expanded(child: FilledButton.icon(onPressed: onApprove, icon: const Icon(Icons.check_rounded), label: const Text('Approve'))),
-          ]),
+          if (isLocked)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: payment.status.color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: payment.status.color.withOpacity(0.3)),
+              ),
+              child: Row(children: [
+                Icon(
+                  payment.status == PaymentStatus.verified ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                  color: payment.status.color,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    payment.status == PaymentStatus.verified
+                        ? 'This payment has been verified'
+                        : 'This payment has been rejected',
+                    style: TextStyle(color: payment.status.color, fontWeight: FontWeight.w800, fontSize: 12),
+                  ),
+                ),
+              ]),
+            )
+          else
+            Row(children: [
+              Expanded(child: OutlinedButton.icon(onPressed: onReject, icon: const Icon(Icons.close_rounded), label: const Text('Reject'))),
+              const SizedBox(width: 10),
+              Expanded(child: FilledButton.icon(onPressed: onApprove, icon: const Icon(Icons.check_rounded), label: const Text('Approve'))),
+            ]),
         ],
       ),
     );

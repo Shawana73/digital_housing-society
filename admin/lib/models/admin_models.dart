@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/admin_theme.dart';
@@ -176,9 +177,9 @@ class Applicant {
     required this.status,
   });
 }
-
 class PaymentRecord {
   final String id;
+  final String applicantId;
   final String applicantName;
   final String transactionId;
   final String amount;
@@ -190,6 +191,7 @@ class PaymentRecord {
 
   PaymentRecord({
     required this.id,
+    required this.applicantId,
     required this.applicantName,
     required this.transactionId,
     required this.amount,
@@ -200,7 +202,6 @@ class PaymentRecord {
     required this.receiptUrl,
   });
 }
-
 class SocietyPlot {
   final String id;
   final String size;
@@ -237,8 +238,35 @@ class Dealer {
     required this.city,
     required this.status,
   });
-}
 
+  factory Dealer.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+
+    return Dealer(
+      id: doc.id,
+      name: data['name'] ?? '',
+      cnic: data['cnic'] ?? '',
+      phone: data['phone'] ?? '',
+      agency: data['agency'] ?? '',
+      city: data['city'] ?? '',
+      status: _statusFromString(data['status']),
+    );
+  }
+
+  static VerificationStatus _statusFromString(String? status) {
+    switch (status) {
+      case 'verified':
+        return VerificationStatus.verified;
+
+      case 'rejected':
+        return VerificationStatus.rejected;
+
+      case 'pending':
+      default:
+        return VerificationStatus.pending;
+    }
+  }
+}
 /// FIX: added `applicationId` so results can be searched/matched by the
 /// applicant's application number (previously missing, which made the
 /// "Search by Application ID" hint in Result screen non-functional).

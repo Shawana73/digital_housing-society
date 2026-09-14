@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';  //flutter package , framework libraray
 import 'package:firebase_core/firebase_core.dart'; //firebase core package// required for Firebase initialization
 import 'firebase_options.dart'; //firebase configuration options
@@ -5,6 +6,7 @@ import 'app_routes.dart';  //routes names defined
 import 'models/admin_models.dart';
 import 'screens/splash_screen.dart';
 import 'screens/admin_login/admin_login_screen.dart';
+import 'screens/admin_signup_screen.dart';
 import 'screens/add_plot/add_plot_screen.dart';
 import 'screens/applicants/applicant_verification_screen.dart';
 import 'screens/dashboard/admin_dashboard_screen.dart';
@@ -44,6 +46,7 @@ class DigitalHousingAdminApp extends StatelessWidget {
       routes: {  //maps named routes with their screens
         AdminRoutes.splash: (_) => const SplashScreen(),
         AdminRoutes.login: (_) => const AdminLoginScreen(),
+        AdminRoutes.signup: (_) => const AdminSignupScreen(),
         AdminRoutes.dashboard: (_) => const AdminDashboardScreen(),
         AdminRoutes.applicants: (_) => const ApplicantVerificationScreen(),
         AdminRoutes.payments: (_) => const PaymentVerificationScreen(),
@@ -57,12 +60,11 @@ class DigitalHousingAdminApp extends StatelessWidget {
             schemeName: args['name'] ?? 'Green Valley Villas',
             schemeSize: args['size'] ?? '5 Marla Villa',
             schemeId: args['schemeId'] ?? '',
+            // FIX (missing feature): scheme's balloting date, used by the
+            // processing screen to block starting before that date.
+            schemeDate: (args['schemeDate'] as Timestamp?)?.toDate(),
           );
         },
-        // FIX (#2): results route now reads schemeId/schemeName from the
-        // navigation arguments (same pattern already used above for
-        // ballotingProcessing), so the Result screen only shows the
-        // relevant scheme's results when opened from a scheme's history.
         AdminRoutes.results: (context) {
           final args = ModalRoute.of(context)!.settings.arguments
           as Map<String, dynamic>? ?? {};

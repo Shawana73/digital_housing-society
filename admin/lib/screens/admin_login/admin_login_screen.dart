@@ -13,6 +13,7 @@ class AdminLoginScreen extends StatefulWidget {
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final LoginViewModel _viewModel = LoginViewModel();
+  bool _isLoggingIn = false;
 
   @override
   void initState() {
@@ -32,9 +33,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    if (_isLoggingIn) return;
+    setState(() => _isLoggingIn = true);
+
     final error = await _viewModel.login();
 
     if (!mounted) return;
+    setState(() => _isLoggingIn = false);
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
@@ -131,13 +136,19 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
             boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.28), blurRadius: 18, offset: const Offset(0, 8))],
           ),
           child: ElevatedButton(
-            onPressed: _handleLogin,
+            onPressed: _isLoggingIn ? null : _handleLogin,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.deepPurpleAccent,
               shadowColor: Colors.transparent,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            child: const Row(
+            child: _isLoggingIn
+                ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+            )
+                : const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.shield_rounded, color: Colors.white, size: 20),
@@ -175,7 +186,18 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           ),
         ]),
       ),
-      const SizedBox(height: 24),
+      const SizedBox(height: 16),
+      Align(
+        alignment: Alignment.center,
+        child: TextButton(
+          onPressed: () => Navigator.pushReplacementNamed(context, AdminRoutes.signup),
+          child: const Text(
+            "New admin? Sign up here",
+            style: TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
       Align(
         alignment: Alignment.center,
         child: RichText(

@@ -11,8 +11,17 @@ class BallotingProcessingScreen extends StatefulWidget {
   final String schemeSize;
   final String schemeId;
 
-  const BallotingProcessingScreen({super.key, required this.schemeName, required this.schemeSize,
-    required this.schemeId,});
+  // FIX (missing feature): the scheme's official balloting date. When set
+  // and still in the future, the admin is blocked from starting early.
+  final DateTime? schemeDate;
+
+  const BallotingProcessingScreen({
+    super.key,
+    required this.schemeName,
+    required this.schemeSize,
+    required this.schemeId,
+    this.schemeDate,
+  });
 
   @override
   State<BallotingProcessingScreen> createState() => _BallotingProcessingScreenState();
@@ -48,7 +57,23 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
     super.dispose();
   }
 
+  String _formatScheduledDate(DateTime d) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
   Future<void> _start() async {
+    // FIX (missing feature): block starting early, before the confirm
+    // dialog even opens, with a clear message about when it's scheduled.
+    if (widget.schemeDate != null && DateTime.now().isBefore(widget.schemeDate!)) {
+      showAdminSnack(
+        context,
+        'This balloting is scheduled for ${_formatScheduledDate(widget.schemeDate!)}. '
+            'It cannot be started early.',
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -95,6 +120,7 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
       schemeName: widget.schemeName,
       schemeSize: widget.schemeSize,
       schemeId: widget.schemeId,
+      scheduledDate: widget.schemeDate,
     );
 
     if (!mounted) return;
@@ -156,6 +182,10 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
     final isProcessing = _viewModel.isProcessing;
     final isPaused = _viewModel.isPaused;
     final isWide = MediaQuery.of(context).size.width >= 800;
+
+    // Most recent draw first, so the admin sees new activity without
+    // needing to scroll.
+    final feed = _viewModel.drawFeed.reversed.toList();
 
     return Scaffold(
       backgroundColor: AdminColors.background,
@@ -292,8 +322,6 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        // FIX (#12): buttons now disable themselves based on
-                        // the current run state instead of always being active.
                         ProcessingControlBtn(
                           icon: Icons.play_arrow_rounded,
                           label: 'Start',
@@ -337,6 +365,62 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
                       children: _viewModel.steps.asMap().entries.map((e) {
                         return ProcessingStepTile(step: e.value, isLast: e.key == _viewModel.steps.length - 1);
                       }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // FIX (missing feature — live transparency): shows exactly
+                  // which applicants are being drawn, which plots they get
+                  // allocated, and who isn't selected — in real time, instead
+                  // of admin only seeing a generic progress percentage.
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AdminColors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, 10))],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.shuffle_rounded, color: AdminColors.primary, size: 18),
+                            const SizedBox(width: 8),
+                            const Text('Live Draw Feed',
+                                style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 15)),
+                            const Spacer(),
+                            if (feed.isNotEmpty)
+                              Text('${feed.length}',
+                                  style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 12)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'See exactly which applicants are being shuffled, selected, and allocated plots — as it happens.',
+                          style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11, height: 1.4),
+                        ),
+                        const SizedBox(height: 12),
+                        if (feed.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: Text(
+                                'No draws yet. Start the balloting to see live activity here.',
+                                style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 12),
+                              ),
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            height: 280,
+                            child: ListView.separated(
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: feed.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1, color: AdminColors.border),
+                              itemBuilder: (context, index) => DrawFeedTile(entry: feed[index]),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
