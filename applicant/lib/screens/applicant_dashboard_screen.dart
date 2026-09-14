@@ -352,16 +352,40 @@ class _TopUtilityRowState extends State<_TopUtilityRow> {
             ),
             if (!isMobile) const SizedBox(width: 12),
             if (!isMobile)
-              IconButton.filledTonal(
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  AppConstants.notificationsRoute,
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseAuth.instance.currentUser?.uid == null
+                    ? const Stream<QuerySnapshot>.empty()
+                    : FirestoreService().getNotifications(
+                  FirebaseAuth.instance.currentUser!.uid,
                 ),
-                icon: const Badge(
-                  smallSize: 8,
-                  backgroundColor: AppColors.errorRed,
-                  child: Icon(Icons.notifications_none_rounded),
-                ),
+                builder: (context, snapshot) {
+                  var hasUnread = false;
+
+                  if (snapshot.hasData) {
+                    final docs = snapshot.data!.docs;
+                    hasUnread = docs
+                        .map(NotificationModel.fromFirestore)
+                        .any((notification) => !notification.isRead);
+                  }
+
+                  return IconButton(
+                    tooltip: 'Notifications',
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppConstants.notificationsRoute,
+                    ),
+                    icon: Badge(
+                      isLabelVisible: hasUnread,
+                      smallSize: 7,
+                      backgroundColor: AppColors.errorRed,
+                      child: const Icon(
+                        Icons.notifications_none_rounded,
+                        color: AppColors.primaryText,
+                        size: 26,
+                      ),
+                    ),
+                  );
+                },
               ),
             if (!isMobile) const SizedBox(width: 10),
             if (!isMobile)
@@ -372,60 +396,23 @@ class _TopUtilityRowState extends State<_TopUtilityRow> {
                     context,
                     AppConstants.profileRoute,
                   ),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(20),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                      horizontal: 3,
+                      vertical: 3,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: AppColors.deepPurple,
-                          child: Text(
-                            _initials(name),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                    child: CircleAvatar(
+                      radius: 17,
+                      backgroundColor: AppColors.deepPurple,
+                      child: Text(
+                        _initials(name),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
                         ),
-                        const SizedBox(width: 9),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 150),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.primaryText,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const Text(
-                                'Applicant',
-                                style: TextStyle(
-                                  color: AppColors.secondaryText,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: AppColors.secondaryText,
-                          size: 20,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

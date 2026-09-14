@@ -76,14 +76,30 @@ class PlotModel {
       _ => 'available',
     };
 
-    // Derive block from IDs such as A-101, D-105, P-101.
+    final location = data['location']?.toString().trim() ?? '';
+
+    // Prefer the actual backend block field.
+    final explicitBlock = data['block']?.toString().trim() ?? '';
+
+    // If block is not stored separately, read common location values such as:
+    // "Block A", "Block-A", "block D", etc.
+    final locationBlockMatch = RegExp(
+      r'\bblock\s*[-:]?\s*([a-zA-Z0-9]+)\b',
+      caseSensitive: false,
+    ).firstMatch(location);
+
+    final locationBlock =
+        locationBlockMatch?.group(1)?.trim().toUpperCase() ?? '';
+
+    // Final fallback for older records such as A-101.
     final derivedBlock = plotId.contains('-')
         ? plotId.split('-').first.trim().toUpperCase()
         : '';
 
-    final block =
-    data['block']?.toString().trim().isNotEmpty == true
-        ? data['block'].toString().trim().toUpperCase()
+    final block = explicitBlock.isNotEmpty
+        ? explicitBlock.toUpperCase()
+        : locationBlock.isNotEmpty
+        ? locationBlock
         : derivedBlock;
 
     int development = 0;
@@ -117,13 +133,13 @@ class PlotModel {
       plotNumber: plotId,
       plotType: plotType,
       size: plotSize,
-      location: data['location']?.toString() ?? '',
+      location: location,
       price: price,
       status: status,
       allocatedTo: data['allocatedTo']?.toString() ?? '',
       block: block,
-      phase: data['phase']?.toString() ?? '',
-      category: category,
+      phase: data['phase']?.toString().trim() ?? '',
+      category: category.trim(),
       roadWidth: data['roadWidth']?.toString() ?? '',
       facing: data['facing']?.toString() ?? '',
       dimensions: data['dimensions']?.toString() ?? '',

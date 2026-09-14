@@ -2,9 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../models/plot_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_constants.dart';
-import '../utils/demo_data.dart';
 import '../widgets/responsive_shell.dart';
 
 class PlotsScreen extends StatefulWidget {
@@ -20,11 +20,8 @@ class _PlotsScreenState extends State<PlotsScreen> {
   final FirestoreService _service = FirestoreService();
   final ScrollController _scrollController = ScrollController();
 
-  String _query = '';
-  String _phase = 'All';
   String _block = 'All';
   String _size = 'All';
-  String _category = 'All';
   String _availability = 'All';
   bool _latestFirst = true;
   bool _favouritesOnly = false;
@@ -122,83 +119,51 @@ class _PlotsScreenState extends State<PlotsScreen> {
         child: StreamBuilder<QuerySnapshot>(
           stream: _service.getPlots(),
           builder: (context, snapshot) {
-            final firestorePlots = snapshot.data?.docs.map((doc) {
-                  final map = doc.data() as Map<String, dynamic>;
-                  return <String, dynamic>{...map, '_id': doc.id};
-                }).toList() ??
+            final allPlots = snapshot.data?.docs.map((doc) {
+              final raw =
+                  doc.data() as Map<String, dynamic>? ??
+                      <String, dynamic>{};
+              final plot = PlotModel.fromFirestore(doc);
+
+              // PlotModel bridges the Admin Firestore schema to the
+              // Applicant UI:
+              // plotId -> plotNumber
+              // plotSize -> size
+              // plotType <-> category
+              // block can be derived from IDs such as A-101.
+              return <String, dynamic>{
+                ...raw,
+                ...plot.toMap(),
+                '_id': doc.id,
+              };
+            }).toList() ??
                 <Map<String, dynamic>>[];
 
-            // Official Firestore data always wins. Demo data is shown only
-            // until the admin module publishes real plot records.
-            final allPlots = firestorePlots.isNotEmpty
-                ? firestorePlots
-                : DemoData.plotMaps
-                    .map((plot) => Map<String, dynamic>.from(plot))
-                    .toList();
-
-            final phases = _options(allPlots, 'phase');
             final blocks = _options(allPlots, 'block');
             final sizes = _options(allPlots, 'size');
-            final categories = _categoryOptions(allPlots);
             final statuses = _options(allPlots, 'status');
 
             final filtered = allPlots.where((plot) {
               final id = (plot['_id'] ?? '').toString();
 
-              final plotNumber = _normalize(plot['plotNumber']);
               final block = _normalize(plot['block']);
-              final phase = _normalize(plot['phase']);
               final size = _normalize(plot['size']);
-              final category =
-                  _normalize(plot['category'] ?? plot['plotType']);
               final status = _normalize(plot['status'] ?? 'Available');
 
-              // Search supports natural phrases such as:
-              // "block B", "phase 2", "plot 245", "plot #245",
-              // "10 marla", "residential" and "available".
-              final searchText = <String>[
-                plotNumber,
-                'plot $plotNumber',
-                'plot #$plotNumber',
-                'plot number $plotNumber',
-                block,
-                'block $block',
-                phase,
-                'phase $phase',
-                size,
-                category,
-                status,
-                _normalize(plot['roadWidth']),
-                _normalize(plot['facing']),
-                _normalize(plot['location']),
-                _normalize(plot['type']),
-              ].join(' ');
-
-              final queryOk =
-                  searchText.contains(_normalize(_query));
-              final phaseOk =
-                  _phase == 'All' ||
-                  phase == _normalize(_phase);
               final blockOk =
                   _block == 'All' ||
-                  block == _normalize(_block);
+                      block == _normalize(_block);
               final sizeOk =
                   _size == 'All' ||
-                  size == _normalize(_size);
-              final categoryOk =
-                  _category == 'All' ||
-                  category == _normalize(_category);
+                      size == _normalize(_size);
               final availabilityOk =
                   _availability == 'All' ||
-                  status == _normalize(_availability);
+                      status == _normalize(_availability);
               final favouriteOk =
                   !_favouritesOnly || _favourites.contains(id);
 
-              return queryOk &&
-                  phaseOk &&
-                  blockOk &&
+              return blockOk &&
                   sizeOk &&
-                  categoryOk &&
                   availabilityOk &&
                   favouriteOk;
             }).toList();
@@ -224,46 +189,28 @@ class _PlotsScreenState extends State<PlotsScreen> {
                       controller: _scrollController,
                       physics: const ClampingScrollPhysics(),
                       slivers: [
-                        SliverToBoxAdapter(
-                          child: _HeroAndSearch(
-                            onSearch: (value) {
-                              setState(() => _query = value.trim());
-                            },
-                            onNotifications: () {
-                              Navigator.pushNamed(
-                                context,
-                                AppConstants.notificationsRoute,
-                              );
-                            },
-                          ),
+                        const SliverToBoxAdapter(
+                          child: _HeroBanner(),
                         ),
                         SliverToBoxAdapter(
                           child: Center(
                             child: ConstrainedBox(
                               constraints:
-                                  const BoxConstraints(maxWidth: 1240),
+                              const BoxConstraints(maxWidth: 1240),
                               child: Padding(
                                 padding:
-                                    const EdgeInsets.fromLTRB(18, 8, 18, 0),
+                                const EdgeInsets.fromLTRB(18, 6, 18, 0),
                                 child: _FilterPanel(
-                                  phase: _phase,
                                   block: _block,
                                   size: _size,
-                                  category: _category,
                                   availability: _availability,
-                                  phases: phases,
                                   blocks: blocks,
                                   sizes: sizes,
-                                  categories: categories,
                                   statuses: statuses,
-                                  onPhase: (value) =>
-                                      setState(() => _phase = value),
                                   onBlock: (value) =>
                                       setState(() => _block = value),
                                   onSize: (value) =>
                                       setState(() => _size = value),
-                                  onCategory: (value) =>
-                                      setState(() => _category = value),
                                   onAvailability: (value) =>
                                       setState(() => _availability = value),
                                   onReset: _resetFilters,
@@ -276,10 +223,10 @@ class _PlotsScreenState extends State<PlotsScreen> {
                           child: Center(
                             child: ConstrainedBox(
                               constraints:
-                                  const BoxConstraints(maxWidth: 1240),
+                              const BoxConstraints(maxWidth: 1240),
                               child: Padding(
                                 padding:
-                                    const EdgeInsets.fromLTRB(22, 22, 22, 12),
+                                const EdgeInsets.fromLTRB(22, 18, 22, 12),
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -340,7 +287,7 @@ class _PlotsScreenState extends State<PlotsScreen> {
                           ),
                         ),
                         if (snapshot.connectionState ==
-                                ConnectionState.waiting &&
+                            ConnectionState.waiting &&
                             snapshot.data == null)
                           const SliverToBoxAdapter(
                             child: LinearProgressIndicator(
@@ -361,10 +308,10 @@ class _PlotsScreenState extends State<PlotsScreen> {
                             child: Center(
                               child: ConstrainedBox(
                                 constraints:
-                                    const BoxConstraints(maxWidth: 1240),
+                                const BoxConstraints(maxWidth: 1240),
                                 child: Padding(
                                   padding:
-                                      const EdgeInsets.fromLTRB(18, 0, 18, 28),
+                                  const EdgeInsets.fromLTRB(18, 0, 18, 28),
                                   child: LayoutBuilder(
                                     builder: (context, constraints) {
                                       final twoColumns =
@@ -377,34 +324,34 @@ class _PlotsScreenState extends State<PlotsScreen> {
                                         spacing: 16,
                                         runSpacing: 16,
                                         children:
-                                            List.generate(filtered.length,
+                                        List.generate(filtered.length,
                                                 (index) {
-                                          final plot = filtered[index];
-                                          final id =
+                                              final plot = filtered[index];
+                                              final id =
                                               (plot['_id'] ?? '').toString();
 
-                                          return SizedBox(
-                                            width: itemWidth,
-                                            child: _PlotCard(
-                                              data: plot,
-                                              fallbackAsset:
+                                              return SizedBox(
+                                                width: itemWidth,
+                                                child: _PlotCard(
+                                                  data: plot,
+                                                  fallbackAsset:
                                                   _fallbackImages[index %
                                                       _fallbackImages.length],
-                                              favourite:
+                                                  favourite:
                                                   _favourites.contains(id),
-                                              onFavourite: () => _toggleFavourite(id),
-                                              onMap: () {
-                                                Navigator.pushNamed(
-                                                  context,
-                                                  AppConstants.mapRoute,
-                                                );
-                                              },
-                                              onDetails: () {
-                                                _showPlotDetails(plot);
-                                              },
-                                            ),
-                                          );
-                                        }),
+                                                  onFavourite: () => _toggleFavourite(id),
+                                                  onMap: () {
+                                                    Navigator.pushNamed(
+                                                      context,
+                                                      AppConstants.mapRoute,
+                                                    );
+                                                  },
+                                                  onDetails: () {
+                                                    _showPlotDetails(plot);
+                                                  },
+                                                ),
+                                              );
+                                            }),
                                       );
                                     },
                                   ),
@@ -428,9 +375,9 @@ class _PlotsScreenState extends State<PlotsScreen> {
   }
 
   List<String> _options(
-    List<Map<String, dynamic>> rows,
-    String key,
-  ) {
+      List<Map<String, dynamic>> rows,
+      String key,
+      ) {
     final values = rows
         .map((row) => (row[key] ?? '').toString().trim())
         .where((value) => value.isNotEmpty)
@@ -441,21 +388,6 @@ class _PlotsScreenState extends State<PlotsScreen> {
     return <String>['All', ...values];
   }
 
-  List<String> _categoryOptions(
-    List<Map<String, dynamic>> rows,
-  ) {
-    final values = rows
-        .map(
-          (row) =>
-              (row['category'] ?? row['plotType'] ?? '').toString().trim(),
-        )
-        .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-
-    return <String>['All', ...values];
-  }
 
   String _normalize(dynamic value) {
     return (value ?? '')
@@ -473,10 +405,8 @@ class _PlotsScreenState extends State<PlotsScreen> {
 
   void _resetFilters() {
     setState(() {
-      _phase = 'All';
       _block = 'All';
       _size = 'All';
-      _category = 'All';
       _availability = 'All';
       _favouritesOnly = false;
     });
@@ -484,7 +414,7 @@ class _PlotsScreenState extends State<PlotsScreen> {
 
   void _showPlotDetails(Map<String, dynamic> plot) {
     final plotNumber =
-        (plot['plotNumber'] ?? plot['_id'] ?? '-').toString();
+    (plot['plotNumber'] ?? plot['_id'] ?? '-').toString();
 
     showModalBottomSheet<void>(
       context: context,
@@ -535,13 +465,8 @@ class _PlotsScreenState extends State<PlotsScreen> {
                     ),
                   ),
                   const SizedBox(height: 22),
-                  _DetailRow(label: 'Phase', value: plot['phase']),
                   _DetailRow(label: 'Block', value: plot['block']),
                   _DetailRow(label: 'Plot Size', value: plot['size']),
-                  _DetailRow(
-                    label: 'Category',
-                    value: plot['category'] ?? plot['plotType'],
-                  ),
                   _DetailRow(label: 'Status', value: plot['status']),
                   _DetailRow(
                     label: 'Road Width',
@@ -593,508 +518,238 @@ class _PlotsScreenState extends State<PlotsScreen> {
   }
 }
 
-class _HeroAndSearch extends StatelessWidget {
-  const _HeroAndSearch({
-    required this.onSearch,
-    required this.onNotifications,
-  });
+class _HeroBanner extends StatelessWidget {
+  const _HeroBanner();
 
-  final ValueChanged<String> onSearch;
-  final VoidCallback onNotifications;
+  static const String _backgroundAsset =
+      'assets/backgrounds/explore_plots_background.png';
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 600;
 
-    return SizedBox(
-      height: compact ? 328 : 345,
-      width: double.infinity,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            bottom: 34,
-            child: Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF1552B8),
-                    Color(0xFF2939C9),
-                    Color(0xFF7237DD),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Stack(
-                children: [
-                  const Positioned(
-                    right: 20,
-                    bottom: 18,
-                    child: Opacity(
-                      opacity: .18,
-                      child: _CityMapArtwork(),
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      compact ? 22 : 42,
-                      22,
-                      compact ? 22 : 42,
-                      28,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const _DhsWordmark(),
-                            const Spacer(),
-                            _NotificationButton(
-                              onPressed: onNotifications,
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        Text(
-                          'Explore Plots',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: compact ? 34 : 40,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Find your perfect plot in the perfect location.',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: .9),
-                            fontSize: compact ? 16 : 18,
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            left: compact ? 18 : 42,
-            right: compact ? 18 : 42,
-            bottom: 0,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1180),
-                child: Material(
-                  color: Colors.white,
-                  elevation: 12,
-                  shadowColor:
-                      const Color(0xFF4D49A4).withValues(alpha: .18),
-                  borderRadius: BorderRadius.circular(22),
-                  child: TextField(
-                    onChanged: onSearch,
-                    decoration: InputDecoration(
-                      hintText: 'Search by Plot #, Block or Phase...',
-                      hintStyle: const TextStyle(
-                        color: Color(0xFF8A93A8),
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: Color(0xFF6D7891),
-                        size: 27,
-                      ),
-                      suffixIcon: const Icon(
-                        Icons.tune_rounded,
-                        color: Color(0xFF5360A4),
-                        size: 23,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 19,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(22),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFE5E8F0),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(22),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF6548E6),
-                          width: 1.4,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        compact ? 0 : 18,
+        compact ? 0 : 14,
+        compact ? 0 : 18,
+        0,
       ),
-    );
-  }
-}
-
-class _DhsWordmark extends StatelessWidget {
-  const _DhsWordmark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 48,
-          height: 48,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(compact ? 0 : 26),
+        child: SizedBox(
+          height: compact ? 330 : 305,
+          width: double.infinity,
           child: Stack(
-            alignment: Alignment.bottomCenter,
+            fit: StackFit.expand,
             children: [
-              Positioned(
-                left: 4,
-                bottom: 4,
-                child: Container(
-                  width: 9,
-                  height: 26,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF5CD3FF),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(4),
-                    ),
+              Image.asset(
+                _backgroundAsset,
+                fit: BoxFit.cover,
+                alignment: compact
+                    ? Alignment.center
+                    : Alignment.center,
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Color(0x990A101A),
+                      Color(0x550A101A),
+                      Color(0x120A101A),
+                      Color(0x000A101A),
+                    ],
+                    stops: [0.0, .38, .70, 1.0],
                   ),
                 ),
               ),
               Positioned(
-                left: 17,
-                bottom: 4,
-                child: Container(
-                  width: 9,
-                  height: 38,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(4),
+                left: compact ? 24 : 42,
+                right: compact ? 24 : 42,
+                bottom: compact ? 30 : 34,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Explore Plots',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: compact ? 35 : 42,
+                        height: 1.05,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -.6,
+                        shadows: const [
+                          Shadow(
+                            color: Color(0x66000000),
+                            blurRadius: 12,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 8,
-                bottom: 4,
-                child: Container(
-                  width: 9,
-                  height: 31,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF8A75FF),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(4),
+                    const SizedBox(height: 9),
+                    Text(
+                      'Find your perfect plot in the perfect location.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: compact ? 16 : 18,
+                        height: 1.35,
+                        fontWeight: FontWeight.w500,
+                        shadows: const [
+                          Shadow(
+                            color: Color(0x88000000),
+                            blurRadius: 10,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 9),
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'DHS',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 27,
-                fontWeight: FontWeight.w800,
-                height: 1,
-              ),
-            ),
-            SizedBox(height: 3),
-            Text(
-              'DIGITAL HOUSING SOCIETY',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 7.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: .4,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _NotificationButton extends StatelessWidget {
-  const _NotificationButton({
-    required this.onPressed,
-  });
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 50,
-      height: 50,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Material(
-              color: Colors.white.withValues(alpha: .11),
-              borderRadius: BorderRadius.circular(17),
-              child: IconButton(
-                onPressed: onPressed,
-                icon: const Icon(
-                  Icons.notifications_none_rounded,
-                  color: Colors.white,
-                  size: 26,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 7,
-            top: 6,
-            child: Container(
-              width: 9,
-              height: 9,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFF585D),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
-}
-
-class _CityMapArtwork extends StatelessWidget {
-  const _CityMapArtwork();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 270,
-      height: 165,
-      child: CustomPaint(
-        painter: _CityMapPainter(),
-      ),
-    );
-  }
-}
-
-class _CityMapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    final thin = Paint()
-      ..color = Colors.white.withValues(alpha: .75)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    for (var i = 0; i < 5; i++) {
-      final left = 15.0 + i * 38;
-      final h = 70.0 + (i % 3) * 20;
-      final rect = Rect.fromLTWH(
-        left,
-        size.height - h - 20,
-        30,
-        h,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(3)),
-        thin,
-      );
-
-      for (var y = rect.top + 12; y < rect.bottom - 8; y += 18) {
-        canvas.drawLine(
-          Offset(rect.left + 7, y),
-          Offset(rect.left + 23, y),
-          thin,
-        );
-      }
-    }
-
-    final road = Path()
-      ..moveTo(0, size.height - 5)
-      ..cubicTo(
-        size.width * .35,
-        size.height - 40,
-        size.width * .65,
-        size.height - 60,
-        size.width,
-        size.height - 25,
-      );
-    canvas.drawPath(road, paint);
-
-    final pinCenter = Offset(size.width - 42, 38);
-    canvas.drawCircle(pinCenter, 20, paint);
-    canvas.drawCircle(pinCenter, 6, paint);
-    canvas.drawLine(
-      Offset(pinCenter.dx, pinCenter.dy + 20),
-      Offset(pinCenter.dx, pinCenter.dy + 43),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _FilterPanel extends StatelessWidget {
   const _FilterPanel({
-    required this.phase,
     required this.block,
     required this.size,
-    required this.category,
     required this.availability,
-    required this.phases,
     required this.blocks,
     required this.sizes,
-    required this.categories,
     required this.statuses,
-    required this.onPhase,
     required this.onBlock,
     required this.onSize,
-    required this.onCategory,
     required this.onAvailability,
     required this.onReset,
   });
 
-  final String phase;
   final String block;
   final String size;
-  final String category;
   final String availability;
 
-  final List<String> phases;
   final List<String> blocks;
   final List<String> sizes;
-  final List<String> categories;
   final List<String> statuses;
 
-  final ValueChanged<String> onPhase;
   final ValueChanged<String> onBlock;
   final ValueChanged<String> onSize;
-  final ValueChanged<String> onCategory;
   final ValueChanged<String> onAvailability;
   final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFFE6EAF2),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF5F69B3).withValues(alpha: .07),
-            blurRadius: 18,
-            offset: const Offset(0, 7),
-          ),
-        ],
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final desktop = width >= 920;
-          final tablet = width >= 620;
+    return LayoutBuilder(
+      builder: (context, outerConstraints) {
+        final compact = outerConstraints.maxWidth < 620;
 
-          final itemWidth = desktop
-              ? (width - 24) / 3
-              : tablet
-                  ? (width - 12) / 2
-                  : width;
-
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              SizedBox(
-                width: itemWidth,
-                child: _FilterDropdown(
-                  icon: Icons.apartment_rounded,
-                  label: 'Phase',
-                  value: phase,
-                  options: phases,
-                  onChanged: onPhase,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onReset,
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  size: 19,
                 ),
-              ),
-              SizedBox(
-                width: itemWidth,
-                child: _FilterDropdown(
-                  icon: Icons.business_rounded,
-                  label: 'Block',
-                  value: block,
-                  options: blocks,
-                  onChanged: onBlock,
-                ),
-              ),
-              SizedBox(
-                width: itemWidth,
-                child: _FilterDropdown(
-                  icon: Icons.crop_square_rounded,
-                  label: 'Plot Size',
-                  value: size,
-                  options: sizes,
-                  onChanged: onSize,
-                ),
-              ),
-              SizedBox(
-                width: itemWidth,
-                child: _FilterDropdown(
-                  icon: Icons.category_outlined,
-                  label: 'Category',
-                  value: category,
-                  options: categories,
-                  onChanged: onCategory,
-                ),
-              ),
-              SizedBox(
-                width: itemWidth,
-                child: _FilterDropdown(
-                  icon: Icons.real_estate_agent_outlined,
-                  label: 'Availability',
-                  value: availability,
-                  options: statuses,
-                  onChanged: onAvailability,
-                ),
-              ),
-              SizedBox(
-                width: itemWidth,
-                height: 64,
-                child: TextButton.icon(
-                  onPressed: onReset,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Reset Filters'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF6745E8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                label: const Text(
+                  'Reset Filters',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF6745E8),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 8 : 10,
+                    vertical: 6,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
-            ],
-          );
-        },
-      ),
+            ),
+            const SizedBox(height: 5),
+            Container(
+              padding: EdgeInsets.all(compact ? 12 : 13),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: const Color(0xFFE6EAF2),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                    const Color(0xFF5F69B3).withValues(alpha: .07),
+                    blurRadius: 18,
+                    offset: const Offset(0, 7),
+                  ),
+                ],
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  final desktop = width >= 900;
+                  final tablet = width >= 620;
+
+                  final itemWidth = desktop
+                      ? (width - 24) / 3
+                      : tablet
+                      ? (width - 12) / 2
+                      : width;
+
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    children: [
+                      SizedBox(
+                        width: itemWidth,
+                        child: _FilterDropdown(
+                          icon: Icons.business_rounded,
+                          label: 'Block',
+                          value: block,
+                          options: blocks,
+                          onChanged: onBlock,
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _FilterDropdown(
+                          icon: Icons.crop_square_rounded,
+                          label: 'Plot Size',
+                          value: size,
+                          options: sizes,
+                          onChanged: onSize,
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _FilterDropdown(
+                          icon: Icons.real_estate_agent_outlined,
+                          label: 'Availability',
+                          value: availability,
+                          options: statuses,
+                          onChanged: onAvailability,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1161,7 +816,7 @@ class _FilterDropdown extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      CrossAxisAlignment.start,
                       children: [
                         Text(
                           label,
@@ -1218,12 +873,9 @@ class _PlotCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final plotNumber =
-        (data['plotNumber'] ?? data['_id'] ?? '-').toString();
+    (data['plotNumber'] ?? data['_id'] ?? '-').toString();
     final block = (data['block'] ?? '-').toString();
-    final phase = (data['phase'] ?? '-').toString();
     final size = (data['size'] ?? '-').toString();
-    final category =
-        (data['category'] ?? data['plotType'] ?? 'Residential').toString();
     final roadWidth = (data['roadWidth'] ?? '-').toString();
     final facing = (data['facing'] ?? '-').toString();
     final status = (data['status'] ?? 'Available').toString();
@@ -1240,11 +892,6 @@ class _PlotCard extends StatelessWidget {
         icon: Icons.crop_square_rounded,
         label: 'Plot Size',
         value: size,
-      ),
-      _PlotFact(
-        icon: Icons.category_outlined,
-        label: 'Category',
-        value: category,
       ),
       _PlotFact(
         icon: Icons.add_road_rounded,
@@ -1280,23 +927,21 @@ class _PlotCard extends StatelessWidget {
           ),
           child: compact
               ? _buildCompact(
-                  plotNumber: plotNumber,
-                  block: block,
-                  phase: phase,
-                  status: status,
-                  imageUrl: imageUrl,
-                  facts: facts,
-                  development: development,
-                )
+            plotNumber: plotNumber,
+            block: block,
+            status: status,
+            imageUrl: imageUrl,
+            facts: facts,
+            development: development,
+          )
               : _buildWide(
-                  plotNumber: plotNumber,
-                  block: block,
-                  phase: phase,
-                  status: status,
-                  imageUrl: imageUrl,
-                  facts: facts,
-                  development: development,
-                ),
+            plotNumber: plotNumber,
+            block: block,
+            status: status,
+            imageUrl: imageUrl,
+            facts: facts,
+            development: development,
+          ),
         );
       },
     );
@@ -1305,7 +950,6 @@ class _PlotCard extends StatelessWidget {
   Widget _buildCompact({
     required String plotNumber,
     required String block,
-    required String phase,
     required String status,
     required String imageUrl,
     required List<_PlotFact> facts,
@@ -1325,7 +969,6 @@ class _PlotCard extends StatelessWidget {
         _titleRow(
           plotNumber: plotNumber,
           block: block,
-          phase: phase,
         ),
         const SizedBox(height: 12),
         _factsGrid(facts),
@@ -1340,7 +983,6 @@ class _PlotCard extends StatelessWidget {
   Widget _buildWide({
     required String plotNumber,
     required String block,
-    required String phase,
     required String status,
     required String imageUrl,
     required List<_PlotFact> facts,
@@ -1368,7 +1010,6 @@ class _PlotCard extends StatelessWidget {
                     _titleRow(
                       plotNumber: plotNumber,
                       block: block,
-                      phase: phase,
                     ),
                     const SizedBox(height: 11),
                     const Divider(
@@ -1404,17 +1045,17 @@ class _PlotCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           child: imageUrl.isNotEmpty
               ? Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Image.asset(
-                    fallbackAsset,
-                    fit: BoxFit.cover,
-                  ),
-                )
+            imageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Image.asset(
+              fallbackAsset,
+              fit: BoxFit.cover,
+            ),
+          )
               : Image.asset(
-                  fallbackAsset,
-                  fit: BoxFit.cover,
-                ),
+            fallbackAsset,
+            fit: BoxFit.cover,
+          ),
         ),
         Positioned(
           top: 10,
@@ -1428,7 +1069,6 @@ class _PlotCard extends StatelessWidget {
   Widget _titleRow({
     required String plotNumber,
     required String block,
-    required String phase,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1470,11 +1110,6 @@ class _PlotCard extends StatelessWidget {
               text: 'Block $block',
               color: const Color(0xFF3157D5),
             ),
-            _MetaChip(
-              icon: Icons.flag_outlined,
-              text: 'Phase $phase',
-              color: const Color(0xFF7C47E6),
-            ),
           ],
         ),
       ],
@@ -1495,14 +1130,14 @@ class _PlotCard extends StatelessWidget {
           children: facts
               .map(
                 (fact) => SizedBox(
-                  width: width,
-                  child: _InfoItem(
-                    icon: fact.icon,
-                    label: fact.label,
-                    value: fact.value,
-                  ),
-                ),
-              )
+              width: width,
+              child: _InfoItem(
+                icon: fact.icon,
+                label: fact.label,
+                value: fact.value,
+              ),
+            ),
+          )
               .toList(),
         );
       },
@@ -1708,7 +1343,7 @@ class _AvailabilityBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final available =
-        status.toLowerCase().contains('available');
+    status.toLowerCase().contains('available');
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -1718,11 +1353,11 @@ class _AvailabilityBadge extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: available
             ? const LinearGradient(
-                colors: [
-                  Color(0xFF4058E5),
-                  Color(0xFF8640E9),
-                ],
-              )
+          colors: [
+            Color(0xFF4058E5),
+            Color(0xFF8640E9),
+          ],
+        )
             : null,
         color: available ? null : const Color(0xFF667085),
         borderRadius: BorderRadius.circular(20),
