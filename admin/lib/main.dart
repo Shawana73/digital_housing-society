@@ -6,6 +6,7 @@ import 'app_routes.dart';  //routes names defined
 import 'models/admin_models.dart';
 import 'screens/splash_screen.dart';
 import 'screens/admin_login/admin_login_screen.dart';
+import 'screens/admin_signup_screen.dart';
 import 'screens/add_plot/add_plot_screen.dart';
 import 'screens/applicants/applicant_verification_screen.dart';
 import 'screens/dashboard/admin_dashboard_screen.dart';
@@ -45,6 +46,7 @@ class DigitalHousingAdminApp extends StatelessWidget {
       routes: {  //maps named routes with their screens
         AdminRoutes.splash: (_) => const SplashScreen(),
         AdminRoutes.login: (_) => const AdminLoginScreen(),
+        AdminRoutes.signup: (_) => const AdminSignupScreen(),
         AdminRoutes.dashboard: (_) => const AdminDashboardScreen(),
         AdminRoutes.applicants: (_) => const ApplicantVerificationScreen(),
         AdminRoutes.payments: (_) => const PaymentVerificationScreen(),

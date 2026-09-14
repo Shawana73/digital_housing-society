@@ -77,7 +77,7 @@ class LoginViewModel extends ChangeNotifier {
       } else if (e.code == 'invalid-email') {
         return 'Please enter a valid email address.';
       }
-      return 'Login failed';
+      return 'Login failed. Please try again.';
     } catch (e) {
       return 'Something went wrong. Please try again.';
     }

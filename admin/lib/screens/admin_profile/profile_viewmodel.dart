@@ -114,4 +114,33 @@ class ProfileViewModel extends BaseAdminViewModel {
       return 'Logout failed: ${e.message ?? 'Please try again'}';
     }
   }
+  /// Returns null on success, or an error message string on failure.
+  Future<String?> inviteAdmin(String inviteEmail) async {
+    final emailToInvite = inviteEmail.trim().toLowerCase();
+
+    if (emailToInvite.isEmpty) {
+      return 'Please enter an email address.';
+    }
+    final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailPattern.hasMatch(emailToInvite)) {
+      return 'Please enter a valid email address.';
+    }
+
+    try {
+      final existingInvite = await _firestore.collection('invited_admins').doc(emailToInvite).get();
+      if (existingInvite.exists) {
+        return 'This email has already been invited.';
+      }
+
+      await _firestore.collection('invited_admins').doc(emailToInvite).set({
+        'email': emailToInvite,
+        'invitedBy': FirebaseAuth.instance.currentUser?.uid,
+        'invitedAt': FieldValue.serverTimestamp(),
+      });
+
+      return null;
+    } catch (e) {
+      return 'Could not send invitation. Please try again.';
+    }
+  }
 }

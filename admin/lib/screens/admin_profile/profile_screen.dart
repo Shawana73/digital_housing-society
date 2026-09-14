@@ -217,7 +217,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
       showAdminSnack(context, error);
     }
   }
+  void _inviteAdmin() {
+    final emailController = TextEditingController();
+    bool isSending = false;
 
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AdminColors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminColors.radius)),
+              title: const Text('Invite New Admin'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Enter the email of the person you want to grant admin access to. They will be able to sign up using this email.',
+                    style: TextStyle(color: AdminColors.greyText, fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email address',
+                      prefixIcon: Icon(Icons.email_rounded),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSending ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: isSending
+                      ? null
+                      : () async {
+                    setDialogState(() => isSending = true);
+                    final error = await _viewModel.inviteAdmin(emailController.text.trim());
+                    if (!mounted) return;
+
+                    if (error == null) {
+                      Navigator.pop(dialogContext);
+                      showAdminSnack(context, 'Invitation sent successfully');
+                    } else {
+                      setDialogState(() => isSending = false);
+                      showAdminSnack(context, error);
+                    }
+                  },
+                  child: isSending
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Send Invite'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return AdminShell(
@@ -290,9 +353,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
           ProfileSettingsTile(icon: Icons.lock_rounded, title: 'Change Password', subtitle: 'Update admin password', onTap: _changePassword),
+          if (_viewModel.role == 'super_admin')
+            ProfileSettingsTile(
+              icon: Icons.person_add_alt_1_rounded,
+              title: 'Invite New Admin',
+              subtitle: 'Grant admin access to a team member',
+              onTap: _inviteAdmin,
+            ),
           ProfileSettingsTile(icon: Icons.logout_rounded, title: 'Logout', subtitle: 'Sign out from admin panel', color: AdminColors.rejected, onTap: _logout),
         ],
       ),
     );
   }
-}
+  }
