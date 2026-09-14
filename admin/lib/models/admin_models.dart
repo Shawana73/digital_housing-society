@@ -222,20 +222,55 @@ class SocietyPlot {
 
 class Dealer {
   final String id;
+
+  // Personal
   final String name;
   final String cnic;
+  final String email;
   final String phone;
-  final String agency;
   final String city;
+
+  // Business
+  final String agency;
+  final String businessType;
+  final String specialization;
+  final String ntnNumber;
+  final String yearsInBusiness;
+
+  // Office
+  final String businessAddress;
+  final String officeAddress;
+  final String area;
+  final String officePhone;
+
+  // Documents / other
+  final List<dynamic> documents;
+  final bool termsAccepted;
+  final String applicantId;
+  final dynamic submittedAt;
+
   VerificationStatus status;
 
   Dealer({
     required this.id,
     required this.name,
     required this.cnic,
+    required this.email,
     required this.phone,
-    required this.agency,
     required this.city,
+    required this.agency,
+    required this.businessType,
+    required this.specialization,
+    required this.ntnNumber,
+    required this.yearsInBusiness,
+    required this.businessAddress,
+    required this.officeAddress,
+    required this.area,
+    required this.officePhone,
+    required this.documents,
+    required this.termsAccepted,
+    required this.applicantId,
+    required this.submittedAt,
     required this.status,
   });
 
@@ -244,17 +279,35 @@ class Dealer {
 
     return Dealer(
       id: doc.id,
-      name: data['name'] ?? '',
-      cnic: data['cnic'] ?? '',
-      phone: data['phone'] ?? '',
-      agency: data['agency'] ?? '',
-      city: data['city'] ?? '',
-      status: _statusFromString(data['status']),
+      name: data['fullName']?.toString() ?? '',
+      cnic: data['cnic']?.toString() ?? '',
+      email: data['email']?.toString() ?? '',
+      phone: data['phone']?.toString() ?? '',
+      city: data['city']?.toString() ?? '',
+      agency: data['companyName']?.toString() ?? '',
+      businessType: data['businessType']?.toString() ?? '',
+      specialization: data['specialization']?.toString() ?? '',
+      ntnNumber: data['ntnNumber']?.toString() ?? '',
+      yearsInBusiness: data['yearsInBusiness']?.toString() ?? '',
+      businessAddress: data['businessAddress']?.toString() ?? '',
+      officeAddress: data['officeAddress']?.toString() ?? '',
+      area: data['area']?.toString() ?? '',
+      officePhone: data['officePhone']?.toString() ?? '',
+      documents: data['documents'] is List
+          ? List<dynamic>.from(data['documents'])
+          : [],
+      termsAccepted: data['termsAccepted'] == true,
+      applicantId: data['applicantId']?.toString() ?? '',
+      submittedAt: data['submittedAt'],
+      status: _statusFromString(
+        data['verificationStatus']?.toString(),
+      ),
     );
   }
 
   static VerificationStatus _statusFromString(String? status) {
-    switch (status) {
+    switch (status?.toLowerCase()) {
+      case 'approved':
       case 'verified':
         return VerificationStatus.verified;
 
@@ -267,6 +320,20 @@ class Dealer {
     }
   }
 }
+
+   VerificationStatus _statusFromString(String? status) {
+    switch (status) {
+      case 'verified':
+        return VerificationStatus.verified;
+
+      case 'rejected':
+        return VerificationStatus.rejected;
+
+      case 'pending':
+      default:
+        return VerificationStatus.pending;
+    }
+  }
 /// FIX: added `applicationId` so results can be searched/matched by the
 /// applicant's application number (previously missing, which made the
 /// "Search by Application ID" hint in Result screen non-functional).

@@ -42,9 +42,16 @@ class _DealerVerificationScreenState extends State<DealerVerificationScreen> {
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
-        child: PremiumCard(
-          padding: const EdgeInsets.all(20),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
+          child: PremiumCard(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
             CircleAvatar(
               radius: 34,
               backgroundColor: AdminColors.primary.withValues(alpha: 0.12),
@@ -58,14 +65,86 @@ class _DealerVerificationScreenState extends State<DealerVerificationScreen> {
             const SizedBox(height: 8),
             StatusPill(label: dealer.status.label, color: dealer.status.color),
             const SizedBox(height: 14),
-            InfoRow(icon: Icons.business_rounded, label: 'Agency', value: dealer.agency),
-            InfoRow(icon: Icons.credit_card_rounded, label: 'CNIC', value: dealer.cnic),
-            InfoRow(icon: Icons.phone_rounded, label: 'Phone', value: dealer.phone),
-            InfoRow(icon: Icons.location_city_rounded, label: 'City', value: dealer.city),
+            InfoRow(
+              icon: Icons.person_rounded,
+              label: 'Full Name',
+              value: dealer.name,
+            ),
+            InfoRow(
+              icon: Icons.credit_card_rounded,
+              label: 'CNIC',
+              value: dealer.cnic,
+            ),
+            InfoRow(
+              icon: Icons.email_rounded,
+              label: 'Email',
+              value: dealer.email,
+            ),
+            InfoRow(
+              icon: Icons.phone_rounded,
+              label: 'Phone',
+              value: dealer.phone,
+            ),
+            InfoRow(
+              icon: Icons.business_rounded,
+              label: 'Company / Agency',
+              value: dealer.agency,
+            ),
+            InfoRow(
+              icon: Icons.business_center_rounded,
+              label: 'Business Type',
+              value: dealer.businessType,
+            ),
+            InfoRow(
+              icon: Icons.category_rounded,
+              label: 'Specialization',
+              value: dealer.specialization,
+            ),
+            InfoRow(
+              icon: Icons.receipt_long_rounded,
+              label: 'NTN Number',
+              value: dealer.ntnNumber,
+            ),
+            InfoRow(
+              icon: Icons.work_history_rounded,
+              label: 'Years in Business',
+              value: dealer.yearsInBusiness,
+            ),
+            InfoRow(
+              icon: Icons.location_city_rounded,
+              label: 'City',
+              value: dealer.city,
+            ),
+            InfoRow(
+              icon: Icons.map_rounded,
+              label: 'Area',
+              value: dealer.area,
+            ),
+            InfoRow(
+              icon: Icons.location_on_rounded,
+              label: 'Business Address',
+              value: dealer.businessAddress,
+            ),
+            InfoRow(
+              icon: Icons.store_rounded,
+              label: 'Office Address',
+              value: dealer.officeAddress,
+            ),
+            InfoRow(
+              icon: Icons.phone_in_talk_rounded,
+              label: 'Office Phone',
+              value: dealer.officePhone,
+            ),
             const SizedBox(height: 14),
-            FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Close Profile')),
-          ]),
-        ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close Profile'),
+                      ),
+                    ],
+                ),
+              ),
+            ),
+          ),
       ),
     );
   }
