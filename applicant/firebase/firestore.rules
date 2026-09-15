@@ -119,6 +119,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /activity_logs/{logId} {
+      allow create: if ownsIncomingApplicant();
+      allow read: if ownsExistingApplicant() || isAdmin();
+      allow update, delete: if false;
+    }
+
     match /plots/{plotId} {
       allow read: if signedIn();
       allow write: if isAdmin();

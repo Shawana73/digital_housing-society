@@ -27,11 +27,12 @@ class PaymentModel {
 
   factory PaymentModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
+    final rawAmount = (data['amount'] as num?)?.toInt() ?? 0;
     return PaymentModel(
       id: doc.id,
       applicantId: data['applicantId']?.toString() ?? '',
       applicationId: data['applicationId']?.toString() ?? '',
-      amount: (data['amount'] as num?)?.toInt() ?? 0,
+      amount: rawAmount < 0 ? 0 : rawAmount,
       plotType: data['plotType']?.toString() ?? '',
       paymentMethod: data['paymentMethod']?.toString() ?? '',
       receiptUrl: data['receiptUrl']?.toString() ?? '',

@@ -760,7 +760,7 @@ class _LiveState extends StatelessWidget {
     _text(data, 'selectedApplications', '0');
 
     final progress =
-        (data['progress'] as num?)?.toDouble() ?? 0.0;
+        ((data['progress'] as num?)?.toDouble() ?? 0.0).clamp(0.0, 1.0).toDouble();
     final stage = _text(data, 'stage', 'validation');
     final message = _text(
       data,
@@ -884,92 +884,32 @@ class _LiveSessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Card(
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _GradientIconBox(
-                icon: Icons.videocam_rounded,
-                size: 58,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Live Balloting Session',
-                      style: AppTextStyles.headingSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _text(
-                        data,
-                        'message',
-                        'The official housing balloting draw is currently in progress.',
-                      ),
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          _GradientIconBox(
+            icon: Icons.videocam_rounded,
+            size: 58,
           ),
-          const SizedBox(height: 16),
-          Container(
-            height: MediaQuery.sizeOf(context).width < 560 ? 170 : 220,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              image: const DecorationImage(
-                image: AssetImage(AppAssets.courtyardBackground),
-                fit: BoxFit.cover,
-              ),
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.darkNavy.withValues(alpha: .12),
-                    AppColors.darkNavy.withValues(alpha: .62),
-                  ],
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Live Balloting Session',
+                  style: AppTextStyles.headingSmall,
                 ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'OFFICIAL LIVE DRAW',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.headingSmall.copyWith(
-                        color: AppColors.white,
-                        letterSpacing: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      width: 58,
-                      height: 58,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                        color: Colors.black.withValues(alpha: .18),
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow_rounded,
-                        color: Colors.white,
-                        size: 34,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  _text(
+                    data,
+                    'message',
+                    'The official housing balloting draw is currently in progress.',
+                  ),
+                  style: AppTextStyles.bodyMedium,
                 ),
-              ),
+              ],
             ),
           ),
         ],
@@ -977,6 +917,7 @@ class _LiveSessionCard extends StatelessWidget {
     );
   }
 }
+
 class _LiveStageCard extends StatelessWidget {
   const _LiveStageCard({
     required this.stage,

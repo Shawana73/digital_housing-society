@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/firestore_service.dart';
+import '../services/storage_service.dart';
+import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../utils/app_text_styles.dart';
@@ -22,11 +24,12 @@ class DealerRegistrationScreen extends StatefulWidget {
 
 class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
   final FirestoreService _service = FirestoreService();
+  final StorageService _storageService = StorageService();
   final ScrollController _scrollController = ScrollController();
 
   final List<GlobalKey<FormState>> _stepForms = List.generate(
     4,
-    (_) => GlobalKey<FormState>(),
+        (_) => GlobalKey<FormState>(),
   );
 
   final TextEditingController _fullName = TextEditingController();
@@ -53,6 +56,9 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
   Map<String, dynamic>? _existing;
 
   final Map<String, Map<String, dynamic>> _documents = {};
+  final Set<String> _uploadingDocuments = <String>{};
+  String? _profileImageUrl;
+  bool _uploadingProfileImage = false;
 
   static const List<String> _businessTypes = [
     'Residential Plots',
@@ -132,8 +138,13 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
       final existing = await _service.getDealerRegistration(uid);
 
       if (mounted) {
+        final existingData = existing?.data() as Map<String, dynamic>?;
         setState(() {
-          _existing = existing?.data() as Map<String, dynamic>?;
+          _existing = existingData;
+          _profileImageUrl =
+          (existingData?['profileImageUrl'] ?? '').toString().trim().isEmpty
+              ? null
+              : existingData?['profileImageUrl'].toString();
         });
       }
     } catch (_) {
@@ -146,9 +157,15 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
   }
 
   Future<void> _pickDocument(String key, String title) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      _snack('Please login again.');
+      return;
+    }
+
     final result = await FilePicker.pickFiles(
       allowMultiple: false,
-      withData: false,
+      withData: true,
       type: FileType.custom,
       allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
     );
@@ -157,38 +174,117 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
 
     final file = result.files.first;
     final extension = (file.extension ?? '').toLowerCase();
+    final bytes = file.bytes;
 
+    if (file.size <= 0) {
+      _snack('$title file is empty.');
+      return;
+    }
     if (file.size > 5 * 1024 * 1024) {
       _snack('$title must be 5MB or smaller.');
       return;
     }
-
     if (!const ['pdf', 'png', 'jpg', 'jpeg'].contains(extension)) {
       _snack('Use PDF, JPG or PNG only.');
       return;
     }
-
     if (file.name.trim().length < 3 ||
         file.name.contains(RegExp(r'[<>:"/\\|?*]'))) {
       _snack('Please choose a file with a valid name.');
       return;
     }
+    if (bytes == null) {
+      _snack('$title could not be read. Please select it again.');
+      return;
+    }
 
-    final serial =
-        'DLR-${DateTime.now().year}-${Random.secure().nextInt(900000) + 100000}';
+    setState(() => _uploadingDocuments.add(key));
 
-    setState(() {
-      _documents[key] = {
-        'documentTitle': title,
-        'name': file.name,
-        'type': extension,
-        'size': file.size,
-        'serial': serial,
-      };
-    });
+    try {
+      final uploadedUrl = await _storageService.uploadFile(
+        bytes,
+        'dealer_${uid}_${key}_${DateTime.now().millisecondsSinceEpoch}.$extension',
+      );
+      final serial =
+          'DLR-${DateTime.now().year}-${Random.secure().nextInt(900000) + 100000}';
+
+      if (!mounted) return;
+      setState(() {
+        _documents[key] = {
+          'documentKey': key,
+          'documentTitle': title,
+          'name': file.name,
+          'type': extension,
+          'size': file.size,
+          'serial': serial,
+          'url': uploadedUrl,
+        };
+      });
+    } catch (_) {
+      if (mounted) {
+        _snack('$title upload failed. Please try again.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingDocuments.remove(key));
+      }
+    }
+  }
+
+  Future<void> _pickProfileImage() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      _snack('Please login again.');
+      return;
+    }
+
+    final result = await FilePicker.pickFiles(
+      allowMultiple: false,
+      withData: true,
+      type: FileType.custom,
+      allowedExtensions: const ['png', 'jpg', 'jpeg'],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    final extension = (file.extension ?? '').toLowerCase();
+    final bytes = file.bytes;
+
+    if (!const ['png', 'jpg', 'jpeg'].contains(extension)) {
+      _snack('Profile image must be JPG or PNG.');
+      return;
+    }
+    if (file.size <= 0 || file.size > 2 * 1024 * 1024) {
+      _snack('Profile image must be smaller than 2MB.');
+      return;
+    }
+    if (bytes == null) {
+      _snack('Profile image could not be read. Please select it again.');
+      return;
+    }
+
+    final hadImage = _profileImageUrl != null && _profileImageUrl!.isNotEmpty;
+    setState(() => _uploadingProfileImage = true);
+    try {
+      final url = await _storageService.uploadImage(
+        bytes,
+        'dealer_profile_${uid}_${DateTime.now().millisecondsSinceEpoch}.$extension',
+      );
+      if (!mounted) return;
+      setState(() => _profileImageUrl = url);
+      _snack(hadImage ? 'Profile image updated.' : 'Profile image uploaded.');
+    } catch (_) {
+      if (mounted) _snack('Profile image upload failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _uploadingProfileImage = false);
+    }
   }
 
   Future<void> _submit() async {
+    if (_uploadingProfileImage || _uploadingDocuments.isNotEmpty) {
+      _snack('Please wait for file uploads to finish.');
+      return;
+    }
     // Do not validate unmounted FormState objects here. On mobile only the
     // active registration step is mounted, so currentState is null for the
     // other steps. The old implementation treated that null as invalid and
@@ -238,6 +334,7 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
           'cnicDigits': Validators.onlyDigits(_cnic.text),
           'email': _email.text.trim(),
           'phone': _personalPhone.text.trim(),
+          'profileImageUrl': _profileImageUrl ?? '',
           'companyName': _companyName.text.trim(),
           'businessType': _businessType,
           'specialization': _businessType,
@@ -272,7 +369,7 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
 
 
   String? _validateAllRegistrationValues() {
-    final fullNameError = Validators.required(_fullName.text, 'Full name');
+    final fullNameError = Validators.fullName(_fullName.text);
     if (fullNameError != null) {
       setState(() => _currentStep = 0);
       _scrollToProcess();
@@ -301,14 +398,14 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
     }
 
     final companyError =
-        Validators.required(_companyName.text, 'Company name');
+    Validators.companyName(_companyName.text);
     if (companyError != null) {
       setState(() => _currentStep = 1);
       _scrollToProcess();
       return companyError;
     }
 
-    final ntnError = Validators.required(_ntnNumber.text, 'NTN number');
+    final ntnError = Validators.ntn(_ntnNumber.text);
     if (ntnError != null) {
       setState(() => _currentStep = 1);
       _scrollToProcess();
@@ -322,14 +419,14 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
     }
 
     final officeError =
-        Validators.required(_officeAddress.text, 'Office address');
+    Validators.address(_officeAddress.text, label: 'Office address');
     if (officeError != null) {
       setState(() => _currentStep = 2);
       _scrollToProcess();
       return officeError;
     }
 
-    final areaError = Validators.required(_area.text, 'Area');
+    final areaError = Validators.area(_area.text);
     if (areaError != null) {
       setState(() => _currentStep = 2);
       _scrollToProcess();
@@ -353,6 +450,10 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
   }
 
   void _nextStep(int step) {
+    if (_uploadingProfileImage || _uploadingDocuments.isNotEmpty) {
+      _snack('Please wait for file uploads to finish.');
+      return;
+    }
     final formIndex = step.clamp(0, 3).toInt();
 
     if (step <= 3) {
@@ -381,8 +482,8 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
     Future.delayed(const Duration(milliseconds: 80), () async {
       if (!_scrollController.hasClients) return;
       await _scrollController.animateTo(
-        560,
-        duration: const Duration(milliseconds: 550),
+        210,
+        duration: const Duration(milliseconds: 420),
         curve: Curves.easeOutCubic,
       );
     });
@@ -402,460 +503,277 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
       backgroundColor: const Color(0xFFF7F9FD),
       child: _loading
           ? const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primaryPurple,
-              ),
-            )
+        child: CircularProgressIndicator(
+          color: AppColors.primaryPurple,
+        ),
+      )
           : SafeArea(
-              bottom: false,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: CustomScrollView(
-                      controller: _scrollController,
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: _RegistrationHero(
-                            onBack: () => Navigator.maybePop(context),
-                            onNotifications: () => Navigator.pushNamed(
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: const _RegistrationHero(),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints:
+                        const BoxConstraints(maxWidth: 1240),
+                        child: Padding(
+                          padding:
+                          const EdgeInsets.fromLTRB(18, 22, 18, 0),
+                          child: _existing != null
+                              ? _SubmittedState(
+                            data: _existing!,
+                            onDealers: () => Navigator.pushNamed(
                               context,
-                              AppConstants.notificationsRoute,
+                              AppConstants.dealersRoute,
                             ),
-                          ),
-                        ),
-                        SliverToBoxAdapter(
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: ConstrainedBox(
-                              constraints:
-                                  const BoxConstraints(maxWidth: 1240),
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(18, 22, 18, 0),
-                                child: _existing != null
-                                    ? _SubmittedState(
-                                        data: _existing!,
-                                        onDealers: () => Navigator.pushNamed(
+                          )
+                              : LayoutBuilder(
+                            builder: (context, constraints) {
+                              Widget processColumn() => Column(
+                                crossAxisAlignment:
+                                CrossAxisAlignment.stretch,
+                                children: [
+                                  _ProcessTitle(),
+                                  const SizedBox(height: 18),
+                                  _RegistrationProcess(
+                                    currentStep: _currentStep,
+                                    onStepSelected: (step) {
+                                      setState(
+                                            () => _currentStep = step,
+                                      );
+                                    },
+                                    personalFormKey:
+                                    _stepForms[0],
+                                    businessFormKey:
+                                    _stepForms[1],
+                                    officeFormKey:
+                                    _stepForms[2],
+                                    documentsFormKey:
+                                    _stepForms[3],
+                                    fullName: _fullName,
+                                    cnic: _cnic,
+                                    phone: _personalPhone,
+                                    companyName: _companyName,
+                                    ntnNumber: _ntnNumber,
+                                    officeAddress:
+                                    _officeAddress,
+                                    area: _area,
+                                    officePhone: _officePhone,
+                                    businessType:
+                                    _businessType,
+                                    yearsInBusiness:
+                                    _yearsInBusiness,
+                                    city: _city,
+                                    businessTypes:
+                                    _businessTypes,
+                                    experienceOptions:
+                                    _experienceOptions,
+                                    cities: _cities,
+                                    documents: _documents,
+                                    profileImageUrl:
+                                    _profileImageUrl,
+                                    uploadingProfileImage:
+                                    _uploadingProfileImage,
+                                    acceptedTerms:
+                                    _acceptedTerms,
+                                    submitting: _submitting,
+                                    onBusinessTypeChanged:
+                                        (value) => setState(
+                                          () => _businessType = value,
+                                    ),
+                                    onExperienceChanged:
+                                        (value) => setState(
+                                          () =>
+                                      _yearsInBusiness = value,
+                                    ),
+                                    onCityChanged: (value) =>
+                                        setState(
+                                              () => _city = value,
+                                        ),
+                                    onPickProfileImage:
+                                    _pickProfileImage,
+                                    onPickDocument:
+                                    _pickDocument,
+                                    onTermsChanged: (value) =>
+                                        setState(
+                                              () =>
+                                          _acceptedTerms = value,
+                                        ),
+                                    onNext: _nextStep,
+                                    onEditStep: (step) =>
+                                        setState(
+                                              () => _currentStep = step,
+                                        ),
+                                    onSubmit: _submit,
+                                  ),
+                                ],
+                              );
+
+                              final sideColumn = Column(
+                                children: [
+                                  const _BenefitsCard(),
+                                  const SizedBox(height: 16),
+                                  _AlreadyRegisteredStrip(
+                                    onPressed: () =>
+                                        Navigator.pushNamed(
                                           context,
                                           AppConstants.dealersRoute,
                                         ),
-                                      )
-                                    : Column(
-                                        children: [
-                                          _RegistrationIntro(
-                                            onStart: () {
-                                              setState(
-                                                () => _currentStep = 0,
-                                              );
-                                              _scrollToProcess();
-                                            },
-                                          ),
-                                          const SizedBox(height: 18),
-                                          _AlreadyRegisteredStrip(
-                                            onPressed: () =>
-                                                Navigator.pushNamed(
-                                              context,
-                                              AppConstants.dealersRoute,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 32),
-                                          _ProcessTitle(),
-                                          const SizedBox(height: 18),
-                                          _RegistrationProcess(
-                                            currentStep: _currentStep,
-                                            onStepSelected: (step) {
-                                              setState(
-                                                () => _currentStep = step,
-                                              );
-                                            },
-                                            personalFormKey: _stepForms[0],
-                                            businessFormKey: _stepForms[1],
-                                            officeFormKey: _stepForms[2],
-                                            documentsFormKey: _stepForms[3],
-                                            fullName: _fullName,
-                                            cnic: _cnic,
-                                            phone: _personalPhone,
-                                            companyName: _companyName,
-                                            ntnNumber: _ntnNumber,
-                                            officeAddress: _officeAddress,
-                                            area: _area,
-                                            officePhone: _officePhone,
-                                            businessType: _businessType,
-                                            yearsInBusiness:
-                                                _yearsInBusiness,
-                                            city: _city,
-                                            businessTypes: _businessTypes,
-                                            experienceOptions:
-                                                _experienceOptions,
-                                            cities: _cities,
-                                            documents: _documents,
-                                            acceptedTerms: _acceptedTerms,
-                                            submitting: _submitting,
-                                            onBusinessTypeChanged: (value) =>
-                                                setState(
-                                              () => _businessType = value,
-                                            ),
-                                            onExperienceChanged: (value) =>
-                                                setState(
-                                              () => _yearsInBusiness = value,
-                                            ),
-                                            onCityChanged: (value) => setState(
-                                              () => _city = value,
-                                            ),
-                                            onPickDocument: _pickDocument,
-                                            onTermsChanged: (value) =>
-                                                setState(
-                                              () => _acceptedTerms = value,
-                                            ),
-                                            onNext: _nextStep,
-                                            onEditStep: (step) => setState(
-                                              () => _currentStep = step,
-                                            ),
-                                            onSubmit: _submit,
-                                          ),
-                                          const SizedBox(height: 22),
-                                          const _TrustFooter(),
-                                        ],
-                                      ),
-                              ),
-                            ),
+                                  ),
+                                ],
+                              );
+
+                              if (constraints.maxWidth >= 980) {
+                                return Row(
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: processColumn(),
+                                    ),
+                                    const SizedBox(width: 18),
+                                    SizedBox(
+                                      width: 300,
+                                      child: sideColumn,
+                                    ),
+                                  ],
+                                );
+                              }
+
+                              return Column(
+                                children: [
+                                  processColumn(),
+                                  const SizedBox(height: 18),
+                                  sideColumn,
+                                ],
+                              );
+                            },
                           ),
                         ),
-                        const SliverToBoxAdapter(
-                          child: SizedBox(height: 28),
-                        ),
-                      ],
+                      ),
                     ),
+                  ),
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 28),
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
     );
   }
 
 }
 
 class _RegistrationHero extends StatelessWidget {
-  const _RegistrationHero({
-    required this.onBack,
-    required this.onNotifications,
-  });
-
-  final VoidCallback onBack;
-  final VoidCallback onNotifications;
+  const _RegistrationHero();
 
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 600;
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF123DB7),
-            Color(0xFF2147C9),
-            Color(0xFF5B33D3),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        compact ? 0 : 18,
+        compact ? 0 : 14,
+        compact ? 0 : 18,
+        0,
       ),
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1240),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(compact ? 16 : 24, 16, compact ? 16 : 24, compact ? 24 : 30),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _TopCircleButton(
-                      icon: Icons.arrow_back_rounded,
-                      onPressed: onBack,
-                    ),
-                    SizedBox(width: compact ? 8 : 14),
-                    ColorFiltered(
-                      colorFilter: const ColorFilter.mode(
-                        Colors.white,
-                        BlendMode.srcIn,
-                      ),
-                      child: Image.asset(
-                        'assets/logos/dhs_logo.png',
-                        width: compact ? 104 : 148,
-                        height: compact ? 42 : 54,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    const Spacer(),
-                    _NotificationButton(onPressed: onNotifications),
-                  ],
-                ),
-                SizedBox(height: compact ? 12 : 16),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final wide = constraints.maxWidth >= 760;
-
-                    final textBlock = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Become a',
-                          style: AppTextStyles.bodyLarge.copyWith(
-                            color: Colors.white,
-                            fontSize: 18,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Verified Dealer',
-                          style: AppTextStyles.headingLarge.copyWith(
-                            color: Colors.white,
-                            fontSize: wide ? 36 : 29,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Container(
-                          width: 54,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFD52E),
-                            borderRadius: BorderRadius.circular(50),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 520),
-                          child: Text(
-                            'Join our network of trusted and verified dealers. Help customers find their dream plots with confidence.',
-                            style: AppTextStyles.bodyLarge.copyWith(
-                              color: Colors.white.withValues(alpha: .92),
-                              height: 1.42,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-
-                    if (!wide) {
-                      return Column(
-                        children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: textBlock,
-                          ),
-                          const SizedBox(height: 14),
-                          Center(child: _ShieldArtwork(compact: compact)),
-                        ],
-                      );
-                    }
-
-                    return Row(
-                      children: [
-                        Expanded(child: textBlock),
-                        const SizedBox(width: 28),
-                        const _ShieldArtwork(),
-                        const SizedBox(width: 42),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TopCircleButton extends StatelessWidget {
-  const _TopCircleButton({
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: .12),
-      shape: const CircleBorder(),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon, color: Colors.white),
-      ),
-    );
-  }
-}
-
-class _NotificationButton extends StatelessWidget {
-  const _NotificationButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Material(
-              color: Colors.white.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(16),
-              child: IconButton(
-                onPressed: onPressed,
-                icon: const Icon(
-                  Icons.notifications_none_rounded,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 7,
-            right: 7,
-            child: Container(
-              width: 9,
-              height: 9,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFF595F),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShieldArtwork extends StatelessWidget {
-  const _ShieldArtwork({this.compact = false});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: compact ? 205 : 250,
-      height: compact ? 142 : 175,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            bottom: 0,
-            child: Container(
-              width: compact ? 158 : 190,
-              height: compact ? 30 : 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .9),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(50)),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 20,
-            child: Container(
-              width: 160,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .74),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(50)),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 2,
-            child: Container(
-              width: 124,
-              height: 140,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF46A4FF),
-                    Color(0xFF4D55E8),
-                    Color(0xFF6B37DB),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(48),
-                  topRight: Radius.circular(48),
-                  bottomLeft: Radius.circular(62),
-                  bottomRight: Radius.circular(62),
-                ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: .26),
-                  width: 4,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF4E65E8).withValues(alpha: .42),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.check_rounded,
-                color: Colors.white,
-                size: 74,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RegistrationIntro extends StatelessWidget {
-  const _RegistrationIntro({required this.onStart});
-
-  final VoidCallback onStart;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 860;
-
-        const benefits = _BenefitsCard();
-
-        final start = _StartRegistrationCard(onStart: onStart);
-
-        if (!wide) {
-          return Column(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(compact ? 0 : 26),
+        child: SizedBox(
+          height: compact ? 255 : 200,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              benefits,
-              const SizedBox(height: 16),
-              start,
+              Image.asset(
+                compact
+                    ? AppAssets.dealerRegistrationMobileBackground
+                    : AppAssets.dealerRegistrationBackground,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                filterQuality: FilterQuality.high,
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.black.withValues(alpha: .74),
+                      Colors.black.withValues(alpha: .44),
+                      Colors.black.withValues(alpha: .10),
+                    ],
+                    stops: const [0.0, .50, 1.0],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 28 : 34,
+                  vertical: compact ? 26 : 24,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Become a',
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: Colors.white,
+                        fontSize: compact ? 17 : 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Verified Dealer',
+                      style: AppTextStyles.headingLarge.copyWith(
+                        color: Colors.white,
+                        fontSize: compact ? 34 : 38,
+                        fontWeight: FontWeight.w800,
+                        height: 1.08,
+                      ),
+                    ),
+                    const SizedBox(height: 11),
+                    Container(
+                      width: 55,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFD52E),
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                    ),
+                    const SizedBox(height: 13),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 610),
+                      child: Text(
+                        'Join our network of trusted and verified dealers. Help customers find their dream plots with confidence.',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: Colors.white.withValues(alpha: .96),
+                          fontSize: compact ? 14 : 15,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(
-              width: 290,
-              child: _BenefitsCard(),
-            ),
-            const SizedBox(width: 18),
-            Expanded(child: start),
-          ],
-        );
-      },
+          ),
+        ),
+      ),
     );
   }
 }
@@ -880,7 +798,7 @@ class _BenefitsCard extends StatelessWidget {
             icon: Icons.verified_user_outlined,
             title: 'Build Trust',
             subtitle:
-                'Get verified and build trust with thousands of customers',
+            'Get verified and build trust with thousands of customers',
           ),
           const _BenefitItem(
             icon: Icons.trending_up_rounded,
@@ -891,11 +809,6 @@ class _BenefitsCard extends StatelessWidget {
             icon: Icons.star_border_rounded,
             title: 'Exclusive Benefits',
             subtitle: 'Get exclusive updates and promotions from DHS',
-          ),
-          const _BenefitItem(
-            icon: Icons.groups_2_outlined,
-            title: 'Easy Management',
-            subtitle: 'Manage your profile and listings easily',
           ),
         ],
       ),
@@ -917,7 +830,7 @@ class _BenefitItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 17),
+      padding: const EdgeInsets.only(bottom: 13),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -947,161 +860,6 @@ class _BenefitItem extends StatelessWidget {
                     height: 1.45,
                     color: const Color(0xFF667085),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StartRegistrationCard extends StatelessWidget {
-  const _StartRegistrationCard({required this.onStart});
-
-  final VoidCallback onStart;
-
-  @override
-  Widget build(BuildContext context) {
-    return _WhiteCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Start Your Dealer Registration',
-            style: AppTextStyles.headingSmall.copyWith(
-              color: const Color(0xFF1739AF),
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Fill in your details to get started',
-            style: AppTextStyles.bodyMedium,
-          ),
-          const SizedBox(height: 24),
-          const Wrap(
-            spacing: 14,
-            runSpacing: 12,
-            children: [
-              _MiniTrustItem(
-                icon: Icons.lock_outline_rounded,
-                title: 'Secure & Safe',
-                subtitle: 'Your data is protected',
-              ),
-              _MiniTrustItem(
-                icon: Icons.verified_user_outlined,
-                title: 'Verification',
-                subtitle: 'We verify all dealers',
-              ),
-              _MiniTrustItem(
-                icon: Icons.schedule_rounded,
-                title: 'Quick Review',
-                subtitle: 'Get verified quickly',
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF146FEF),
-                    Color(0xFF7541E7),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: FilledButton(
-                onPressed: onStart,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Start Registration'),
-                    SizedBox(width: 12),
-                    Icon(Icons.arrow_forward_rounded),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.verified_user_outlined,
-                size: 15,
-                color: Color(0xFF6D768E),
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  'Your information is secure and will not be shared.',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.captionText,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniTrustItem extends StatelessWidget {
-  const _MiniTrustItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 170,
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F2FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: const Color(0xFF3156D8),
-            ),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTextStyles.labelBold.copyWith(fontSize: 12),
-                ),
-                Text(
-                  subtitle,
-                  style: AppTextStyles.captionText.copyWith(fontSize: 10),
                 ),
               ],
             ),
@@ -1183,62 +941,24 @@ class _ProcessTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 620;
 
-    if (compact) {
-      return Column(
-        children: [
-          Text(
-            'Dealer Registration Process',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.headingMedium.copyWith(
-              color: const Color(0xFF1640B8),
-              fontSize: 19,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            width: 72,
-            height: 3,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFD52E),
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Container(
-            height: 2,
-            color: const Color(0xFFD9E1FF),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Container(
-          width: 34,
-          height: 3,
-          color: const Color(0xFFFFD52E),
-        ),
-        const SizedBox(width: 12),
         Text(
           'Dealer Registration Process',
           style: AppTextStyles.headingMedium.copyWith(
             color: const Color(0xFF1640B8),
+            fontSize: compact ? 22 : 25,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(height: 8),
         Container(
-          width: 34,
-          height: 3,
-          color: const Color(0xFFFFD52E),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Container(
-            height: 2,
-            color: const Color(0xFFD9E1FF),
+          width: 64,
+          height: 4,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFD52E),
+            borderRadius: BorderRadius.circular(20),
           ),
         ),
       ],
@@ -1269,11 +989,14 @@ class _RegistrationProcess extends StatelessWidget {
     required this.experienceOptions,
     required this.cities,
     required this.documents,
+    required this.profileImageUrl,
+    required this.uploadingProfileImage,
     required this.acceptedTerms,
     required this.submitting,
     required this.onBusinessTypeChanged,
     required this.onExperienceChanged,
     required this.onCityChanged,
+    required this.onPickProfileImage,
     required this.onPickDocument,
     required this.onTermsChanged,
     required this.onNext,
@@ -1307,13 +1030,15 @@ class _RegistrationProcess extends StatelessWidget {
   final List<String> cities;
 
   final Map<String, Map<String, dynamic>> documents;
-
+  final String? profileImageUrl;
+  final bool uploadingProfileImage;
   final bool acceptedTerms;
   final bool submitting;
 
   final ValueChanged<String> onBusinessTypeChanged;
   final ValueChanged<String> onExperienceChanged;
   final ValueChanged<String> onCityChanged;
+  final Future<void> Function() onPickProfileImage;
   final Future<void> Function(String key, String title) onPickDocument;
   final ValueChanged<bool> onTermsChanged;
   final ValueChanged<int> onNext;
@@ -1322,187 +1047,90 @@ class _RegistrationProcess extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final showDesktopCards = constraints.maxWidth >= 1120;
+    final steps = <Widget>[
+      _PersonalStep(
+        formKey: personalFormKey,
+        fullName: fullName,
+        cnic: cnic,
+        phone: phone,
+        profileImageUrl: profileImageUrl,
+        uploadingProfileImage: uploadingProfileImage,
+        onPickProfileImage: onPickProfileImage,
+        onNext: () => onNext(0),
+      ),
+      _BusinessStep(
+        formKey: businessFormKey,
+        companyName: companyName,
+        ntnNumber: ntnNumber,
+        businessType: businessType,
+        yearsInBusiness: yearsInBusiness,
+        businessTypes: businessTypes,
+        experienceOptions: experienceOptions,
+        onBusinessTypeChanged: onBusinessTypeChanged,
+        onExperienceChanged: onExperienceChanged,
+        onNext: () => onNext(1),
+      ),
+      _OfficeStep(
+        formKey: officeFormKey,
+        officeAddress: officeAddress,
+        area: area,
+        officePhone: officePhone,
+        city: city,
+        cities: cities,
+        onCityChanged: onCityChanged,
+        onNext: () => onNext(2),
+      ),
+      _DocumentsStep(
+        formKey: documentsFormKey,
+        documents: documents,
+        onPickDocument: onPickDocument,
+        onNext: () => onNext(3),
+      ),
+      _ReviewStep(
+        acceptedTerms: acceptedTerms,
+        submitting: submitting,
+        onTermsChanged: onTermsChanged,
+        onEditStep: onEditStep,
+        onSubmit: onSubmit,
+      ),
+    ];
 
-        if (showDesktopCards) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _StepCardShell(
-                  number: 1,
-                  title: 'Personal Information',
-                  subtitle: 'Enter your personal details',
-                  selected: currentStep == 0,
-                  onTap: () => onStepSelected(0),
-                  child: _PersonalStep(
-                    formKey: personalFormKey,
-                    fullName: fullName,
-                    cnic: cnic,
-                    phone: phone,
-                    onNext: () => onNext(0),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StepCardShell(
-                  number: 2,
-                  title: 'Business Information',
-                  subtitle: 'Enter your business details',
-                  selected: currentStep == 1,
-                  onTap: () => onStepSelected(1),
-                  child: _BusinessStep(
-                    formKey: businessFormKey,
-                    companyName: companyName,
-                    ntnNumber: ntnNumber,
-                    businessType: businessType,
-                    yearsInBusiness: yearsInBusiness,
-                    businessTypes: businessTypes,
-                    experienceOptions: experienceOptions,
-                    onBusinessTypeChanged: onBusinessTypeChanged,
-                    onExperienceChanged: onExperienceChanged,
-                    onNext: () => onNext(1),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StepCardShell(
-                  number: 3,
-                  title: 'Office Information',
-                  subtitle: 'Enter your office details',
-                  selected: currentStep == 2,
-                  onTap: () => onStepSelected(2),
-                  child: _OfficeStep(
-                    formKey: officeFormKey,
-                    officeAddress: officeAddress,
-                    area: area,
-                    officePhone: officePhone,
-                    city: city,
-                    cities: cities,
-                    onCityChanged: onCityChanged,
-                    onNext: () => onNext(2),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StepCardShell(
-                  number: 4,
-                  title: 'Documents Upload',
-                  subtitle: 'Upload required documents',
-                  selected: currentStep == 3,
-                  onTap: () => onStepSelected(3),
-                  child: _DocumentsStep(
-                    formKey: documentsFormKey,
-                    documents: documents,
-                    onPickDocument: onPickDocument,
-                    onNext: () => onNext(3),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StepCardShell(
-                  number: 5,
-                  title: 'Review & Submit',
-                  subtitle: 'Review and submit application',
-                  selected: currentStep == 4,
-                  onTap: () => onStepSelected(4),
-                  child: _ReviewStep(
-                    acceptedTerms: acceptedTerms,
-                    submitting: submitting,
-                    onTermsChanged: onTermsChanged,
-                    onEditStep: onEditStep,
-                    onSubmit: onSubmit,
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
+    const titles = [
+      'Personal Information',
+      'Business Information',
+      'Office Information',
+      'Documents Upload',
+      'Review & Submit',
+    ];
+    const subtitles = [
+      'Enter your personal details',
+      'Enter your business details',
+      'Enter your office details',
+      'Upload required documents',
+      'Review and submit application',
+    ];
 
-        return Column(
-          children: [
-            _MobileStepHeader(
-              currentStep: currentStep,
-              onStepSelected: onStepSelected,
+    return Column(
+      children: [
+        _MobileStepHeader(
+          currentStep: currentStep,
+          onStepSelected: onStepSelected,
+        ),
+        const SizedBox(height: 18),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: KeyedSubtree(
+            key: ValueKey(currentStep),
+            child: _StepCardShell(
+              number: currentStep + 1,
+              title: titles[currentStep],
+              subtitle: subtitles[currentStep],
+              selected: true,
+              child: steps[currentStep],
             ),
-            const SizedBox(height: 14),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: KeyedSubtree(
-                key: ValueKey(currentStep),
-                child: _StepCardShell(
-                  number: currentStep + 1,
-                  title: const [
-                    'Personal Information',
-                    'Business Information',
-                    'Office Information',
-                    'Documents Upload',
-                    'Review & Submit',
-                  ][currentStep],
-                  subtitle: const [
-                    'Enter your personal details',
-                    'Enter your business details',
-                    'Enter your office details',
-                    'Upload required documents',
-                    'Review and submit application',
-                  ][currentStep],
-                  selected: true,
-                  child: [
-                    _PersonalStep(
-                      formKey: personalFormKey,
-                      fullName: fullName,
-                      cnic: cnic,
-                      phone: phone,
-                      onNext: () => onNext(0),
-                    ),
-                    _BusinessStep(
-                      formKey: businessFormKey,
-                      companyName: companyName,
-                      ntnNumber: ntnNumber,
-                      businessType: businessType,
-                      yearsInBusiness: yearsInBusiness,
-                      businessTypes: businessTypes,
-                      experienceOptions: experienceOptions,
-                      onBusinessTypeChanged: onBusinessTypeChanged,
-                      onExperienceChanged: onExperienceChanged,
-                      onNext: () => onNext(1),
-                    ),
-                    _OfficeStep(
-                      formKey: officeFormKey,
-                      officeAddress: officeAddress,
-                      area: area,
-                      officePhone: officePhone,
-                      city: city,
-                      cities: cities,
-                      onCityChanged: onCityChanged,
-                      onNext: () => onNext(2),
-                    ),
-                    _DocumentsStep(
-                      formKey: documentsFormKey,
-                      documents: documents,
-                      onPickDocument: onPickDocument,
-                      onNext: () => onNext(3),
-                    ),
-                    _ReviewStep(
-                      acceptedTerms: acceptedTerms,
-                      submitting: submitting,
-                      onTermsChanged: onTermsChanged,
-                      onEditStep: onEditStep,
-                      onSubmit: onSubmit,
-                    ),
-                  ][currentStep],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1514,7 +1142,6 @@ class _StepCardShell extends StatelessWidget {
     required this.subtitle,
     required this.child,
     this.selected = false,
-    this.onTap,
   });
 
   final int number;
@@ -1522,58 +1149,52 @@ class _StepCardShell extends StatelessWidget {
   final String subtitle;
   final Widget child;
   final bool selected;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected
-                ? const Color(0xFF7A58EE)
-                : const Color(0xFFE5EAF5),
-            width: selected ? 1.4 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF5A69C7).withValues(alpha: .08),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
+    final compact = MediaQuery.sizeOf(context).width < 560;
+
+    return Container(
+      padding: EdgeInsets.all(compact ? 18 : 22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: selected
+              ? const Color(0xFF7A58EE)
+              : const Color(0xFFE5EAF5),
+          width: selected ? 1.4 : 1,
         ),
-        child: Column(
-          children: [
-            Transform.translate(
-              offset: const Offset(0, -14),
-              child: Container(
-                width: 34,
-                height: 34,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF5A69C7).withValues(alpha: .08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: compact ? 42 : 48,
+                height: compact ? 42 : 48,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: number == 1 || number == 3
-                        ? const [
-                            Color(0xFF146FEF),
-                            Color(0xFF3154E8),
-                          ]
-                        : const [
-                            Color(0xFF5139E7),
-                            Color(0xFF8C3EE8),
-                          ],
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF146FEF),
+                      Color(0xFF7541E7),
+                    ],
                   ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color:
-                          const Color(0xFF644BEB).withValues(alpha: .28),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      color: const Color(0xFF644BEB).withValues(alpha: .24),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
                     ),
                   ],
                 ),
@@ -1582,31 +1203,39 @@ class _StepCardShell extends StatelessWidget {
                     '$number',
                     style: AppTextStyles.labelBold.copyWith(
                       color: Colors.white,
+                      fontSize: 16,
                     ),
                   ),
                 ),
               ),
-            ),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.labelBold.copyWith(
-                color: const Color(0xFF203169),
-                fontSize: 13,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTextStyles.headingSmall.copyWith(
+                        color: const Color(0xFF203169),
+                        fontSize: compact ? 18 : 20,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: const Color(0xFF7A8398),
+                        fontSize: compact ? 12 : 13,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.captionText.copyWith(
-                fontSize: 10,
-              ),
-            ),
-            const SizedBox(height: 14),
-            child,
-          ],
-        ),
+            ],
+          ),
+          SizedBox(height: compact ? 20 : 24),
+          child,
+        ],
       ),
     );
   }
@@ -1637,7 +1266,7 @@ class _MobileStepHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: selected
                       ? const Color(0xFFEDF1FF)
@@ -1656,23 +1285,23 @@ class _MobileStepHeader extends StatelessWidget {
                       backgroundColor: completed
                           ? const Color(0xFF1CB86D)
                           : selected
-                              ? const Color(0xFF5D49E5)
-                              : const Color(0xFFF0F2F7),
+                          ? const Color(0xFF5D49E5)
+                          : const Color(0xFFF0F2F7),
                       child: completed
                           ? const Icon(
-                              Icons.check_rounded,
-                              size: 15,
-                              color: Colors.white,
-                            )
+                        Icons.check_rounded,
+                        size: 15,
+                        color: Colors.white,
+                      )
                           : Text(
-                              '${index + 1}',
-                              style: AppTextStyles.captionText.copyWith(
-                                color: selected
-                                    ? Colors.white
-                                    : const Color(0xFF667085),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                        '${index + 1}',
+                        style: AppTextStyles.captionText.copyWith(
+                          color: selected
+                              ? Colors.white
+                              : const Color(0xFF667085),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 7),
                     Text(
@@ -1707,6 +1336,9 @@ class _PersonalStep extends StatelessWidget {
     required this.fullName,
     required this.cnic,
     required this.phone,
+    required this.profileImageUrl,
+    required this.uploadingProfileImage,
+    required this.onPickProfileImage,
     required this.onNext,
   });
 
@@ -1714,94 +1346,224 @@ class _PersonalStep extends StatelessWidget {
   final TextEditingController fullName;
   final TextEditingController cnic;
   final TextEditingController phone;
+  final String? profileImageUrl;
+  final bool uploadingProfileImage;
+  final Future<void> Function() onPickProfileImage;
   final VoidCallback onNext;
 
   @override
   Widget build(BuildContext context) {
     return Form(
       key: formKey,
-      child: Column(
-        children: [
-          const _AvatarPlaceholder(),
-          const SizedBox(height: 14),
-          _CompactTextField(
-            label: 'Full Name',
-            hint: 'Enter full name',
-            controller: fullName,
-            validator: (value) => Validators.required(value, 'Full name'),
-          ),
-          const SizedBox(height: 11),
-          _CompactTextField(
-            label: 'CNIC Number',
-            hint: 'xxxxx-xxxxxxx-x',
-            controller: cnic,
-            inputFormatters: [CnicInputFormatter()],
-            keyboardType: TextInputType.number,
-            validator: Validators.cnic,
-          ),
-          const SizedBox(height: 11),
-          _CompactTextField(
-            label: 'Phone Number',
-            hint: '03xx-xxxxxxx',
-            controller: phone,
-            inputFormatters: [PakistaniPhoneFormatter()],
-            keyboardType: TextInputType.phone,
-            validator: Validators.phone,
-          ),
-          const SizedBox(height: 16),
-          _StepButton(
-            text: 'Next',
-            onPressed: onNext,
-            blue: true,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 680;
+
+          final fields = Column(
+            children: [
+              if (wide)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _CompactTextField(
+                        label: 'Full Name',
+                        hint: 'Enter full name',
+                        controller: fullName,
+                        validator: Validators.fullName,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: _CompactTextField(
+                        label: 'CNIC Number',
+                        hint: 'xxxxx-xxxxxxx-x',
+                        controller: cnic,
+                        inputFormatters: [CnicInputFormatter()],
+                        keyboardType: TextInputType.number,
+                        validator: Validators.cnic,
+                      ),
+                    ),
+                  ],
+                )
+              else ...[
+                _CompactTextField(
+                  label: 'Full Name',
+                  hint: 'Enter full name',
+                  controller: fullName,
+                  validator: Validators.fullName,
+                ),
+                const SizedBox(height: 11),
+                _CompactTextField(
+                  label: 'CNIC Number',
+                  hint: 'xxxxx-xxxxxxx-x',
+                  controller: cnic,
+                  inputFormatters: [CnicInputFormatter()],
+                  keyboardType: TextInputType.number,
+                  validator: Validators.cnic,
+                ),
+              ],
+              const SizedBox(height: 11),
+              _CompactTextField(
+                label: 'Phone Number',
+                hint: '03xx-xxxxxxx',
+                controller: phone,
+                inputFormatters: [PakistaniPhoneFormatter()],
+                keyboardType: TextInputType.phone,
+                validator: Validators.phone,
+              ),
+            ],
+          );
+
+          if (!wide) {
+            return Column(
+              children: [
+                _ProfileImagePicker(
+                  imageUrl: profileImageUrl,
+                  uploading: uploadingProfileImage,
+                  onTap: onPickProfileImage,
+                ),
+                const SizedBox(height: 16),
+                fields,
+                const SizedBox(height: 18),
+                _StepButton(
+                  text: 'Next',
+                  onPressed: onNext,
+                  blue: true,
+                ),
+              ],
+            );
+          }
+
+          return Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 170,
+                    child: _ProfileImagePicker(
+                      imageUrl: profileImageUrl,
+                      uploading: uploadingProfileImage,
+                      onTap: onPickProfileImage,
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(child: fields),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _StepButton(
+                text: 'Next',
+                onPressed: onNext,
+                blue: true,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class _AvatarPlaceholder extends StatelessWidget {
-  const _AvatarPlaceholder();
+class _ProfileImagePicker extends StatelessWidget {
+  const _ProfileImagePicker({
+    required this.imageUrl,
+    required this.uploading,
+    required this.onTap,
+  });
+
+  final String? imageUrl;
+  final bool uploading;
+  final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 82,
-      height: 82,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFFF0F3FB),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person_rounded,
-                size: 48,
-                color: Color(0xFFB8C1D9),
-              ),
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
+    return Column(
+      children: [
+        InkWell(
+          onTap: uploading ? null : onTap,
+          borderRadius: BorderRadius.circular(100),
+          child: SizedBox(
+            width: 112,
+            height: 112,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ClipOval(
+                    child: hasImage
+                        ? Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: const Color(0xFFF0F3FB),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          size: 62,
+                          color: Color(0xFFB8C1D9),
+                        ),
+                      ),
+                    )
+                        : Container(
+                      color: const Color(0xFFF0F3FB),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        size: 62,
+                        color: Color(0xFFB8C1D9),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 2,
+                  bottom: 2,
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF3156E8),
+                      shape: BoxShape.circle,
+                    ),
+                    child: uploading
+                        ? const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                        : Icon(
+                      hasImage
+                          ? Icons.edit_rounded
+                          : Icons.camera_alt_outlined,
+                      color: Colors.white,
+                      size: 19,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          Positioned(
-            right: 1,
-            bottom: 1,
-            child: Container(
-              width: 29,
-              height: 29,
-              decoration: const BoxDecoration(
-                color: Color(0xFF3156E8),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.camera_alt_outlined,
-                color: Colors.white,
-                size: 15,
-              ),
-            ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          hasImage ? 'Change Profile Image' : 'Upload Profile Image',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.captionText.copyWith(
+            color: const Color(0xFF3156D8),
+            fontWeight: FontWeight.w700,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'JPG, PNG (Max 2MB)',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.captionText.copyWith(fontSize: 9.5),
+        ),
+      ],
     );
   }
 }
@@ -1835,42 +1597,70 @@ class _BusinessStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Form(
       key: formKey,
-      child: Column(
-        children: [
-          _CompactTextField(
-            label: 'Company Name',
-            hint: 'Enter company name',
-            controller: companyName,
-            validator: (value) =>
-                Validators.required(value, 'Company name'),
-          ),
-          const SizedBox(height: 11),
-          _CompactDropdown(
-            label: 'Business Type',
-            value: businessType,
-            items: businessTypes,
-            onChanged: onBusinessTypeChanged,
-          ),
-          const SizedBox(height: 11),
-          _CompactTextField(
-            label: 'NTN Number',
-            hint: 'xxxxxxx-x',
-            controller: ntnNumber,
-            validator: (value) => Validators.required(value, 'NTN number'),
-          ),
-          const SizedBox(height: 11),
-          _CompactDropdown(
-            label: 'Years in Business',
-            value: yearsInBusiness,
-            items: experienceOptions,
-            onChanged: onExperienceChanged,
-          ),
-          const SizedBox(height: 16),
-          _StepButton(
-            text: 'Next',
-            onPressed: onNext,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 680;
+          final itemWidth = wide
+              ? (constraints.maxWidth - 14) / 2
+              : constraints.maxWidth;
+
+          return Column(
+            children: [
+              Wrap(
+                spacing: 14,
+                runSpacing: 11,
+                children: [
+                  SizedBox(
+                    width: itemWidth,
+                    child: _CompactTextField(
+                      label: 'Company Name',
+                      hint: 'Enter company name',
+                      controller: companyName,
+                      validator: Validators.companyName,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _CompactDropdown(
+                      label: 'Business Type',
+                      value: businessType,
+                      items: businessTypes,
+                      onChanged: onBusinessTypeChanged,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _CompactTextField(
+                      label: 'NTN Number',
+                      hint: '1234567-8',
+                      controller: ntnNumber,
+                      keyboardType: TextInputType.text,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
+                        LengthLimitingTextInputFormatter(9),
+                      ],
+                      validator: Validators.ntn,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _CompactDropdown(
+                      label: 'Years in Business',
+                      value: yearsInBusiness,
+                      items: experienceOptions,
+                      onChanged: onExperienceChanged,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _StepButton(
+                text: 'Next',
+                onPressed: onNext,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1901,44 +1691,70 @@ class _OfficeStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Form(
       key: formKey,
-      child: Column(
-        children: [
-          _CompactTextField(
-            label: 'Office Address',
-            hint: 'Enter office address',
-            controller: officeAddress,
-            validator: (value) =>
-                Validators.required(value, 'Office address'),
-          ),
-          const SizedBox(height: 11),
-          _CompactDropdown(
-            label: 'City',
-            value: city,
-            items: cities,
-            onChanged: onCityChanged,
-          ),
-          const SizedBox(height: 11),
-          _CompactTextField(
-            label: 'Area',
-            hint: 'Enter area',
-            controller: area,
-            validator: (value) => Validators.required(value, 'Area'),
-          ),
-          const SizedBox(height: 11),
-          _CompactTextField(
-            label: 'Phone Number',
-            hint: '03xx-xxxxxxx',
-            controller: officePhone,
-            inputFormatters: [PakistaniPhoneFormatter()],
-            keyboardType: TextInputType.phone,
-            validator: Validators.phone,
-          ),
-          const SizedBox(height: 16),
-          _StepButton(
-            text: 'Next',
-            onPressed: onNext,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 680;
+          final itemWidth = wide
+              ? (constraints.maxWidth - 14) / 2
+              : constraints.maxWidth;
+
+          return Column(
+            children: [
+              Wrap(
+                spacing: 14,
+                runSpacing: 11,
+                children: [
+                  SizedBox(
+                    width: itemWidth,
+                    child: _CompactTextField(
+                      label: 'Office Address',
+                      hint: 'Enter office address',
+                      controller: officeAddress,
+                      validator: (value) => Validators.address(
+                        value,
+                        label: 'Office address',
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _CompactDropdown(
+                      label: 'City',
+                      value: city,
+                      items: cities,
+                      onChanged: onCityChanged,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _CompactTextField(
+                      label: 'Area',
+                      hint: 'Enter area',
+                      controller: area,
+                      validator: Validators.area,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _CompactTextField(
+                      label: 'Phone Number',
+                      hint: '03xx-xxxxxxx',
+                      controller: officePhone,
+                      inputFormatters: [PakistaniPhoneFormatter()],
+                      keyboardType: TextInputType.phone,
+                      validator: Validators.phone,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _StepButton(
+                text: 'Next',
+                onPressed: onNext,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1961,37 +1777,63 @@ class _DocumentsStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return Form(
       key: formKey,
-      child: Column(
-        children: [
-          _DocumentUploadRow(
-            title: 'CNIC (Front)',
-            data: documents['cnic_front'],
-            onTap: () => onPickDocument('cnic_front', 'CNIC Front'),
-          ),
-          const SizedBox(height: 10),
-          _DocumentUploadRow(
-            title: 'CNIC (Back)',
-            data: documents['cnic_back'],
-            onTap: () => onPickDocument('cnic_back', 'CNIC Back'),
-          ),
-          const SizedBox(height: 10),
-          _DocumentUploadRow(
-            title: 'Business Card',
-            data: documents['business_card'],
-            onTap: () => onPickDocument('business_card', 'Business Card'),
-          ),
-          const SizedBox(height: 10),
-          _DocumentUploadRow(
-            title: 'Office Photo',
-            data: documents['office_photo'],
-            onTap: () => onPickDocument('office_photo', 'Office Photo'),
-          ),
-          const SizedBox(height: 16),
-          _StepButton(
-            text: 'Next',
-            onPressed: onNext,
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 680;
+          final itemWidth = wide
+              ? (constraints.maxWidth - 12) / 2
+              : constraints.maxWidth;
+
+          return Column(
+            children: [
+              Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                children: [
+                  SizedBox(
+                    width: itemWidth,
+                    child: _DocumentUploadRow(
+                      title: 'CNIC (Front)',
+                      data: documents['cnic_front'],
+                      onTap: () => onPickDocument('cnic_front', 'CNIC Front'),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _DocumentUploadRow(
+                      title: 'CNIC (Back)',
+                      data: documents['cnic_back'],
+                      onTap: () => onPickDocument('cnic_back', 'CNIC Back'),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _DocumentUploadRow(
+                      title: 'Business Card',
+                      data: documents['business_card'],
+                      onTap: () =>
+                          onPickDocument('business_card', 'Business Card'),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _DocumentUploadRow(
+                      title: 'Office Photo',
+                      data: documents['office_photo'],
+                      onTap: () =>
+                          onPickDocument('office_photo', 'Office Photo'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _StepButton(
+                text: 'Next',
+                onPressed: onNext,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -2194,13 +2036,13 @@ class _ReviewStep extends StatelessWidget {
             ),
             child: submitting
                 ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: Colors.white,
-                    ),
-                  )
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                color: Colors.white,
+              ),
+            )
                 : const Text('Submit Application'),
           ),
         ),
@@ -2311,7 +2153,7 @@ class _CompactTextField extends StatelessWidget {
               color: const Color(0xFFA0A8BB),
             ),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
             filled: true,
             fillColor: Colors.white,
             enabledBorder: OutlineInputBorder(
@@ -2394,13 +2236,13 @@ class _CompactDropdown extends StatelessWidget {
               items: items
                   .map(
                     (item) => DropdownMenuItem<String>(
-                      value: item,
-                      child: Text(
-                        item,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
+                  value: item,
+                  child: Text(
+                    item,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
                   .toList(),
               onChanged: (newValue) {
                 if (newValue != null) onChanged(newValue);
@@ -2433,17 +2275,17 @@ class _StepButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: blue
               ? const LinearGradient(
-                  colors: [
-                    Color(0xFF126DEB),
-                    Color(0xFF2461E5),
-                  ],
-                )
+            colors: [
+              Color(0xFF126DEB),
+              Color(0xFF2461E5),
+            ],
+          )
               : const LinearGradient(
-                  colors: [
-                    Color(0xFF5843E8),
-                    Color(0xFF7540EA),
-                  ],
-                ),
+            colors: [
+              Color(0xFF5843E8),
+              Color(0xFF7540EA),
+            ],
+          ),
           borderRadius: BorderRadius.circular(9),
         ),
         child: FilledButton(
@@ -2494,118 +2336,6 @@ class _WhiteCard extends StatelessWidget {
   }
 }
 
-class _TrustFooter extends StatelessWidget {
-  const _TrustFooter();
-
-  @override
-  Widget build(BuildContext context) {
-    return _WhiteCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final itemWidth = width >= 860
-              ? (width - 36) / 4
-              : width >= 520
-                  ? (width - 12) / 2
-                  : width;
-
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              SizedBox(
-                width: itemWidth,
-                child: const _TrustFooterItem(
-                  icon: Icons.admin_panel_settings_outlined,
-                  title: '100% Secure',
-                  subtitle: 'Your data is protected and secure',
-                ),
-              ),
-              SizedBox(
-                width: itemWidth,
-                child: const _TrustFooterItem(
-                  icon: Icons.fact_check_outlined,
-                  title: 'Quick Verification',
-                  subtitle: 'We verify and approve quickly',
-                ),
-              ),
-              SizedBox(
-                width: itemWidth,
-                child: const _TrustFooterItem(
-                  icon: Icons.workspace_premium_outlined,
-                  title: 'Trusted Platform',
-                  subtitle: 'Join our trusted dealer network',
-                ),
-              ),
-              SizedBox(
-                width: itemWidth,
-                child: const _TrustFooterItem(
-                  icon: Icons.support_agent_outlined,
-                  title: '24/7 Support',
-                  subtitle: 'We’re here to help you anytime',
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _TrustFooterItem extends StatelessWidget {
-  const _TrustFooterItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: const BoxDecoration(
-            color: Color(0xFFF0F3FF),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: const Color(0xFF3156D8),
-            size: 22,
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: AppTextStyles.labelBold.copyWith(
-                  color: const Color(0xFF23366F),
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                style: AppTextStyles.captionText,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SubmittedState extends StatelessWidget {
   const _SubmittedState({
     required this.data,
@@ -2618,77 +2348,95 @@ class _SubmittedState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status =
-        (data['verificationStatus'] ?? 'pending').toString().toLowerCase();
+    (data['verificationStatus'] ?? 'pending').toString().toLowerCase();
 
-    final isVerified = status == 'verified';
+    final isVerified = status == 'verified' || status == 'approved';
     final isRejected = status == 'rejected';
 
     final statusColor = isVerified
         ? const Color(0xFF16AD64)
         : isRejected
-            ? AppColors.errorRed
-            : const Color(0xFFF59E0B);
+        ? AppColors.errorRed
+        : const Color(0xFFF59E0B);
 
-    return _WhiteCard(
-      child: Column(
-        children: [
-          Container(
-            width: 92,
-            height: 92,
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: .1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isVerified
-                  ? Icons.verified_rounded
-                  : isRejected
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: _WhiteCard(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+          child: Column(
+            children: [
+              Container(
+                width: 92,
+                height: 92,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: .1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isVerified
+                      ? Icons.verified_rounded
+                      : isRejected
                       ? Icons.cancel_outlined
                       : Icons.hourglass_top_rounded,
-              color: statusColor,
-              size: 46,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            isVerified
-                ? 'Dealer Registration Verified'
-                : isRejected
+                  color: statusColor,
+                  size: 46,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Text(
+                  status.toUpperCase(),
+                  style: AppTextStyles.labelBold.copyWith(
+                    color: statusColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isVerified
+                    ? 'Dealer Registration Verified'
+                    : isRejected
                     ? 'Dealer Registration Rejected'
                     : 'Registration Submitted',
-            style: AppTextStyles.headingMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: .1),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Text(
-              status.toUpperCase(),
-              style: AppTextStyles.labelBold.copyWith(
-                color: statusColor,
+                style: AppTextStyles.headingMedium.copyWith(
+                  color: const Color(0xFF1640B8),
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
+              const SizedBox(height: 10),
+              Text(
+                isVerified
+                    ? 'Your dealer profile has been verified by DHS administration.'
+                    : isRejected
+                    ? 'Your dealer registration was not approved. Please contact DHS support for details.'
+                    : 'Your dealer registration has been submitted successfully and is under review by the DHS administration. We will notify you once the review is completed.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodyMedium.copyWith(height: 1.5),
+              ),
+              const SizedBox(height: 20),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 340),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onDealers,
+                    icon: const Icon(Icons.groups_outlined),
+                    label: const Text('Open Verified Dealers'),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            isVerified
-                ? 'Your dealer profile has been verified by DHS administration.'
-                : 'Your registration is locked while DHS administration reviews the submitted information.',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMedium,
-          ),
-          const SizedBox(height: 18),
-          OutlinedButton.icon(
-            onPressed: onDealers,
-            icon: const Icon(Icons.groups_outlined),
-            label: const Text('Open Verified Dealers'),
-          ),
-        ],
+        ),
       ),
     );
   }

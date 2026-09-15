@@ -11,10 +11,10 @@ Primary backend: Firebase Authentication + Cloud Firestore.
 - Balloting Result: applicant-specific `ballot_results`.
 - Explore Plots: `plots`, applicant favourites persistence.
 - Static Plot Map: `plots`.
-- Verified Dealers: verified `dealers`; local preview only when admin-owned collection is empty.
+- Verified Dealers: verified records from the sanitized `dealers` collection; no runtime dummy fallback.
 - Dealer Registration: `dealer_registrations`, applicant prefill and submission status.
 - Profile: applicant record, application/payment/upload summaries, notification preference.
-- Notifications / Messages: applicant notifications.
+- Notifications: applicant notifications.
 - My Reports: applicant-owned report/application data.
 - Settings: applicant preference update.
 - Contact DHS: `contacts`.
@@ -25,6 +25,6 @@ FAQ, Privacy and Terms contain informational content and do not require a databa
 They remain within the authenticated DHS navigation and can later be admin-managed without changing the applicant data model.
 
 ## Admin integration behavior
-`plots` and `dealers` are Firestore-first. Preview records are used only when the relevant
-admin-owned collection is empty. Once admin records are published, the same screens
-automatically display live Firestore records.
+`plots` and `dealers` are Firestore-backed with no runtime dummy fallback. Dealer registration
+documents stay private in `dealer_registrations`; the public directory reads sanitized verified
+records from `dealers`.

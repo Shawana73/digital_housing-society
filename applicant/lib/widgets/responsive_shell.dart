@@ -194,7 +194,7 @@ class DhsNavigationPanel extends StatelessWidget {
       route: AppConstants.uploadRoute,
     ),
     _DhsNavDestination(
-      label: 'Messages',
+      label: 'Notifications',
       icon: Icons.mark_chat_unread_outlined,
       route: AppConstants.notificationsRoute,
     ),

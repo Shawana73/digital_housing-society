@@ -14,7 +14,6 @@ import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
-import '../utils/demo_data.dart';
 import '../widgets/responsive_shell.dart';
 
 class ApplicantDashboardScreen extends StatefulWidget {
@@ -296,7 +295,7 @@ class _TopUtilityRowState extends State<_TopUtilityRow> {
               child: Container(
                 height: 52,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.lightPurpleBackground,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: const Color(0xFFE7E7F0),
@@ -341,7 +340,23 @@ class _TopUtilityRowState extends State<_TopUtilityRow> {
                       color: AppColors.secondaryText,
                       fontSize: 13,
                     ),
-                    border: InputBorder.none,
+                    filled: true,
+                    fillColor: AppColors.lightPurpleBackground,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: const BorderSide(
+                        color: AppColors.primaryPurple,
+                        width: 1.2,
+                      ),
+                    ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 16,
@@ -1139,14 +1154,6 @@ class _FeaturedPlotPanel extends StatelessWidget {
             plot = PlotModel.fromFirestore(docs.first);
           }
 
-          // Before the admin module publishes official plot inventory, show
-          // the same polished preview plot used by Explore Plots and Map.
-          final featuredPlot = plot ??
-              DemoData.plotModels.firstWhere(
-                    (item) => item.featured,
-                orElse: () => DemoData.plotModels.first,
-              );
-
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1161,8 +1168,12 @@ class _FeaturedPlotPanel extends StatelessWidget {
                     ),
                   ),
                 )
+              else if (plot == null)
+                const _EmptyMessage(
+                  text: 'No plot has been published by DHS yet.',
+                )
               else
-                _FeaturedPlotCard(plot: featuredPlot),
+                _FeaturedPlotCard(plot: plot),
             ],
           );
         },

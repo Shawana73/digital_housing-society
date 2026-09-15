@@ -17,6 +17,7 @@ import 'screens/profile_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/contact_us_screen.dart';
 import 'screens/faq_screen.dart';
+import 'screens/favourite_plots_screen.dart';
 import 'screens/legal_screen.dart';
 import 'screens/my_reports_screen.dart';
 import 'screens/result_checking_screen.dart';
@@ -77,6 +78,7 @@ class DigitalHousingSocietyApp extends StatelessWidget {
           AppConstants.plotsRoute: (_) => const PlotsScreen(),
           AppConstants.dealersRoute: (_) => const DealersScreen(),
           AppConstants.dealerRegistrationRoute: (_) => const DealerRegistrationScreen(),
+          AppConstants.favouritesRoute: (_) => const FavouritePlotsScreen(),
           AppConstants.settingsRoute: (_) => const SettingsScreen(),
         },
       ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/plot_model.dart';
 import '../services/firestore_service.dart';
+import '../utils/app_assets.dart';
 import '../utils/app_constants.dart';
 import '../widgets/responsive_shell.dart';
 
@@ -29,11 +30,12 @@ class _PlotsScreenState extends State<PlotsScreen> {
   final Set<String> _favourites = <String>{};
 
   static const List<String> _fallbackImages = <String>[
-    'assets/backgrounds/housing_bg_courtyard.png',
-    'assets/backgrounds/housing_bg_hero.png',
-    'assets/backgrounds/housing_bg_apply.png',
-    'assets/backgrounds/housing_bg_profile.png',
-    'assets/backgrounds/housing_bg_auth.png',
+    'assets/backgrounds/dashboard_hero_hd.jpg',
+    'assets/backgrounds/explore_plots_hero_hd.jpg',
+    'assets/backgrounds/housing_choice_lavender.jpg',
+    'assets/backgrounds/housing_choice_purple_modern.jpg',
+    'assets/backgrounds/housing_choice_embassy_lakes.jpg',
+    'assets/backgrounds/profile_hero_hd.jpg',
   ];
 
 
@@ -521,8 +523,7 @@ class _PlotsScreenState extends State<PlotsScreen> {
 class _HeroBanner extends StatelessWidget {
   const _HeroBanner();
 
-  static const String _backgroundAsset =
-      'assets/backgrounds/explore_plots_background.png';
+  static const String _backgroundAsset = AppAssets.explorePlotsBackground;
 
   @override
   Widget build(BuildContext context) {
@@ -547,9 +548,7 @@ class _HeroBanner extends StatelessWidget {
               Image.asset(
                 _backgroundAsset,
                 fit: BoxFit.cover,
-                alignment: compact
-                    ? Alignment.center
-                    : Alignment.center,
+                alignment: Alignment.center,
               ),
               const DecoratedBox(
                 decoration: BoxDecoration(

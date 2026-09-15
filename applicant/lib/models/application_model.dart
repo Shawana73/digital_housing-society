@@ -31,13 +31,14 @@ class ApplicationModel {
 
   factory ApplicationModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
+    final rawFee = (data['fee'] as num?)?.toInt() ?? 0;
     return ApplicationModel(
       id: doc.id,
       applicantId: data['applicantId']?.toString() ?? '',
       fullName: data['fullName']?.toString() ?? '',
       cnic: data['cnic']?.toString() ?? '',
       plotType: data['plotType']?.toString() ?? '',
-      fee: (data['fee'] as num?)?.toInt() ?? 0,
+      fee: rawFee < 0 ? 0 : rawFee,
       contactNumber: data['contactNumber']?.toString() ?? '',
       address: data['address']?.toString() ?? '',
       city: data['city']?.toString() ?? '',

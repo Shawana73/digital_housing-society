@@ -60,9 +60,10 @@ class PlotModel {
         '';
 
     final rawPrice = data['price'];
-    final price = rawPrice is num
+    final parsedPrice = rawPrice is num
         ? rawPrice.toInt()
         : int.tryParse(rawPrice?.toString() ?? '') ?? 0;
+    final price = parsedPrice < 0 ? 0 : parsedPrice;
 
     final rawStatus = data['status']?.toString().trim().toLowerCase();
 

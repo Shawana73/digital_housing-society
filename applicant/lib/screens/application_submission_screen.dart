@@ -6,13 +6,11 @@ import 'package:intl/intl.dart';
 import '../models/applicant_model.dart';
 import '../models/application_model.dart';
 import '../services/firestore_service.dart';
-import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../widgets/responsive_shell.dart';
 import '../utils/app_text_styles.dart';
 import '../utils/formatters_validators.dart';
-import '../widgets/branded_background.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/header_actions.dart';
@@ -165,9 +163,8 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
           ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPurple))
           : _existingApplication != null
               ? _SubmittedApplicationView(application: _existingApplication!)
-              : BrandedImageBackground(
-              imagePath: AppAssets.applyBackground,
-              overlayOpacity: .22,
+              : Container(
+              color: const Color(0xFFF7F9FD),
               child: Form(
               key: _formKey,
               onChanged: () => setState(() {}),
@@ -196,7 +193,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
                     ),
                   ),
                   const SizedBox(height: 18),
-                  AppTextField(label: 'Full Name', hint: 'Enter full name', controller: _fullName, prefixIcon: Icons.person_rounded, validator: (v) => Validators.required(v, 'Full name')),
+                  AppTextField(label: 'Full Name', hint: 'Enter full name', controller: _fullName, prefixIcon: Icons.person_rounded, validator: Validators.fullName),
                   const SizedBox(height: 14),
                   AppTextField(label: 'CNIC', hint: '35202-1234567-8', controller: _cnic, prefixIcon: Icons.badge_rounded, keyboardType: TextInputType.number, readOnly: true, inputFormatters: [CnicInputFormatter()], validator: Validators.cnic),
                   const SizedBox(height: 20),
@@ -231,7 +228,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
                   const SizedBox(height: 18),
                   AppTextField(label: 'Contact Number', hint: '03XX-XXXXXXX', controller: _contact, prefixIcon: Icons.phone_rounded, keyboardType: TextInputType.number, inputFormatters: [PakistaniPhoneFormatter()], validator: Validators.phone),
                   const SizedBox(height: 14),
-                  AppTextField(label: 'Permanent Address', hint: 'Enter permanent address', controller: _address, prefixIcon: Icons.location_on_rounded, maxLines: 3, validator: (v) => Validators.required(v, 'Address')),
+                  AppTextField(label: 'Permanent Address', hint: 'Enter permanent address', controller: _address, prefixIcon: Icons.location_on_rounded, maxLines: 3, validator: (v) => Validators.address(v)),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     initialValue: _city,
@@ -268,9 +265,8 @@ class _SubmittedApplicationView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BrandedImageBackground(
-      imagePath: AppAssets.applyBackground,
-      overlayOpacity: .20,
+    return Container(
+      color: const Color(0xFFF7F9FD),
       child: ListView(
         padding: const EdgeInsets.all(18),
         children: [

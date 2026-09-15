@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/firestore_service.dart';
+import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
-import '../utils/demo_data.dart';
 import '../utils/app_text_styles.dart';
 import '../widgets/responsive_shell.dart';
 
@@ -40,14 +40,10 @@ class _DealersScreenState extends State<DealersScreen> {
               return <String, dynamic>{...data, '_id': doc.id};
             }).toList();
 
-            // Keep the applicant demo complete before the admin module is
-            // connected. Once verified dealer records exist in Firestore,
-            // those records automatically replace this preview data.
-            final allDealers = firestoreDealers.isNotEmpty
-                ? firestoreDealers
-                : DemoData.dealers
-                    .map((dealer) => Map<String, dynamic>.from(dealer))
-                    .toList();
+            // Applicant-facing dealer information comes only from the
+            // sanitized verified `dealers` collection. No dummy dealer data is
+            // shown when the backend has not published a verified dealer yet.
+            final allDealers = firestoreDealers;
 
             final cities = _options(allDealers, 'city');
             final specializations =
@@ -91,12 +87,7 @@ class _DealersScreenState extends State<DealersScreen> {
                       child: CustomScrollView(
                         slivers: [
                           SliverToBoxAdapter(
-                            child: _DealersHeader(
-                              onBellTap: () => Navigator.pushNamed(
-                                context,
-                                AppConstants.notificationsRoute,
-                              ),
-                            ),
+                            child: const _DealersHeader(),
                           ),
                           SliverToBoxAdapter(
                             child: Padding(
@@ -130,29 +121,40 @@ class _DealersScreenState extends State<DealersScreen> {
                             child: Padding(
                                 padding:
                                     const EdgeInsets.fromLTRB(18, 0, 18, 14),
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: FilledButton.icon(
-                                    onPressed: () => Navigator.pushNamed(
-                                      context,
-                                      AppConstants.dealerRegistrationRoute,
-                                    ),
-                                    icon: const Icon(
-                                      Icons.add_business_rounded,
-                                    ),
-                                    label:
-                                        const Text('Register as a Dealer'),
-                                    style: FilledButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 18,
-                                        vertical: 15,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final compact = constraints.maxWidth < 560;
+                                    return Align(
+                                      alignment: compact
+                                          ? Alignment.center
+                                          : Alignment.centerRight,
+                                      child: SizedBox(
+                                        width: compact ? double.infinity : null,
+                                        child: FilledButton.icon(
+                                          onPressed: () => Navigator.pushNamed(
+                                            context,
+                                            AppConstants.dealerRegistrationRoute,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.add_business_rounded,
+                                          ),
+                                          label: const Text(
+                                            'Register as a Dealer',
+                                            maxLines: 1,
+                                          ),
+                                          style: FilledButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 18,
+                                              vertical: 15,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(14),
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(14),
-                                      ),
-                                    ),
-                                  ),
+                                    );
+                                  },
                                 ),
                               ),
                             ),
@@ -199,7 +201,7 @@ class _DealersScreenState extends State<DealersScreen> {
                                       crossAxisCount: columns,
                                       crossAxisSpacing: 16,
                                       mainAxisSpacing: 16,
-                                      mainAxisExtent: 260,
+                                      mainAxisExtent: columns == 1 ? 300 : 260,
                                     ),
                                   );
                                 },
@@ -260,11 +262,17 @@ class _DealersScreenState extends State<DealersScreen> {
         (dealer['companyName'] ?? dealer['name'] ?? 'DHS Dealer')
             .toString();
     final license =
-        (dealer['licenseNumber'] ?? dealer['licenseId'] ?? '-').toString();
+        (dealer['licenseNumber'] ?? dealer['licenseId'] ?? '').toString().trim();
+    final ntn = (dealer['ntnNumber'] ?? '').toString().trim();
+    final credential = license.isNotEmpty
+        ? 'License ID: $license'
+        : ntn.isNotEmpty
+            ? 'NTN: $ntn'
+            : 'Verified by DHS';
     final city = (dealer['city'] ?? '-').toString();
     final specialization =
         (dealer['specialization'] ?? 'Property Services').toString();
-    final phone = (dealer['phone'] ?? '-').toString();
+    final phone = (dealer['officePhone'] ?? dealer['phone'] ?? '-').toString();
     final email = (dealer['email'] ?? '-').toString();
     final address =
         (dealer['businessAddress'] ?? dealer['address'] ?? '-').toString();
@@ -305,7 +313,7 @@ class _DealersScreenState extends State<DealersScreen> {
                         company: company,
                         large: true,
                         logoAsset: (dealer['logoAsset'] ?? '').toString(),
-                        logoUrl: (dealer['logoUrl'] ?? '').toString(),
+                        logoUrl: (dealer['logoUrl'] ?? dealer['profileImageUrl'] ?? '').toString(),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -330,7 +338,7 @@ class _DealersScreenState extends State<DealersScreen> {
                             ),
                             const SizedBox(height: 5),
                             Text(
-                              'License ID: $license',
+                              credential,
                               style: AppTextStyles.bodyMedium,
                             ),
                           ],
@@ -392,7 +400,7 @@ class _DealersScreenState extends State<DealersScreen> {
     final company =
         (dealer['companyName'] ?? dealer['name'] ?? 'DHS Dealer')
             .toString();
-    final phone = (dealer['phone'] ?? '').toString();
+    final phone = (dealer['officePhone'] ?? dealer['phone'] ?? '').toString();
     final email = (dealer['email'] ?? '').toString();
 
     showModalBottomSheet<void>(
@@ -503,139 +511,83 @@ class _DealersScreenState extends State<DealersScreen> {
 }
 
 class _DealersHeader extends StatelessWidget {
-  const _DealersHeader({required this.onBellTap});
-
-  final VoidCallback onBellTap;
+  const _DealersHeader();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 18, 24, 42),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF14499E),
-            Color(0xFF293CC4),
-            Color(0xFF7337D7),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+    final compact = MediaQuery.sizeOf(context).width < 600;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        compact ? 0 : 18,
+        compact ? 0 : 14,
+        compact ? 0 : 18,
+        0,
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: 10,
-            bottom: -8,
-            child: Opacity(
-              opacity: .12,
-              child: Icon(
-                Icons.location_city_rounded,
-                size: 180,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 44,
-            bottom: 0,
-            child: Container(
-              width: 72,
-              height: 82,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.white.withValues(alpha: .22),
-                    Colors.white.withValues(alpha: .07),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: .28),
-                ),
-              ),
-              child: const Icon(
-                Icons.verified_user_rounded,
-                color: Colors.white,
-                size: 44,
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(compact ? 0 : 26),
+        child: SizedBox(
+          height: compact ? 220 : 210,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              Row(
-                children: [
-                  ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
-                      BlendMode.srcIn,
-                    ),
-                    child: Image.asset(
-                      'assets/logos/dhs_logo.png',
-                      width: 150,
-                      height: 58,
-                      fit: BoxFit.contain,
-                    ),
+              Image.asset(
+                compact
+                    ? AppAssets.dealersMobileBackground
+                    : AppAssets.dealersBackground,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                filterQuality: FilterQuality.high,
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.black.withValues(alpha: .72),
+                      Colors.black.withValues(alpha: .42),
+                      Colors.black.withValues(alpha: .08),
+                    ],
+                    stops: const [0.0, .48, 1.0],
                   ),
-                  const Spacer(),
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .12),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: .16),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 24 : 34,
+                  vertical: compact ? 28 : 30,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Verified Dealers',
+                      style: AppTextStyles.headingLarge.copyWith(
+                        color: Colors.white,
+                        fontSize: compact ? 31 : 36,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    child: Stack(
-                      children: [
-                        Center(
-                          child: IconButton(
-                            onPressed: onBellTap,
-                            icon: const Icon(
-                              Icons.notifications_none_rounded,
-                              color: Colors.white,
-                            ),
-                          ),
+                    const SizedBox(height: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 620),
+                      child: Text(
+                        'Connect with trusted & verified DHS dealers.',
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          color: Colors.white.withValues(alpha: .94),
+                          height: 1.4,
                         ),
-                        Positioned(
-                          right: 9,
-                          top: 8,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFFF5B64),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Verified Dealers',
-                style: AppTextStyles.headingLarge.copyWith(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Connect with trusted & verified DHS dealers.',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: Colors.white.withValues(alpha: .9),
+                  ],
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -857,10 +809,15 @@ class _DealerCard extends StatelessWidget {
     final company =
         (data['companyName'] ?? data['name'] ?? 'DHS Dealer').toString();
     final license =
-        (data['licenseNumber'] ?? data['licenseId'] ?? 'DHS Verified')
-            .toString();
+        (data['licenseNumber'] ?? data['licenseId'] ?? '').toString().trim();
+    final ntn = (data['ntnNumber'] ?? '').toString().trim();
+    final credential = license.isNotEmpty
+        ? 'License ID: $license'
+        : ntn.isNotEmpty
+            ? 'NTN: $ntn'
+            : 'Verified by DHS';
     final city = (data['city'] ?? '-').toString();
-    final phone = (data['phone'] ?? '-').toString();
+    final phone = (data['officePhone'] ?? data['phone'] ?? '-').toString();
     final specialization =
         (data['specialization'] ?? 'Residential & Commercial Plots')
             .toString();
@@ -888,7 +845,7 @@ class _DealerCard extends StatelessWidget {
                 _DealerLogo(
                   company: company,
                   logoAsset: (data['logoAsset'] ?? '').toString(),
-                  logoUrl: (data['logoUrl'] ?? '').toString(),
+                  logoUrl: (data['logoUrl'] ?? data['profileImageUrl'] ?? '').toString(),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -918,7 +875,7 @@ class _DealerCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        'License ID: $license',
+                        credential,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.bodyMedium.copyWith(
@@ -958,10 +915,16 @@ class _DealerCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      phone,
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        color: const Color(0xFF5E687E),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 112),
+                      child: Text(
+                        phone,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: const Color(0xFF5E687E),
+                        ),
                       ),
                     ),
                   ],

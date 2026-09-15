@@ -23,11 +23,11 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
     _scale = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
-    Future.delayed(const Duration(seconds: 3), _routeNext);
+    Future.delayed(const Duration(milliseconds: 650), _routeNext);
   }
 
   void _routeNext() {
@@ -36,6 +36,17 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         if (mounted) Navigator.pushReplacementNamed(context, AppConstants.loginRoute);
         return;
       }
+      // A verified cached Firebase session can route immediately. This avoids
+      // an unnecessary network reload on every app start. If the cached user
+      // is still unverified, reload once so a newly verified account is picked
+      // up before deciding whether to sign out.
+      if (user.emailVerified) {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, AppConstants.dashboardRoute);
+        }
+        return;
+      }
+
       await user.reload();
       final refreshed = FirebaseAuth.instance.currentUser;
       if (!mounted) return;

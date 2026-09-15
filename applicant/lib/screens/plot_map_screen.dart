@@ -7,7 +7,6 @@ import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
-import '../utils/demo_data.dart';
 import '../widgets/responsive_shell.dart';
 
 class PlotMapScreen extends StatefulWidget {
@@ -45,11 +44,10 @@ final firestorePlots = (snapshot.data?.docs ?? const [])
     .map(PlotModel.fromFirestore)
     .toList();
 
-// Live Firestore data is primary. Until the admin module publishes
-// official plots, keep the approved master-plan demo fully usable.
-final plots = firestorePlots.isNotEmpty
-? firestorePlots
-    : DemoData.plotModels;
+// Plot details come only from live Firestore records. The static map can
+// still be viewed when there are no published plots, but no dummy plot data is
+// injected into applicant-facing details.
+final plots = firestorePlots;
 
 final phases = _options(
 plots.map((plot) => plot.phase),

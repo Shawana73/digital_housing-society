@@ -1,0 +1,42 @@
+DHS APPLICANT FINAL HANDOFF - 15 SEP 2026
+
+This package contains the finalized Applicant module source after the requested dealer UI,
+validation, responsive-layout, backend-only runtime data, image, notification, balloting,
+and loading improvements.
+
+IMPORTANT VERIFICATION NOTE
+---------------------------
+The final source passed the available static project audit:
+- Dart delimiter/structure scan: passed
+- Relative Dart imports: passed
+- AppAssets/AppConstants references: passed
+- Named routes: passed
+- Literal asset references: passed
+- Image files readable: passed
+- JSON files parse: passed
+- Firestore rule copies synchronized: passed
+- No DemoData/demo_data runtime references: passed
+
+Flutter/Dart SDK is not available in the packaging environment, so run these on the
+actual development PC before final submission/demo:
+
+  flutter pub get
+  flutter analyze
+  flutter test
+
+Then test both Chrome and Android/mobile.
+
+FIRESTORE RULES
+---------------
+The project rule file was updated, including activity_logs permissions required by the
+Applicant flows. A local firestore.rules file is only the rule source; Firebase does not
+apply it automatically. Publish/deploy it before final backend testing, either from the
+Firebase Console or (when Firebase CLI is configured):
+
+  firebase deploy --only firestore:rules
+
+BACKEND DATA POLICY
+-------------------
+Applicant-facing plot and verified-dealer listings use Firestore runtime data. Private
+dealer registrations remain in dealer_registrations, while the public verified dealer
+directory reads the sanitized dealers collection.

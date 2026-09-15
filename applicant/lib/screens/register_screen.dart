@@ -220,7 +220,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 8),
             Text('Enter accurate personal details for your application profile.', style: AppTextStyles.bodyMedium),
             const SizedBox(height: 24),
-            AppTextField(label: 'Full Name', hint: 'Enter full name', controller: _fullName, prefixIcon: Icons.person_rounded, validator: (v) => Validators.required(v, 'Full name')),
+            AppTextField(label: 'Full Name', hint: 'Enter full name', controller: _fullName, prefixIcon: Icons.person_rounded, validator: Validators.fullName),
             const SizedBox(height: 16),
             AppTextField(
               label: 'CNIC',
@@ -314,7 +314,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 8),
             Text('Confirm your city and declaration before submitting.', style: AppTextStyles.bodyMedium),
             const SizedBox(height: 24),
-            AppTextField(label: 'Street Address', hint: 'House, street, area', controller: _address, prefixIcon: Icons.location_on_rounded, maxLines: 3, validator: (v) => Validators.required(v, 'Address')),
+            AppTextField(label: 'Street Address', hint: 'House, street, area', controller: _address, prefixIcon: Icons.location_on_rounded, maxLines: 3, validator: (v) => Validators.address(v)),
             const SizedBox(height: 16),
             AppTextField(label: 'City', hint: 'Enter city', controller: _city, prefixIcon: Icons.location_city_rounded, validator: (v) => Validators.required(v, 'City')),
             const SizedBox(height: 16),

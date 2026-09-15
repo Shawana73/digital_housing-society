@@ -29,7 +29,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return DhsResponsiveShell(
       currentRoute: AppConstants.notificationsRoute,
-      mobileTitle: 'Messages',
+      mobileTitle: 'Notifications',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: desktop

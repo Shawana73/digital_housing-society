@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/applicant_model.dart';
 import '../models/application_model.dart';
@@ -57,12 +58,23 @@ class ApplicantProvider extends ChangeNotifier {
   Future<void> loadAll(String uid) async {
     setLoading(true);
     try {
-      final applicantDoc = await _firestoreService.getApplicant(uid);
-      final applicationDoc = await _firestoreService.getApplication(uid);
-      final paymentDoc = await _firestoreService.getPayment(uid);
-      currentApplicant = applicantDoc.exists ? ApplicantModel.fromFirestore(applicantDoc) : null;
-      currentApplication = applicationDoc == null ? null : ApplicationModel.fromFirestore(applicationDoc);
-      currentPayment = paymentDoc == null ? null : PaymentModel.fromFirestore(paymentDoc);
+      final records = await Future.wait([
+        _firestoreService.getApplicant(uid),
+        _firestoreService.getApplication(uid),
+        _firestoreService.getPayment(uid),
+      ]);
+      final applicantDoc = records[0] as DocumentSnapshot;
+      final applicationDoc = records[1];
+      final paymentDoc = records[2];
+      currentApplicant = applicantDoc.exists
+          ? ApplicantModel.fromFirestore(applicantDoc)
+          : null;
+      currentApplication = applicationDoc == null
+          ? null
+          : ApplicationModel.fromFirestore(applicationDoc);
+      currentPayment = paymentDoc == null
+          ? null
+          : PaymentModel.fromFirestore(paymentDoc);
       error = null;
     } catch (e) {
       error = 'Some records could not be loaded. Pull down to refresh.';

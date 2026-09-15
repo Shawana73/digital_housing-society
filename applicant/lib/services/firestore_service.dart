@@ -339,6 +339,9 @@ class FirestoreService {
   }
 
   Stream<QuerySnapshot> getVerifiedDealers() {
+    // The public dealer directory reads from the sanitized `dealers`
+    // collection. Dealer registration documents contain private verification
+    // data (CNIC/documents), so they must stay owner/admin-only.
     return _db
         .collection('dealers')
         .where('verificationStatus', isEqualTo: 'verified')
