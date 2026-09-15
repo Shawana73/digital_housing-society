@@ -48,9 +48,9 @@ class ApplicantStatsBanner extends StatelessWidget {
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
                             colors: [
-                              const Color(0xFF5A2FE0).withOpacity(0.97),
-                              const Color(0xFF6A3CEF).withOpacity(0.85),
-                              const Color(0xFF6A3CEF).withOpacity(0.52),
+                              const Color(0xFF5A2FE0).withOpacity(0.55),
+                              const Color(0xFF6A3CEF).withOpacity(0.30),
+                              const Color(0xFF6A3CEF).withOpacity(0.10),
                             ],
                             stops: const [0.0, 0.55, 1.0],
                           ),

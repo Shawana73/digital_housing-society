@@ -190,25 +190,35 @@ class DocTile extends StatelessWidget {
 
     return PremiumCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
+      color: const Color(0xFFF3EEFF),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 38,
-            width: 38,
-            decoration: BoxDecoration(
-              color: AdminColors.primary.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(
-              doc.icon,
-              color: AdminColors.primary,
-              size: 19,
-            ),
+          Row(
+            children: [
+              Container(
+                height: 40,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: AdminColors.primary.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(doc.icon, color: AdminColors.primary, size: 19),
+              ),
+              const Spacer(),
+              StatusPill(
+                label: status == 'verified'
+                    ? 'Verified'
+                    : status == 'rejected'
+                    ? 'Rejected'
+                    : 'Pending',
+                color: statusColor,
+              ),
+            ],
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           Text(
             doc.title,
@@ -217,7 +227,7 @@ class DocTile extends StatelessWidget {
             style: const TextStyle(
               color: AdminColors.darkText,
               fontWeight: FontWeight.w800,
-              fontSize: 12.5,
+              fontSize: 13,
             ),
           ),
 
@@ -234,52 +244,25 @@ class DocTile extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 8),
-
-          StatusPill(
-            label: status == 'verified'
-                ? 'Verified'
-                : status == 'rejected'
-                ? 'Rejected'
-                : 'Pending',
-            color: statusColor,
-          ),
-
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: onVerify,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    foregroundColor: AdminColors.success,
-                  ),
-                  child: const Text(
-                    'Verify',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                child: _DocActionButton(
+                  label: 'Verify',
+                  icon: Icons.check_rounded,
+                  color: AdminColors.success,
+                  onTap: onVerify,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: OutlinedButton(
-                  onPressed: onReject,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    foregroundColor: AdminColors.rejected,
-                  ),
-                  child: const Text(
-                    'Reject',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                child: _DocActionButton(
+                  label: 'Reject',
+                  icon: Icons.close_rounded,
+                  color: AdminColors.rejected,
+                  onTap: onReject,
                 ),
               ),
             ],
@@ -647,4 +630,48 @@ class DetailsDivider extends StatelessWidget {
     height: 1,
     color: AdminColors.primary.withOpacity(0.07),
   );
+}
+class _DocActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _DocActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Material(
+      color: enabled ? color.withOpacity(0.10) : AdminColors.background,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14, color: enabled ? color : AdminColors.greyText),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: enabled ? color : AdminColors.greyText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

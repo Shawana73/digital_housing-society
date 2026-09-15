@@ -78,7 +78,7 @@ class DashboardHeroCard extends StatelessWidget {
         child: Stack(children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/Green_Valley_Villa.png',
+              'assets/images/housing_society.png',
               fit: BoxFit.cover,
               alignment: Alignment.centerRight,
             ),

@@ -279,7 +279,7 @@ class AdminShell extends StatelessWidget {
         ],
       ),
       child: Image.asset(
-        'assets/logo/dhs_logo.png',
+        'assets/logo/dhs_icon.png',
         fit: BoxFit.contain,
       ),
     );

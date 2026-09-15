@@ -33,17 +33,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/admin_realestate.png
-    - assets/images/modern_apartment.png
-    - assets/images/Green_Valley_Villa.png
-    - assets/images/Royal Enclave.png
-    - assets/images/Sunshine Residency.png
-    - assets/images/admin_purple.png
-    - assets/images/admin_villa.png
-    - assets/images/housing_society.png
-    - assets/logo/dhs_logo.png
-    - assets/logo/dhs_icon.png
-    - assets/logo/dhs_app_icon.png
+    - assets/images/
+    - assets/logo/
 
 dependency_overrides:
   firebase_core_web: 3.10.0
@@ -51,4 +42,4 @@ dependency_overrides:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/logo/dhs_app_icon.png"
+  image_path: "assets/logo/dhs_icon.png"
