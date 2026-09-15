@@ -343,8 +343,8 @@ class FirestoreService {
     // collection. Dealer registration documents contain private verification
     // data (CNIC/documents), so they must stay owner/admin-only.
     return _db
-        .collection('dealers')
-        .where('verificationStatus', isEqualTo: 'verified')
+        .collection('dealer_registrations')
+        .where('verificationStatus', isEqualTo: 'Approved')
         .snapshots();
   }
 
