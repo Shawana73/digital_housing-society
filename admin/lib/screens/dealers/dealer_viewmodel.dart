@@ -53,20 +53,7 @@ class DealerVerificationViewModel extends BaseAdminViewModel {
       for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
       in snapshot.docs) {
         final data = doc.data();
-
-        dealers.add(
-          Dealer(
-            id: doc.id,
-            name: data['fullName']?.toString() ?? '',
-            cnic: data['cnic']?.toString() ?? '',
-            phone: data['phone']?.toString() ?? '',
-            agency: data['companyName']?.toString() ?? '',
-            city: data['city']?.toString() ?? '',
-            status: _getStatus(
-              data['verificationStatus']?.toString(),
-            ),
-          ),
-        );
+        dealers.add(Dealer.fromFirestore(doc));
       }
 
       debugPrint(

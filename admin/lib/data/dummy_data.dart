@@ -328,37 +328,6 @@ class DummyData {
         ),
       ];
 
-  static List<Dealer> dealers() => [
-        Dealer(
-          id: 'DLR-01',
-          name: 'Bilal Estate',
-          cnic: '35202-1112223-4',
-          phone: '+92 300 1201201',
-          agency: 'Bilal Associates',
-          city: 'Lahore',
-          status: VerificationStatus.pending,
-        ),
-        Dealer(
-          id: 'DLR-02',
-          name: 'Capital Links',
-          cnic: '61101-9998887-6',
-          phone: '+92 321 9911223',
-          agency: 'Capital Links Pvt Ltd',
-          city: 'Islamabad',
-          status: VerificationStatus.verified,
-        ),
-        Dealer(
-          id: 'DLR-03',
-          name: 'Raza Properties',
-          cnic: '34101-3322110-9',
-          phone: '+92 333 2104567',
-          agency: 'Raza Properties',
-          city: 'Gujranwala',
-          status: VerificationStatus.rejected,
-        ),
-      ];
-
-
   static List<AdminNotification> notifications() => [
         AdminNotification(
           id: 'N-1',
