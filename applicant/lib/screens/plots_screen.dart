@@ -32,10 +32,10 @@ class _PlotsScreenState extends State<PlotsScreen> {
   static const List<String> _fallbackImages = <String>[
     'assets/backgrounds/dashboard_hero_hd.jpg',
     'assets/backgrounds/explore_plots_hero_hd.jpg',
-    'assets/backgrounds/housing_choice_lavender.jpg',
-    'assets/backgrounds/housing_choice_purple_modern.jpg',
-    'assets/backgrounds/housing_choice_embassy_lakes.jpg',
+    'assets/backgrounds/dealer_registration_banner_hd.jpg',
+    'assets/backgrounds/dealers_banner_hd.jpg',
     'assets/backgrounds/profile_hero_hd.jpg',
+    'assets/backgrounds/auth_hero_hd.jpg',
   ];
 
 
@@ -549,6 +549,7 @@ class _HeroBanner extends StatelessWidget {
                 _backgroundAsset,
                 fit: BoxFit.cover,
                 alignment: Alignment.center,
+                filterQuality: FilterQuality.high,
               ),
               const DecoratedBox(
                 decoration: BoxDecoration(

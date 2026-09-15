@@ -119,45 +119,53 @@ class _DealersScreenState extends State<DealersScreen> {
                           ),
                           SliverToBoxAdapter(
                             child: Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(18, 0, 18, 14),
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final compact = constraints.maxWidth < 560;
-                                    return Align(
-                                      alignment: compact
-                                          ? Alignment.center
-                                          : Alignment.centerRight,
-                                      child: SizedBox(
-                                        width: compact ? double.infinity : null,
-                                        child: FilledButton.icon(
-                                          onPressed: () => Navigator.pushNamed(
-                                            context,
-                                            AppConstants.dealerRegistrationRoute,
+                              padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final compact = constraints.maxWidth < 560;
+                                  return Align(
+                                    alignment: compact
+                                        ? Alignment.centerRight
+                                        : Alignment.centerRight,
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth: compact ? 205 : 220,
+                                      ),
+                                      child: FilledButton.icon(
+                                        onPressed: () => Navigator.pushNamed(
+                                          context,
+                                          AppConstants.dealerRegistrationRoute,
+                                        ),
+                                        icon: const Icon(
+                                          Icons.add_business_rounded,
+                                          size: 18,
+                                        ),
+                                        label: const Text(
+                                          'Register as a Dealer',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        style: FilledButton.styleFrom(
+                                          minimumSize: const Size(0, 44),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 11,
                                           ),
-                                          icon: const Icon(
-                                            Icons.add_business_rounded,
+                                          textStyle: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
                                           ),
-                                          label: const Text(
-                                            'Register as a Dealer',
-                                            maxLines: 1,
-                                          ),
-                                          style: FilledButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 18,
-                                              vertical: 15,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(14),
-                                            ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(13),
                                           ),
                                         ),
                                       ),
-                                    );
-                                  },
-                                ),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
+                          ),
                           if (snapshot.connectionState ==
                                   ConnectionState.waiting &&
                               snapshot.data == null)

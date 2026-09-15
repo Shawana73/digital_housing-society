@@ -567,6 +567,8 @@ class _DashboardHero extends StatelessWidget {
             image: const DecorationImage(
               image: AssetImage(AppAssets.courtyardBackground),
               fit: BoxFit.cover,
+              alignment: Alignment.center,
+              filterQuality: FilterQuality.high,
             ),
           ),
           child: ClipRRect(
@@ -691,7 +693,7 @@ class _JourneyStrip extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFF131C58).withValues(alpha: .58),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: Colors.white.withValues(alpha: .18),
         ),
@@ -957,8 +959,8 @@ class _StatusCard extends StatelessWidget {
       child: GestureDetector(
         onTap: () => Navigator.pushNamed(context, data.route),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 112),
-          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(minHeight: 88),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
@@ -974,19 +976,19 @@ class _StatusCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: tone.$2,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   data.icon,
                   color: tone.$1,
-                  size: 23,
+                  size: 21,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1009,7 +1011,7 @@ class _StatusCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: tone.$1,
-                        fontSize: 17,
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
                         height: 1.1,
                       ),

@@ -36,22 +36,37 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      validator: validator,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      readOnly: readOnly,
-      onTap: onTap,
-      maxLines: obscureText ? 1 : maxLines,
-      inputFormatters: inputFormatters,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, color: AppColors.primaryPurple),
-        suffixIcon: suffix,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.primaryText,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 7),
+        TextFormField(
+          controller: controller,
+          validator: validator,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          readOnly: readOnly,
+          onTap: onTap,
+          maxLines: obscureText ? 1 : maxLines,
+          inputFormatters: inputFormatters,
+          onChanged: onChanged,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: prefixIcon == null
+                ? null
+                : Icon(prefixIcon, color: AppColors.primaryPurple),
+            suffixIcon: suffix,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -300,9 +300,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     await Share.share(
       'Digital Housing Society Applicant\n'
-      'Name: ${applicant.fullName}\n'
-      'City: ${applicant.city}\n'
-      'Application ID: $applicationId',
+          'Name: ${applicant.fullName}\n'
+          'City: ${applicant.city}\n'
+          'Application ID: $applicationId',
       subject: 'DHS Applicant Profile',
     );
   }
@@ -445,7 +445,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.pushNamedAndRemoveUntil(
       context,
       AppConstants.loginRoute,
-      (_) => false,
+          (_) => false,
     );
   }
 
@@ -463,148 +463,137 @@ class _ProfileScreenState extends State<ProfileScreen> {
       mobileTitle: 'Applicant Profile',
       child: _loading
           ? const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primaryPurple,
-              ),
-            )
+        child: CircularProgressIndicator(
+          color: AppColors.primaryPurple,
+        ),
+      )
           : RefreshIndicator(
-              color: AppColors.primaryPurple,
-              onRefresh: _load,
-              child: ListView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.sizeOf(context).width >= 980 ? 26 : 14,
-                  vertical: 18,
-                ),
-                children: [
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1080),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _ProfileHeader(
-                            applicant: _applicant!,
-                            photoBytes: _photoBytes,
-                            photoSaving: _photoSaving,
-                            snapshot: _snapshot,
-                            onPhotoTap: _pickProfilePhoto,
-                            onEdit: _editProfile,
-                            onShare: _shareProfile,
-                            onIdCard: _showIdCard,
+        color: AppColors.primaryPurple,
+        onRefresh: _load,
+        child: ListView(
+          padding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.sizeOf(context).width >= 980 ? 26 : 14,
+            vertical: 18,
+          ),
+          children: [
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1080),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ProfileHeader(
+                      applicant: _applicant!,
+                      photoBytes: _photoBytes,
+                      photoSaving: _photoSaving,
+                      snapshot: _snapshot,
+                      onPhotoTap: _pickProfilePhoto,
+                      onEdit: _editProfile,
+                      onShare: _shareProfile,
+                      onIdCard: _showIdCard,
+                    ),
+                    const SizedBox(height: 18),
+                    _ProfileMenuGroup(
+                      children: [
+                        _ProfileMenuItem(
+                          icon: Icons.person_outline_rounded,
+                          title: 'About Applicant',
+                          subtitle:
+                          'Membership, residency and applicant overview',
+                          onTap: () => _showAbout(context),
+                        ),
+                        _ProfileMenuItem(
+                          icon: Icons.badge_outlined,
+                          title: 'Personal Details',
+                          subtitle:
+                          'Contact, CNIC, date of birth and address',
+                          onTap: _editProfile,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _ProfileMenuGroup(
+                      children: [
+                        _ProfileMenuItem(
+                          icon: Icons.favorite_border_rounded,
+                          title: 'Saved Items / Favourites',
+                          subtitle: 'Your saved DHS plots',
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppConstants.favouritesRoute,
                           ),
-                          const SizedBox(height: 18),
-                          _ProfileMenuGroup(
-                            children: [
-                              _ProfileMenuItem(
-                                icon: Icons.person_outline_rounded,
-                                title: 'About Applicant',
-                                subtitle:
-                                    'Membership, residency and applicant overview',
-                                onTap: () => _showAbout(context),
-                              ),
-                              _ProfileMenuItem(
-                                icon: Icons.badge_outlined,
-                                title: 'Personal Details',
-                                subtitle:
-                                    'Contact, CNIC, date of birth and address',
-                                onTap: _editProfile,
-                              ),
-                              _ProfileMenuItem(
-                                icon: Icons.link_rounded,
-                                title: 'Linked Accounts / Services',
-                                subtitle:
-                                    'Application, payment and document services',
-                                badge: '${_snapshot.linkedServices} Linked',
-                                onTap: () => Navigator.pushNamed(
-                                  context,
-                                  AppConstants.myReportsRoute,
-                                ),
-                              ),
-                            ],
+                        ),
+                        _ProfileMenuItem(
+                          icon: Icons.notifications_none_rounded,
+                          title: 'Notifications',
+                          subtitle:
+                          'Application, payment and balloting alerts',
+                          trailing: Switch(
+                            value:
+                            _applicant?.notificationsEnabled ?? true,
+                            onChanged: _toggleNotifications,
+                            activeThumbColor: AppColors.deepPurple,
                           ),
-                          const SizedBox(height: 14),
-                          _ProfileMenuGroup(
-                            children: [
-                              _ProfileMenuItem(
-                                icon: Icons.favorite_border_rounded,
-                                title: 'Saved Items / Favourites',
-                                subtitle: 'Your saved DHS plots',
-                                onTap: () => Navigator.pushNamed(
-                                  context,
-                                  AppConstants.favouritesRoute,
-                                ),
-                              ),
-                              _ProfileMenuItem(
-                                icon: Icons.notifications_none_rounded,
-                                title: 'Notifications',
-                                subtitle:
-                                    'Application, payment and balloting alerts',
-                                trailing: Switch(
-                                  value:
-                                      _applicant?.notificationsEnabled ?? true,
-                                  onChanged: _toggleNotifications,
-                                  activeThumbColor: AppColors.deepPurple,
-                                ),
-                                onTap: () => Navigator.pushNamed(
-                                  context,
-                                  AppConstants.notificationsRoute,
-                                ),
-                              ),
-                            ],
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppConstants.notificationsRoute,
                           ),
-                          const SizedBox(height: 14),
-                          _ProfileMenuGroup(
-                            children: [
-                              _ProfileMenuItem(
-                                icon: Icons.shield_outlined,
-                                title: 'Privacy & Security',
-                                subtitle:
-                                    'Password, privacy policy and account safety',
-                                onTap: _sendPasswordReset,
-                              ),
-                              _ProfileMenuItem(
-                                icon: Icons.support_agent_rounded,
-                                title: 'Help & Support',
-                                subtitle:
-                                    'FAQs, contact DHS and support assistance',
-                                onTap: () => Navigator.pushNamed(
-                                  context,
-                                  AppConstants.contactRoute,
-                                ),
-                              ),
-                            ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _ProfileMenuGroup(
+                      children: [
+                        _ProfileMenuItem(
+                          icon: Icons.shield_outlined,
+                          title: 'Privacy & Security',
+                          subtitle:
+                          'Password, privacy policy and account safety',
+                          onTap: _sendPasswordReset,
+                        ),
+                        _ProfileMenuItem(
+                          icon: Icons.support_agent_rounded,
+                          title: 'Help & Support',
+                          subtitle:
+                          'FAQs, contact DHS and support assistance',
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppConstants.contactRoute,
                           ),
-                          const SizedBox(height: 14),
-                          _TrustBanner(
-                            onTap: () => Navigator.pushNamed(
-                              context,
-                              AppConstants.plotsRoute,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          OutlinedButton.icon(
-                            onPressed: _logout,
-                            icon: const Icon(Icons.logout_rounded),
-                            label: const Text('Logout'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.errorRed,
-                              side: const BorderSide(
-                                color: Color(0xFFF3B6B7),
-                              ),
-                              minimumSize: const Size.fromHeight(54),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(17),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _TrustBanner(
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppConstants.plotsRoute,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 14),
+                    OutlinedButton.icon(
+                      onPressed: _logout,
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('Logout'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.errorRed,
+                        side: const BorderSide(
+                          color: Color(0xFFF3B6B7),
+                        ),
+                        minimumSize: const Size.fromHeight(54),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(17),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
               ),
             ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -694,198 +683,129 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 700;
-    final progress = snapshot.completionScore / 1000;
 
-    return Container(
-      padding: EdgeInsets.all(compact ? 15 : 24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF315EDA),
-            Color(0xFF5E3BDF),
-            Color(0xFF7C3FE9),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.deepPurple.withValues(alpha: .22),
-            blurRadius: 30,
-            offset: const Offset(0, 14),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: Container(
+        decoration: BoxDecoration(
+          image: const DecorationImage(
+            image: AssetImage(AppAssets.profileBackground),
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            filterQuality: FilterQuality.high,
           ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -30,
-            top: -30,
-            child: Opacity(
-              opacity: .10,
-              child: Image.asset(
-                AppAssets.profileBackground,
-                width: compact ? 225 : 390,
-                height: compact ? 215 : 280,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .12),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.black.withValues(alpha: .68),
+                      Colors.black.withValues(alpha: .42),
+                      Colors.black.withValues(alpha: .18),
+                    ],
+                    stops: const [0.0, .58, 1.0],
+                  ),
+                ),
               ),
             ),
-          ),
-          Column(
-            children: [
-              if (compact)
-                Column(
-                  children: [
-                    _ProfileAvatarWithCamera(
-                      applicant: applicant,
-                      photoBytes: photoBytes,
-                      photoSaving: photoSaving,
-                      onPhotoTap: onPhotoTap,
+            Padding(
+              padding: EdgeInsets.all(compact ? 16 : 22),
+              child: Column(
+                children: [
+                  if (compact)
+                    Column(
+                      children: [
+                        _ProfileAvatarWithCamera(
+                          applicant: applicant,
+                          photoBytes: photoBytes,
+                          photoSaving: photoSaving,
+                          onPhotoTap: onPhotoTap,
+                        ),
+                        const SizedBox(height: 9),
+                        _ProfileIdentity(
+                          applicant: applicant,
+                          applicationId: snapshot.applicationId,
+                          center: true,
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _ProfileAvatarWithCamera(
+                          applicant: applicant,
+                          photoBytes: photoBytes,
+                          photoSaving: photoSaving,
+                          onPhotoTap: onPhotoTap,
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: _ProfileIdentity(
+                            applicant: applicant,
+                            applicationId: snapshot.applicationId,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                    _ProfileIdentity(
-                      applicant: applicant,
-                      applicationId: snapshot.applicationId,
-                      center: true,
-                    ),
-                  ],
-                )
-              else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _ProfileAvatarWithCamera(
-                      applicant: applicant,
-                      photoBytes: photoBytes,
-                      photoSaving: photoSaving,
-                      onPhotoTap: onPhotoTap,
-                    ),
-                    const SizedBox(width: 22),
-                    Expanded(
-                      child: _ProfileIdentity(
-                        applicant: applicant,
-                        applicationId: snapshot.applicationId,
-                      ),
-                    ),
-                  ],
-                ),
-              const SizedBox(height: 14),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  const columns = 3;
-                  const gap = 10.0;
-                  final width =
-                      (constraints.maxWidth - gap * (columns - 1)) / columns;
-                  final buttons = [
-                    _HeaderAction(
-                      icon: Icons.edit_outlined,
-                      label: 'Edit Profile',
-                      onTap: onEdit,
-                    ),
-                    _HeaderAction(
-                      icon: Icons.share_outlined,
-                      label: 'Share',
-                      onTap: onShare,
-                    ),
-                    _HeaderAction(
-                      icon: Icons.badge_outlined,
-                      label: 'ID Card',
-                      onTap: onIdCard,
-                    ),
-                  ];
-                  return Wrap(
-                    spacing: gap,
-                    runSpacing: gap,
-                    children: buttons
-                        .map(
-                          (button) => SizedBox(
+                  const SizedBox(height: 12),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const columns = 3;
+                      const gap = 9.0;
+                      final width =
+                          (constraints.maxWidth - gap * (columns - 1)) /
+                              columns;
+                      final buttons = [
+                        _HeaderAction(
+                          icon: Icons.edit_outlined,
+                          label: 'Edit Profile',
+                          onTap: onEdit,
+                        ),
+                        _HeaderAction(
+                          icon: Icons.share_outlined,
+                          label: 'Share',
+                          onTap: onShare,
+                        ),
+                        _HeaderAction(
+                          icon: Icons.badge_outlined,
+                          label: 'ID Card',
+                          onTap: onIdCard,
+                        ),
+                      ];
+                      return Wrap(
+                        spacing: gap,
+                        runSpacing: gap,
+                        children: buttons
+                            .map(
+                              (button) => SizedBox(
                             width: width,
                             child: button,
                           ),
                         )
-                        .toList(),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF171D62).withValues(alpha: .36),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: .18),
+                            .toList(),
+                      );
+                    },
                   ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: .14),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.workspace_premium_outlined,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Membership Progress • ${_membershipTier(snapshot.completionScore)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: LinearProgressIndicator(
-                              value: progress.clamp(0, 1).toDouble(),
-                              minHeight: 7,
-                              backgroundColor:
-                                  Colors.white.withValues(alpha: .18),
-                              valueColor:
-                                  const AlwaysStoppedAnimation<Color>(
-                                Color(0xFFB58AFF),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '${snapshot.completionScore} / 1000',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
-  }
-
-  static String _membershipTier(int score) {
-    if (score >= 850) return 'Platinum Member';
-    if (score >= 700) return 'Gold Member';
-    if (score >= 450) return 'Silver Member';
-    return 'Active Member';
   }
 }
 
@@ -928,17 +848,17 @@ class _ProfileAvatarWithCamera extends StatelessWidget {
                 onPressed: photoSaving ? null : onPhotoTap,
                 icon: photoSaving
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.deepPurple,
-                        ),
-                      )
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.deepPurple,
+                  ),
+                )
                     : const Icon(
-                        Icons.photo_camera_outlined,
-                        color: AppColors.deepPurple,
-                      ),
+                  Icons.photo_camera_outlined,
+                  color: AppColors.deepPurple,
+                ),
               ),
             ),
           ),
@@ -970,13 +890,13 @@ class _ProfileAvatar extends StatelessWidget {
         backgroundImage: bytes == null ? null : MemoryImage(bytes!),
         child: bytes == null
             ? Text(
-                _initials(name),
-                style: TextStyle(
-                  color: AppColors.deepPurple,
-                  fontSize: radius * .55,
-                  fontWeight: FontWeight.w900,
-                ),
-              )
+          _initials(name),
+          style: TextStyle(
+            color: AppColors.deepPurple,
+            fontSize: radius * .55,
+            fontWeight: FontWeight.w900,
+          ),
+        )
             : null,
       ),
     );
@@ -1009,7 +929,7 @@ class _ProfileIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment:
-          center ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      center ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
         const _VerifiedChip(),
         const SizedBox(height: 10),
@@ -1204,7 +1124,6 @@ class _ProfileMenuItem extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.badge,
     this.trailing,
   });
 
@@ -1212,7 +1131,6 @@ class _ProfileMenuItem extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-  final String? badge;
   final Widget? trailing;
 
   @override
@@ -1265,27 +1183,6 @@ class _ProfileMenuItem extends StatelessWidget {
                 ],
               ),
             ),
-            if (badge != null) ...[
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0ECFF),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Text(
-                  badge!,
-                  style: const TextStyle(
-                    color: AppColors.deepPurple,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
             const SizedBox(width: 8),
             trailing ??
                 const Icon(
@@ -1388,13 +1285,27 @@ class _ProfileField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.primaryText,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 7),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            hintText: 'Enter $label',
+            prefixIcon: Icon(icon),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1446,57 +1357,25 @@ class _AboutRow extends StatelessWidget {
 class _ProfileSnapshot {
   const _ProfileSnapshot({
     this.applicationId = '',
-    this.linkedServices = 0,
-    this.completionScore = 250,
   });
 
   final String applicationId;
-  final int linkedServices;
-  final int completionScore;
 
   static Future<_ProfileSnapshot> load(
-    String uid,
-    FirestoreService service,
-  ) async {
+      String uid,
+      FirestoreService service,
+      ) async {
     try {
       final application = await service.getApplication(uid);
-      final upload = await service.getUpload(uid);
-      final payment = await service.getPayment(uid);
-      final result = await service.getResultForApplicant(uid);
-
-      var linked = 0;
-      var score = 250;
-
-      if (application != null) {
-        linked++;
-        score += 250;
-      }
-      if (upload != null) {
-        linked++;
-        score += 200;
-      }
-      if (payment != null) {
-        linked++;
-        score += 200;
-      }
-      if (result != null) {
-        linked++;
-        score += 100;
-      }
-
       final appData =
           application?.data() as Map<String, dynamic>? ?? <String, dynamic>{};
       final applicationId = (appData['applicationId'] ??
-              appData['serialNumber'] ??
-              application?.id ??
-              '')
+          appData['serialNumber'] ??
+          application?.id ??
+          '')
           .toString();
 
-      return _ProfileSnapshot(
-        applicationId: applicationId,
-        linkedServices: linked,
-        completionScore: score.clamp(0, 1000).toInt(),
-      );
+      return _ProfileSnapshot(applicationId: applicationId);
     } catch (_) {
       return const _ProfileSnapshot();
     }

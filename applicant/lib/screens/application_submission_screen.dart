@@ -14,7 +14,6 @@ import '../utils/formatters_validators.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/header_actions.dart';
-import '../widgets/illustrations.dart';
 import '../widgets/status_badge.dart';
 
 class ApplicationSubmissionScreen extends StatefulWidget {
@@ -171,27 +170,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
               child: ListView(
                 padding: const EdgeInsets.all(18),
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(28), boxShadow: AppColors.premiumShadow()),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('New Application', style: AppTextStyles.headingMedium.copyWith(color: AppColors.white)),
-                              const SizedBox(height: 6),
-                              Text('Fill all required fields carefully', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.white.withValues(alpha: .86))),
-                              const SizedBox(height: 12),
-                              StatusBadge(text: _previewSerial, type: StatusBadgeType.info),
-                            ],
-                          ),
-                        ),
-                        SizedBox(width: 104, height: 104, child: CustomPaint(painter: DocumentCheckPainter())),
-                      ],
-                    ),
-                  ),
+                  _ApplicationHero(serial: _previewSerial),
                   const SizedBox(height: 18),
                   AppTextField(label: 'Full Name', hint: 'Enter full name', controller: _fullName, prefixIcon: Icons.person_rounded, validator: Validators.fullName),
                   const SizedBox(height: 14),
@@ -201,7 +180,7 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
                   const SizedBox(height: 12),
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final cardWidth = constraints.maxWidth < 420 ? (constraints.maxWidth - 8) / 2 : (constraints.maxWidth - 16) / 3;
+                      final cardWidth = (constraints.maxWidth - 16) / 3;
                       return Wrap(
                         spacing: 8,
                         runSpacing: 10,
@@ -230,12 +209,41 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
                   const SizedBox(height: 14),
                   AppTextField(label: 'Permanent Address', hint: 'Enter permanent address', controller: _address, prefixIcon: Icons.location_on_rounded, maxLines: 3, validator: (v) => Validators.address(v)),
                   const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    initialValue: _city,
-                    decoration: const InputDecoration(labelText: 'City', prefixIcon: Icon(Icons.location_city_rounded)),
-                    items: <String>{...AppConstants.pakistaniCities, if (_city != null) _city!}.map((city) => DropdownMenuItem(value: city, child: Text(city))).toList(),
-                    onChanged: (value) => setState(() => _city = value),
-                    validator: (v) => v == null || v.isEmpty ? 'City is required' : null,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'City',
+                        style: TextStyle(
+                          color: AppColors.primaryText,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      DropdownButtonFormField<String>(
+                        initialValue: _city,
+                        decoration: const InputDecoration(
+                          hintText: 'Select city',
+                          prefixIcon: Icon(Icons.location_city_rounded),
+                        ),
+                        items: <String>{
+                          ...AppConstants.pakistaniCities,
+                          if (_city != null) _city!,
+                        }
+                            .map(
+                              (city) => DropdownMenuItem(
+                                value: city,
+                                child: Text(city),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) => setState(() => _city = value),
+                        validator: (v) => v == null || v.isEmpty
+                            ? 'City is required'
+                            : null,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   Container(
@@ -258,6 +266,122 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
   }
 }
 
+
+class _ApplicationHero extends StatelessWidget {
+  const _ApplicationHero({required this.serial});
+
+  final String serial;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 520;
+
+    return Container(
+      padding: EdgeInsets.all(compact ? 18 : 22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF2367E8),
+            Color(0xFF514CE7),
+            Color(0xFF7036D9),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: AppColors.premiumShadow(),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -22,
+            top: -30,
+            child: Container(
+              width: compact ? 128 : 170,
+              height: compact ? 128 : 170,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: .12),
+                  width: 18,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: compact ? 6 : 18,
+            bottom: compact ? 6 : 12,
+            child: Container(
+              width: compact ? 74 : 92,
+              height: compact ? 74 : 92,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .13),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: .18),
+                ),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    Icons.description_outlined,
+                    color: Colors.white,
+                    size: compact ? 40 : 50,
+                  ),
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: Container(
+                      width: compact ? 26 : 30,
+                      height: compact ? 26 : 30,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF20C875),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: compact ? 18 : 21,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(right: compact ? 88 : 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'New Application',
+                  style: AppTextStyles.headingMedium.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Fill all required fields carefully',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: Colors.white.withValues(alpha: .90),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                StatusBadge(
+                  text: serial,
+                  type: StatusBadgeType.info,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _SubmittedApplicationView extends StatelessWidget {
   const _SubmittedApplicationView({required this.application});
@@ -342,21 +466,33 @@ class _PlotTypeCard extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
           decoration: BoxDecoration(
             color: AppColors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: selected ? AppColors.gold : AppColors.borderColor, width: selected ? 2 : 1),
             boxShadow: selected ? AppColors.premiumShadow(opacity: .32) : null,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(type.startsWith('10') ? Icons.villa_rounded : Icons.house_rounded, color: AppColors.deepPurple),
-              const SizedBox(height: 8),
-              Text(type, style: AppTextStyles.labelBold, textAlign: TextAlign.center),
-              const SizedBox(height: 5),
-              Text('PKR ${NumberFormat.compact().format(fee)}', style: AppTextStyles.captionText, textAlign: TextAlign.center),
+              Icon(type.startsWith('10') ? Icons.villa_rounded : Icons.house_rounded, color: AppColors.deepPurple, size: 22),
+              const SizedBox(height: 6),
+              Text(
+                type,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.labelBold.copyWith(fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'PKR ${NumberFormat.compact().format(fee)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.captionText.copyWith(fontSize: 10.5),
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),

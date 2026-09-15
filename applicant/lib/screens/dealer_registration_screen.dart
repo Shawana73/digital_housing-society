@@ -29,7 +29,7 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
 
   final List<GlobalKey<FormState>> _stepForms = List.generate(
     4,
-        (_) => GlobalKey<FormState>(),
+    (_) => GlobalKey<FormState>(),
   );
 
   final TextEditingController _fullName = TextEditingController();
@@ -142,9 +142,9 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
         setState(() {
           _existing = existingData;
           _profileImageUrl =
-          (existingData?['profileImageUrl'] ?? '').toString().trim().isEmpty
-              ? null
-              : existingData?['profileImageUrl'].toString();
+              (existingData?['profileImageUrl'] ?? '').toString().trim().isEmpty
+                  ? null
+                  : existingData?['profileImageUrl'].toString();
         });
       }
     } catch (_) {
@@ -398,7 +398,7 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
     }
 
     final companyError =
-    Validators.companyName(_companyName.text);
+        Validators.companyName(_companyName.text);
     if (companyError != null) {
       setState(() => _currentStep = 1);
       _scrollToProcess();
@@ -419,7 +419,7 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
     }
 
     final officeError =
-    Validators.address(_officeAddress.text, label: 'Office address');
+        Validators.address(_officeAddress.text, label: 'Office address');
     if (officeError != null) {
       setState(() => _currentStep = 2);
       _scrollToProcess();
@@ -503,173 +503,173 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
       backgroundColor: const Color(0xFFF7F9FD),
       child: _loading
           ? const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primaryPurple,
-        ),
-      )
+              child: CircularProgressIndicator(
+                color: AppColors.primaryPurple,
+              ),
+            )
           : SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: const _RegistrationHero(),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints:
-                        const BoxConstraints(maxWidth: 1240),
-                        child: Padding(
-                          padding:
-                          const EdgeInsets.fromLTRB(18, 22, 18, 0),
-                          child: _existing != null
-                              ? _SubmittedState(
-                            data: _existing!,
-                            onDealers: () => Navigator.pushNamed(
-                              context,
-                              AppConstants.dealersRoute,
-                            ),
-                          )
-                              : LayoutBuilder(
-                            builder: (context, constraints) {
-                              Widget processColumn() => Column(
-                                crossAxisAlignment:
-                                CrossAxisAlignment.stretch,
-                                children: [
-                                  _ProcessTitle(),
-                                  const SizedBox(height: 18),
-                                  _RegistrationProcess(
-                                    currentStep: _currentStep,
-                                    onStepSelected: (step) {
-                                      setState(
-                                            () => _currentStep = step,
-                                      );
-                                    },
-                                    personalFormKey:
-                                    _stepForms[0],
-                                    businessFormKey:
-                                    _stepForms[1],
-                                    officeFormKey:
-                                    _stepForms[2],
-                                    documentsFormKey:
-                                    _stepForms[3],
-                                    fullName: _fullName,
-                                    cnic: _cnic,
-                                    phone: _personalPhone,
-                                    companyName: _companyName,
-                                    ntnNumber: _ntnNumber,
-                                    officeAddress:
-                                    _officeAddress,
-                                    area: _area,
-                                    officePhone: _officePhone,
-                                    businessType:
-                                    _businessType,
-                                    yearsInBusiness:
-                                    _yearsInBusiness,
-                                    city: _city,
-                                    businessTypes:
-                                    _businessTypes,
-                                    experienceOptions:
-                                    _experienceOptions,
-                                    cities: _cities,
-                                    documents: _documents,
-                                    profileImageUrl:
-                                    _profileImageUrl,
-                                    uploadingProfileImage:
-                                    _uploadingProfileImage,
-                                    acceptedTerms:
-                                    _acceptedTerms,
-                                    submitting: _submitting,
-                                    onBusinessTypeChanged:
-                                        (value) => setState(
-                                          () => _businessType = value,
-                                    ),
-                                    onExperienceChanged:
-                                        (value) => setState(
-                                          () =>
-                                      _yearsInBusiness = value,
-                                    ),
-                                    onCityChanged: (value) =>
-                                        setState(
-                                              () => _city = value,
-                                        ),
-                                    onPickProfileImage:
-                                    _pickProfileImage,
-                                    onPickDocument:
-                                    _pickDocument,
-                                    onTermsChanged: (value) =>
-                                        setState(
-                                              () =>
-                                          _acceptedTerms = value,
-                                        ),
-                                    onNext: _nextStep,
-                                    onEditStep: (step) =>
-                                        setState(
-                                              () => _currentStep = step,
-                                        ),
-                                    onSubmit: _submit,
-                                  ),
-                                ],
-                              );
-
-                              final sideColumn = Column(
-                                children: [
-                                  const _BenefitsCard(),
-                                  const SizedBox(height: 16),
-                                  _AlreadyRegisteredStrip(
-                                    onPressed: () =>
-                                        Navigator.pushNamed(
+              bottom: false,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: const _RegistrationHero(),
+                        ),
+                        SliverToBoxAdapter(
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: ConstrainedBox(
+                              constraints:
+                                  const BoxConstraints(maxWidth: 1240),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(18, 22, 18, 0),
+                                child: _existing != null
+                                    ? _SubmittedState(
+                                        data: _existing!,
+                                        onDealers: () => Navigator.pushNamed(
                                           context,
                                           AppConstants.dealersRoute,
                                         ),
-                                  ),
-                                ],
-                              );
+                                      )
+                                    : LayoutBuilder(
+                                        builder: (context, constraints) {
+                                          Widget processColumn() => Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.stretch,
+                                                children: [
+                                                  _ProcessTitle(),
+                                                  const SizedBox(height: 18),
+                                                  _RegistrationProcess(
+                                                    currentStep: _currentStep,
+                                                    onStepSelected: (step) {
+                                                      setState(
+                                                        () => _currentStep = step,
+                                                      );
+                                                    },
+                                                    personalFormKey:
+                                                        _stepForms[0],
+                                                    businessFormKey:
+                                                        _stepForms[1],
+                                                    officeFormKey:
+                                                        _stepForms[2],
+                                                    documentsFormKey:
+                                                        _stepForms[3],
+                                                    fullName: _fullName,
+                                                    cnic: _cnic,
+                                                    phone: _personalPhone,
+                                                    companyName: _companyName,
+                                                    ntnNumber: _ntnNumber,
+                                                    officeAddress:
+                                                        _officeAddress,
+                                                    area: _area,
+                                                    officePhone: _officePhone,
+                                                    businessType:
+                                                        _businessType,
+                                                    yearsInBusiness:
+                                                        _yearsInBusiness,
+                                                    city: _city,
+                                                    businessTypes:
+                                                        _businessTypes,
+                                                    experienceOptions:
+                                                        _experienceOptions,
+                                                    cities: _cities,
+                                                    documents: _documents,
+                                                    profileImageUrl:
+                                                        _profileImageUrl,
+                                                    uploadingProfileImage:
+                                                        _uploadingProfileImage,
+                                                    acceptedTerms:
+                                                        _acceptedTerms,
+                                                    submitting: _submitting,
+                                                    onBusinessTypeChanged:
+                                                        (value) => setState(
+                                                      () => _businessType = value,
+                                                    ),
+                                                    onExperienceChanged:
+                                                        (value) => setState(
+                                                      () =>
+                                                          _yearsInBusiness = value,
+                                                    ),
+                                                    onCityChanged: (value) =>
+                                                        setState(
+                                                      () => _city = value,
+                                                    ),
+                                                    onPickProfileImage:
+                                                        _pickProfileImage,
+                                                    onPickDocument:
+                                                        _pickDocument,
+                                                    onTermsChanged: (value) =>
+                                                        setState(
+                                                      () =>
+                                                          _acceptedTerms = value,
+                                                    ),
+                                                    onNext: _nextStep,
+                                                    onEditStep: (step) =>
+                                                        setState(
+                                                      () => _currentStep = step,
+                                                    ),
+                                                    onSubmit: _submit,
+                                                  ),
+                                                ],
+                                              );
 
-                              if (constraints.maxWidth >= 980) {
-                                return Row(
-                                  crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: processColumn(),
-                                    ),
-                                    const SizedBox(width: 18),
-                                    SizedBox(
-                                      width: 300,
-                                      child: sideColumn,
-                                    ),
-                                  ],
-                                );
-                              }
+                                          final sideColumn = Column(
+                                            children: [
+                                              const _BenefitsCard(),
+                                              const SizedBox(height: 16),
+                                              _AlreadyRegisteredStrip(
+                                                onPressed: () =>
+                                                    Navigator.pushNamed(
+                                                  context,
+                                                  AppConstants.dealersRoute,
+                                                ),
+                                              ),
+                                            ],
+                                          );
 
-                              return Column(
-                                children: [
-                                  processColumn(),
-                                  const SizedBox(height: 18),
-                                  sideColumn,
-                                ],
-                              );
-                            },
+                                          if (constraints.maxWidth >= 980) {
+                                            return Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Expanded(
+                                                  child: processColumn(),
+                                                ),
+                                                const SizedBox(width: 18),
+                                                SizedBox(
+                                                  width: 300,
+                                                  child: sideColumn,
+                                                ),
+                                              ],
+                                            );
+                                          }
+
+                                          return Column(
+                                            children: [
+                                              processColumn(),
+                                              const SizedBox(height: 18),
+                                              sideColumn,
+                                            ],
+                                          );
+                                        },
+                                      ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: 28),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 28),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -798,7 +798,7 @@ class _BenefitsCard extends StatelessWidget {
             icon: Icons.verified_user_outlined,
             title: 'Build Trust',
             subtitle:
-            'Get verified and build trust with thousands of customers',
+                'Get verified and build trust with thousands of customers',
           ),
           const _BenefitItem(
             icon: Icons.trending_up_rounded,
@@ -1266,7 +1266,7 @@ class _MobileStepHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               child: Container(
                 padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: selected
                       ? const Color(0xFFEDF1FF)
@@ -1285,23 +1285,23 @@ class _MobileStepHeader extends StatelessWidget {
                       backgroundColor: completed
                           ? const Color(0xFF1CB86D)
                           : selected
-                          ? const Color(0xFF5D49E5)
-                          : const Color(0xFFF0F2F7),
+                              ? const Color(0xFF5D49E5)
+                              : const Color(0xFFF0F2F7),
                       child: completed
                           ? const Icon(
-                        Icons.check_rounded,
-                        size: 15,
-                        color: Colors.white,
-                      )
+                              Icons.check_rounded,
+                              size: 15,
+                              color: Colors.white,
+                            )
                           : Text(
-                        '${index + 1}',
-                        style: AppTextStyles.captionText.copyWith(
-                          color: selected
-                              ? Colors.white
-                              : const Color(0xFF667085),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                              '${index + 1}',
+                              style: AppTextStyles.captionText.copyWith(
+                                color: selected
+                                    ? Colors.white
+                                    : const Color(0xFF667085),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                     ),
                     const SizedBox(width: 7),
                     Text(
@@ -1495,26 +1495,26 @@ class _ProfileImagePicker extends StatelessWidget {
                   child: ClipOval(
                     child: hasImage
                         ? Image.network(
-                      imageUrl!,
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.high,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFFF0F3FB),
-                        child: const Icon(
-                          Icons.person_rounded,
-                          size: 62,
-                          color: Color(0xFFB8C1D9),
-                        ),
-                      ),
-                    )
+                            imageUrl!,
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.high,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: const Color(0xFFF0F3FB),
+                              child: const Icon(
+                                Icons.person_rounded,
+                                size: 62,
+                                color: Color(0xFFB8C1D9),
+                              ),
+                            ),
+                          )
                         : Container(
-                      color: const Color(0xFFF0F3FB),
-                      child: const Icon(
-                        Icons.person_rounded,
-                        size: 62,
-                        color: Color(0xFFB8C1D9),
-                      ),
-                    ),
+                            color: const Color(0xFFF0F3FB),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              size: 62,
+                              color: Color(0xFFB8C1D9),
+                            ),
+                          ),
                   ),
                 ),
                 Positioned(
@@ -1529,19 +1529,19 @@ class _ProfileImagePicker extends StatelessWidget {
                     ),
                     child: uploading
                         ? const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
+                            padding: EdgeInsets.all(10),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
                         : Icon(
-                      hasImage
-                          ? Icons.edit_rounded
-                          : Icons.camera_alt_outlined,
-                      color: Colors.white,
-                      size: 19,
-                    ),
+                            hasImage
+                                ? Icons.edit_rounded
+                                : Icons.camera_alt_outlined,
+                            color: Colors.white,
+                            size: 19,
+                          ),
                   ),
                 ),
               ],
@@ -2036,13 +2036,13 @@ class _ReviewStep extends StatelessWidget {
             ),
             child: submitting
                 ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.2,
-                color: Colors.white,
-              ),
-            )
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Text('Submit Application'),
           ),
         ),
@@ -2153,7 +2153,7 @@ class _CompactTextField extends StatelessWidget {
               color: const Color(0xFFA0A8BB),
             ),
             contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
             filled: true,
             fillColor: Colors.white,
             enabledBorder: OutlineInputBorder(
@@ -2236,13 +2236,13 @@ class _CompactDropdown extends StatelessWidget {
               items: items
                   .map(
                     (item) => DropdownMenuItem<String>(
-                  value: item,
-                  child: Text(
-                    item,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
+                      value: item,
+                      child: Text(
+                        item,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: (newValue) {
                 if (newValue != null) onChanged(newValue);
@@ -2275,17 +2275,17 @@ class _StepButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: blue
               ? const LinearGradient(
-            colors: [
-              Color(0xFF126DEB),
-              Color(0xFF2461E5),
-            ],
-          )
+                  colors: [
+                    Color(0xFF126DEB),
+                    Color(0xFF2461E5),
+                  ],
+                )
               : const LinearGradient(
-            colors: [
-              Color(0xFF5843E8),
-              Color(0xFF7540EA),
-            ],
-          ),
+                  colors: [
+                    Color(0xFF5843E8),
+                    Color(0xFF7540EA),
+                  ],
+                ),
           borderRadius: BorderRadius.circular(9),
         ),
         child: FilledButton(
@@ -2348,7 +2348,7 @@ class _SubmittedState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status =
-    (data['verificationStatus'] ?? 'pending').toString().toLowerCase();
+        (data['verificationStatus'] ?? 'pending').toString().toLowerCase();
 
     final isVerified = status == 'verified' || status == 'approved';
     final isRejected = status == 'rejected';
@@ -2356,8 +2356,8 @@ class _SubmittedState extends StatelessWidget {
     final statusColor = isVerified
         ? const Color(0xFF16AD64)
         : isRejected
-        ? AppColors.errorRed
-        : const Color(0xFFF59E0B);
+            ? AppColors.errorRed
+            : const Color(0xFFF59E0B);
 
     return Center(
       child: ConstrainedBox(
@@ -2377,8 +2377,8 @@ class _SubmittedState extends StatelessWidget {
                   isVerified
                       ? Icons.verified_rounded
                       : isRejected
-                      ? Icons.cancel_outlined
-                      : Icons.hourglass_top_rounded,
+                          ? Icons.cancel_outlined
+                          : Icons.hourglass_top_rounded,
                   color: statusColor,
                   size: 46,
                 ),
@@ -2405,8 +2405,8 @@ class _SubmittedState extends StatelessWidget {
                 isVerified
                     ? 'Dealer Registration Verified'
                     : isRejected
-                    ? 'Dealer Registration Rejected'
-                    : 'Registration Submitted',
+                        ? 'Dealer Registration Rejected'
+                        : 'Registration Submitted',
                 style: AppTextStyles.headingMedium.copyWith(
                   color: const Color(0xFF1640B8),
                 ),
@@ -2417,8 +2417,8 @@ class _SubmittedState extends StatelessWidget {
                 isVerified
                     ? 'Your dealer profile has been verified by DHS administration.'
                     : isRejected
-                    ? 'Your dealer registration was not approved. Please contact DHS support for details.'
-                    : 'Your dealer registration has been submitted successfully and is under review by the DHS administration. We will notify you once the review is completed.',
+                        ? 'Your dealer registration was not approved. Please contact DHS support for details.'
+                        : 'Your dealer registration has been submitted successfully and is under review by the DHS administration. We will notify you once the review is completed.',
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyMedium.copyWith(height: 1.5),
               ),
