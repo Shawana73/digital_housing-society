@@ -63,79 +63,218 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
 
     setState(() => _isSigningUp = true);
 
+    bool createdNewAuthAccount = false;
+
     try {
-      // Check invite whitelist BEFORE creating the auth account.
+      // ==============================================================
+      // 1. CHECK INVITATION
+      // ==============================================================
+
       final inviteDoc = await FirebaseFirestore.instance
           .collection('invited_admins')
           .doc(email)
           .get();
 
       if (!inviteDoc.exists) {
-        setState(() => _isSigningUp = false);
+        if (mounted) {
+          setState(() => _isSigningUp = false);
 
-        _showError(
-          'You are not invited to join as admin. '
-              'Please contact your super admin.',
+          _showError(
+            'You are not invited to join as admin. '
+                'Please contact your super admin.',
+          );
+        }
+
+        return;
+      }
+
+      // ==============================================================
+      // 2. TRY TO CREATE A NEW AUTH ACCOUNT
+      //
+      // If the email already exists, we will handle that below
+      // by logging into the existing Applicant account.
+      // ==============================================================
+
+      User? user;
+
+      try {
+        final credential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(
+          email: email,
+          password: password,
         );
 
-        return;
+        user = credential.user;
+        createdNewAuthAccount = true;
+      } on FirebaseAuthException catch (e) {
+        // ============================================================
+        // EXISTING APPLICANT ACCOUNT
+        // ============================================================
+
+        if (e.code == 'email-already-in-use') {
+          try {
+            final loginCredential = await FirebaseAuth.instance
+                .signInWithEmailAndPassword(
+              email: email,
+              password: password,
+            );
+
+            user = loginCredential.user;
+          } on FirebaseAuthException catch (loginError) {
+            debugPrint('EXISTING ACCOUNT LOGIN ERROR CODE: ${loginError.code}');
+            debugPrint('EXISTING ACCOUNT LOGIN ERROR MESSAGE: ${loginError.message}');
+            if (mounted) {
+              setState(() => _isSigningUp = false);
+            }
+
+            if (loginError.code == 'wrong-password' ||
+                loginError.code == 'invalid-credential') {
+              _showError(
+                'Incorrect password. Please use the password of your existing account.',
+              );
+            } else if (loginError.code == 'user-not-found') {
+              _showError(
+                'This account could not be found. Please contact your super admin.',
+              );
+            } else {
+              _showError(
+                'Could not login to your existing account. Please try again.',
+              );
+            }
+
+            return;
+          }
+        } else if (e.code == 'invalid-email') {
+          if (mounted) {
+            setState(() => _isSigningUp = false);
+          }
+
+          _showError('Please enter a valid email address.');
+          return;
+        } else if (e.code == 'weak-password') {
+          if (mounted) {
+            setState(() => _isSigningUp = false);
+          }
+
+          _showError('Password is too weak.');
+          return;
+        } else {
+          if (mounted) {
+            setState(() => _isSigningUp = false);
+          }
+
+          _showError('Signup failed. Please try again.');
+          return;
+        }
       }
 
-      final credential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      // ==============================================================
+      // 3. MAKE SURE WE HAVE A FIREBASE USER
+      // ==============================================================
 
-      final uid = credential.user?.uid;
+      final uid = user?.uid;
 
       if (uid == null) {
-        setState(() => _isSigningUp = false);
+        await FirebaseAuth.instance.signOut();
 
-        _showError('Something went wrong. Please try again.');
+        if (mounted) {
+          setState(() => _isSigningUp = false);
+          _showError('Something went wrong. Please try again.');
+        }
 
         return;
       }
 
-      await FirebaseFirestore.instance.collection('admins').doc(uid).set({
-        'name': name,
-        'email': email,
-        'phone': '',
-        'role': 'admin',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      // ==============================================================
+      // 4. CREATE / ACTIVATE ADMIN PROFILE
+      //
+      // IMPORTANT:
+      // Existing Applicant account keeps the SAME UID.
+      // We only create admins/{uid}.
+      // ==============================================================
 
-      // Remove the invite so it can't be reused.
+      try {
+        await FirebaseFirestore.instance.collection('admins').doc(uid).set({
+          'name': name,
+          'email': email,
+          'phone': '',
+          'role': 'admin',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isSigningUp = false);
+          _showError('ADMIN DOC ERROR: $e');
+        }
+        return;
+      }
+
+      // ==============================================================
+      // 5. REMOVE THE USED INVITATION
+      // ==============================================================
+
       await FirebaseFirestore.instance
           .collection('invited_admins')
           .doc(email)
           .delete();
 
+      // ==============================================================
+      // 6. SIGN OUT
+      //
+      // Signup/login automatically signs the user in.
+      // We want them to manually login from the Admin Login screen.
+      // ==============================================================
+
+      await FirebaseAuth.instance.signOut();
+
       if (!mounted) return;
+
+      setState(() => _isSigningUp = false);
+
+      // ==============================================================
+      // 7. GO TO LOGIN
+      // ==============================================================
 
       Navigator.pushNamedAndRemoveUntil(
         context,
-        AdminRoutes.dashboard,
+        AdminRoutes.login,
             (route) => false,
       );
-    } on FirebaseAuthException catch (e) {
-      setState(() => _isSigningUp = false);
-
-      if (e.code == 'email-already-in-use') {
-        _showError(
-          'An account with this email already exists. Please login instead.',
-        );
-      } else if (e.code == 'invalid-email') {
-        _showError('Please enter a valid email address.');
-      } else if (e.code == 'weak-password') {
-        _showError('Password is too weak.');
-      } else {
-        _showError('Signup failed. Please try again.');
-      }
     } catch (e) {
-      setState(() => _isSigningUp = false);
+      // ==============================================================
+      // ERROR CLEANUP
+      // ==============================================================
 
-      _showError('Something went wrong. Please try again.');
+      // If WE created a brand-new Firebase Auth account and something
+      // failed afterward, remove that newly created account so we don't
+      // leave an incomplete admin account behind.
+      //
+      // IMPORTANT:
+      // We NEVER delete an existing Applicant account.
+      // ==============================================================
+
+      if (createdNewAuthAccount) {
+        try {
+          final currentUser = FirebaseAuth.instance.currentUser;
+
+          if (currentUser != null) {
+            await currentUser.delete();
+          }
+        } catch (_) {
+          try {
+            await FirebaseAuth.instance.signOut();
+          } catch (_) {}
+        }
+      } else {
+        try {
+          await FirebaseAuth.instance.signOut();
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        setState(() => _isSigningUp = false);
+        _showError('ERROR: $e');
+      }
     }
   }
 
@@ -1039,7 +1178,6 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
   // ================================================================
   // BACK BUTTON
   // ================================================================
-
 
   // ================================================================
   // FOOTER

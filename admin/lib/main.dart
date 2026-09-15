@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';  //flutter package , framework libraray
 import 'package:firebase_core/firebase_core.dart'; //firebase core package// required for Firebase initialization
 import 'firebase_options.dart'; //firebase configuration options
@@ -24,11 +25,15 @@ import 'screens/result/result_screen.dart';
 import 'theme/admin_theme.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();  //Are flutter's required framework bindings initialized?
+  WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,  //firebase configuration selected according to current platforms
+    options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  final user = FirebaseAuth.instance.currentUser;
+  debugPrint('CURRENT USER UID: ${user?.uid}');
+  debugPrint('CURRENT USER EMAIL: ${user?.email}');
 
   runApp(const DigitalHousingAdminApp());
 }

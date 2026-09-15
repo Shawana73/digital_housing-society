@@ -20,6 +20,7 @@ dependencies:
   share_plus: ^7.2.1
   cloudinary_public: ^0.23.1
 
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
