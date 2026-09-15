@@ -12,37 +12,44 @@ class DetailsTabStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: tabs.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 22),
-        itemBuilder: (context, i) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AdminColors.background,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: List.generate(tabs.length, (i) {
           final active = i == selected;
-          return GestureDetector(
-            onTap: () => onSelected(i),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(tabs[i],
-                    style: TextStyle(
-                        color: active ? AdminColors.primary : AdminColors.greyText,
-                        fontWeight: active ? FontWeight.w900 : FontWeight.w700,
-                        fontSize: 13)),
-                const SizedBox(height: 8),
-                Container(
-                  height: 3,
-                  width: 28,
-                  decoration: BoxDecoration(
-                    color: active ? AdminColors.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onSelected(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: active ? AdminColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(13),
+                  boxShadow: active
+                      ? [BoxShadow(color: AdminColors.primary.withOpacity(0.30), blurRadius: 10, offset: const Offset(0, 4))]
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  tabs[i],
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: active ? AdminColors.white : AdminColors.greyText,
+                    fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                    fontSize: 12.5,
                   ),
                 ),
-              ],
+              ),
             ),
           );
-        },
+        }),
       ),
     );
   }

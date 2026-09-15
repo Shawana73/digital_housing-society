@@ -124,6 +124,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
     );
   }
 
+
   Future<void> _setStatus(VerificationStatus status) async {
     try {
       await _viewModel.updateStatus(status);
@@ -211,96 +212,120 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
       isLoading: _viewModel.isLoading,
       body: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 150),
+  padding: const EdgeInsets.fromLTRB(16, 14, 16, 150),
         children: [
           Container(
             decoration: BoxDecoration(
-              color: AdminColors.white,
               borderRadius: BorderRadius.circular(AdminColors.radius),
-              boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.18), blurRadius: 28, offset: const Offset(0, 12))],
+              boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.28), blurRadius: 28, offset: const Offset(0, 12))],
             ),
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(children: [
-                      Hero(
-                        tag: 'applicant-${applicant.id}',
-                        child: CircleAvatar(
-                          radius: 36,
-                          backgroundColor: AdminColors.primary.withOpacity(0.12),
-                          child: Text(applicant.avatarLetters,
-                              style: const TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w900, fontSize: 20)),
-                        ),
-                      ),
-                      if (applicant.status == VerificationStatus.verified)
-                        Positioned(
-                          right: -2,
-                          bottom: -2,
-                          child: Container(
-                            height: 20,
-                            width: 20,
-                            decoration: BoxDecoration(
-                              color: AdminColors.success,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AdminColors.white, width: 2),
-                            ),
-                            child: const Icon(Icons.check_rounded, color: Colors.white, size: 12),
-                          ),
-                        ),
-                    ]),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            Expanded(
-                              child: Text(applicant.name,
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -.4)),
-                            ),
-                            StatusPill(label: applicant.status.label, color: applicant.status.color),
-                          ]),
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                            decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.10), borderRadius: BorderRadius.circular(8)),
-                            child: Text(applicant.id,
-                                style: const TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 11)),
-                          ),
-                          const SizedBox(height: 10),
-                          DetailsMiniLine(icon: Icons.email_rounded, text: applicant.email),
-                          const SizedBox(height: 6),
-                          DetailsMiniLine(icon: Icons.phone_rounded, text: applicant.phone),
-                          const SizedBox(height: 6),
-                          DetailsMiniLine(icon: Icons.location_on_rounded, text: applicant.address, maxLines: 2),
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.18,
+                    child: Image.asset('assets/images/modern_apartment.png', fit: BoxFit.cover),
+                  ),
+                ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF3D1FA8).withOpacity(0.96),
+                          const Color(0xFF5A2FE0).withOpacity(0.94),
+                          const Color(0xFF6A3CEF).withOpacity(0.90),
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-                const DetailsDivider(),
-                const SizedBox(height: 14),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  padding: const EdgeInsets.all(18),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(children: [
-                        Expanded(child: DetailsMetaTile(label: 'Applied On', value: _viewModel.appliedOn)),
-                        const SizedBox(width: 12),
-                        Expanded(child: DetailsMetaTile(label: 'Last Updated', value: _viewModel.profileCreatedOn)),
-                      ]),
-                      const SizedBox(height: 12),
-                      Row(children: [
-                        Expanded(child: DetailsMetaTile(label: 'Application Type', value: _viewModel.applicationType)),
-                        const SizedBox(width: 12),
-                        Expanded(child: DetailsMetaTile(label: 'Occupation', value: applicant.occupation)),
-                      ]),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Stack(children: [
+                            Hero(
+                              tag: 'applicant-${applicant.id}',
+                              child: CircleAvatar(
+                                radius: 36,
+                                backgroundColor: Colors.white.withOpacity(0.18),
+                                child: Text(applicant.avatarLetters,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+                              ),
+                            ),
+                            if (applicant.status == VerificationStatus.verified)
+                              Positioned(
+                                right: -2,
+                                bottom: -2,
+                                child: Container(
+                                  height: 20,
+                                  width: 20,
+                                  decoration: BoxDecoration(
+                                    color: AdminColors.success,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 12),
+                                ),
+                              ),
+                          ]),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(children: [
+                                  Expanded(
+                                    child: Text(applicant.name,
+                                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -.4)),
+                                  ),
+                                  StatusPill(label: applicant.status.label, color: applicant.status.color),
+                                ]),
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                                  child: Text(applicant.id,
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11)),
+                                ),
+                                const SizedBox(height: 10),
+                                _HeaderMiniLine(icon: Icons.email_rounded, text: applicant.email),
+                                const SizedBox(height: 6),
+                                _HeaderMiniLine(icon: Icons.phone_rounded, text: applicant.phone),
+                                const SizedBox(height: 6),
+                                _HeaderMiniLine(icon: Icons.location_on_rounded, text: applicant.address, maxLines: 2),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Divider(height: 1, color: Colors.white.withOpacity(0.18)),
+                      const SizedBox(height: 14),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              Expanded(child: _HeaderMetaTile(label: 'Applied On', value: _viewModel.appliedOn)),
+                              const SizedBox(width: 12),
+                              Expanded(child: _HeaderMetaTile(label: 'Last Updated', value: _viewModel.profileCreatedOn)),
+                            ]),
+                            const SizedBox(height: 12),
+                            _HeaderMetaTile(label: 'Application Type', value: _viewModel.applicationType),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -487,41 +512,43 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
         : 'This applicant has been rejected';
     final bannerIcon = isVerified ? Icons.check_circle_rounded : Icons.cancel_rounded;
 
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: bannerColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(AdminColors.radius),
-            border: Border.all(color: bannerColor.withOpacity(0.3)),
-          ),
-          child: Row(children: [
-            Icon(bannerIcon, color: bannerColor),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(bannerText,
-                  style: TextStyle(color: bannerColor, fontWeight: FontWeight.w800, fontSize: 13)),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => _confirmAndSetStatus(VerificationStatus.pending),
-            icon: const Icon(Icons.replay_rounded, size: 18),
-            label: const Text('Reopen for Review'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AdminColors.darkText,
-              side: BorderSide(color: AdminColors.darkText.withOpacity(0.2)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
-        ),
-      ],
-    );
+  return Column(
+  children: [
+  Container(
+  width: double.infinity,
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+  color: bannerColor.withOpacity(0.1),
+  borderRadius: BorderRadius.circular(AdminColors.radius),
+  border: Border.all(color: bannerColor.withOpacity(0.3)),
+  ),
+  child: Row(children: [
+  Icon(bannerIcon, color: bannerColor),
+  const SizedBox(width: 10),
+  Expanded(
+  child: Text(bannerText,
+  style: TextStyle(color: bannerColor, fontWeight: FontWeight.w800, fontSize: 13)),
+  ),
+  ]),
+  ),
+  if (_tabIndex == 0) ...[
+  const SizedBox(height: 10),
+  SizedBox(
+  width: double.infinity,
+  child: OutlinedButton.icon(
+  onPressed: () => _confirmAndSetStatus(VerificationStatus.pending),
+  icon: const Icon(Icons.replay_rounded, size: 18),
+  label: const Text('Reopen for Review'),
+  style: OutlinedButton.styleFrom(
+  foregroundColor: AdminColors.darkText,
+  side: BorderSide(color: AdminColors.darkText.withOpacity(0.2)),
+  padding: const EdgeInsets.symmetric(vertical: 14),
+  ),
+  ),
+  ),
+  ],
+  ],
+  );
   }
   Widget _buildTabContent(Applicant applicant) {
     final locked = applicant.status != VerificationStatus.pending;
@@ -554,5 +581,48 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
       default:
         return const SizedBox.shrink();
     }
+  }
+}
+class _HeaderMiniLine extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final int maxLines;
+  const _HeaderMiniLine({required this.icon, required this.text, this.maxLines = 1});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: Colors.white70),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(text,
+              maxLines: maxLines,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 11.5, height: 1.3)),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeaderMetaTile extends StatelessWidget {
+  final String label;
+  final String value;
+  const _HeaderMetaTile({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white60, fontWeight: FontWeight.w600, fontSize: 11)),
+        const SizedBox(height: 3),
+        Text(value,
+            maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12.5)),
+      ],
+    );
   }
 }

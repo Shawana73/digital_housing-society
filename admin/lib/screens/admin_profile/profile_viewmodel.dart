@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import '../../viewmodels/admin_view_models.dart'; // for BaseAdminViewModel
 
 class ProfileViewModel extends BaseAdminViewModel {
@@ -138,9 +140,34 @@ class ProfileViewModel extends BaseAdminViewModel {
         'invitedAt': FieldValue.serverTimestamp(),
       });
 
+      final emailSent = await _sendInviteEmail(emailToInvite);
+      if (!emailSent) {
+        return 'Invite saved, but the email could not be sent. Please inform them manually.';
+      }
+
       return null;
     } catch (e) {
       return 'Could not send invitation. Please try again.';
+    }
+  }
+
+  Future<bool> _sendInviteEmail(String toEmail) async {
+    try {
+      final response = await http.post(
+        Uri.parse('https://api.emailjs.com/api/v1.0/email/send'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'service_id': 'service_bj4eqpa',
+          'template_id': 'template_27g6mfa',
+          'user_id': 'l1_JctY7GkYlQh0kP',
+          'template_params': {
+            'to_email': toEmail,
+          },
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
     }
   }
 }
