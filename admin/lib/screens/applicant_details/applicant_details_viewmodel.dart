@@ -370,6 +370,74 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
       rethrow;
     }
   }
+  Future<void> editNote(int index, String newText) async {
+    final applicantId = applicantData?['uid']?.toString() ?? applicant?.id;
+    if (applicantId == null || applicantId.isEmpty) {
+      throw Exception('Applicant UID not found.');
+    }
+    final text = newText.trim();
+    if (text.isEmpty) {
+      throw Exception('Note cannot be empty.');
+    }
+    if (index < 0 || index >= notes.length) return;
+
+    final updatedNotes = List<Map<String, dynamic>>.from(notes);
+    updatedNotes[index] = {
+      ...updatedNotes[index],
+      'text': text,
+      'editedAt': Timestamp.now(),
+    };
+
+    try {
+      await _firestore.collection('applicants').doc(applicantId).update({
+        'verificationNotes': updatedNotes,
+      });
+
+      await _addActivityLog(
+        applicantId: applicantId,
+        action: 'Verification note edited',
+        description: 'Admin edited a verification note.',
+        type: 'verification',
+      );
+
+      notes = updatedNotes;
+      notifyListeners();
+    } catch (e, stackTrace) {
+      debugPrint('Error editing verification note: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> deleteNote(int index) async {
+    final applicantId = applicantData?['uid']?.toString() ?? applicant?.id;
+    if (applicantId == null || applicantId.isEmpty) {
+      throw Exception('Applicant UID not found.');
+    }
+    if (index < 0 || index >= notes.length) return;
+
+    final updatedNotes = List<Map<String, dynamic>>.from(notes)..removeAt(index);
+
+    try {
+      await _firestore.collection('applicants').doc(applicantId).update({
+        'verificationNotes': updatedNotes,
+      });
+
+      await _addActivityLog(
+        applicantId: applicantId,
+        action: 'Verification note deleted',
+        description: 'Admin deleted a verification note.',
+        type: 'verification',
+      );
+
+      notes = updatedNotes;
+      notifyListeners();
+    } catch (e, stackTrace) {
+      debugPrint('Error deleting verification note: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
+    }
+  }
 
   Future<void> updateStatus(VerificationStatus status) async {
     if (applicant == null) return;

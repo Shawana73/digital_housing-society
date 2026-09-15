@@ -191,6 +191,69 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
 
     return months[month - 1];
   }
+  Future<void> _editNote(int index, String currentText) async {
+    final controller = TextEditingController(text: currentText);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AdminColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminColors.radius)),
+        title: const Text('Edit Note', style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900)),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Update note...'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && result != currentText) {
+      try {
+        await _viewModel.editNote(index, result);
+        if (!mounted) return;
+        showAdminSnack(context, 'Note updated');
+      } catch (e) {
+        if (!mounted) return;
+        showAdminSnack(context, 'Failed to update note');
+      }
+    }
+  }
+
+  Future<void> _deleteNote(int index) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AdminColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AdminColors.radius)),
+        title: const Text('Delete Note?', style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900)),
+        content: const Text('This note will be permanently removed.', style: TextStyle(color: AdminColors.greyText)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AdminColors.rejected),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      try {
+        await _viewModel.deleteNote(index);
+        if (!mounted) return;
+        showAdminSnack(context, 'Note deleted');
+      } catch (e) {
+        if (!mounted) return;
+        showAdminSnack(context, 'Failed to delete note');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -224,8 +287,8 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
               children: [
                 Positioned.fill(
                   child: Opacity(
-                    opacity: 0.18,
-                    child: Image.asset('assets/images/modern_apartment.png', fit: BoxFit.cover),
+                    opacity: 1.0,
+                    child: Image.asset('assets/images/admin_realestate.png', fit: BoxFit.cover),
                   ),
                 ),
                 Positioned.fill(
@@ -235,9 +298,9 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          const Color(0xFF3D1FA8).withOpacity(0.96),
-                          const Color(0xFF5A2FE0).withOpacity(0.94),
-                          const Color(0xFF6A3CEF).withOpacity(0.90),
+                          const Color(0xFF3D1FA8).withOpacity(0.22),
+                          const Color(0xFF5A2FE0).withOpacity(0.14),
+                          const Color(0xFF6A3CEF).withOpacity(0.08),
                         ],
                       ),
                     ),
@@ -255,10 +318,10 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                             Hero(
                               tag: 'applicant-${applicant.id}',
                               child: CircleAvatar(
-                                radius: 36,
+                                radius: 38,
                                 backgroundColor: Colors.white.withOpacity(0.18),
                                 child: Text(applicant.avatarLetters,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 24)),
                               ),
                             ),
                             if (applicant.status == VerificationStatus.verified)
@@ -284,9 +347,15 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                               children: [
                                 Row(children: [
                                   Expanded(
-                                    child: Text(applicant.name,
+                                    child:Text(applicant.name,
                                         maxLines: 1, overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -.4)),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 24,
+                                          letterSpacing: -.4,
+                                          shadows: [Shadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 1))],
+                                        )),
                                   ),
                                   StatusPill(label: applicant.status.label, color: applicant.status.color),
                                 ]),
@@ -342,13 +411,27 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Verification Notes',
-                  style: TextStyle(
-                    color: AdminColors.darkText,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      height: 30,
+                      width: 30,
+                      decoration: BoxDecoration(
+                        color: AdminColors.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: const Icon(Icons.sticky_note_2_rounded, color: AdminColors.primary, size: 16),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Verification Notes',
+                      style: TextStyle(
+                        color: AdminColors.darkText,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 14),
 
@@ -366,74 +449,105 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                     ),
                   ),
 
-                for (final note in _viewModel.notes)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(width: 10),
-
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 3),
-
-                              Text(
-                                _formatNoteDate(note['createdAt']),
-                                style: const TextStyle(
-                                  color: AdminColors.greyText,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 10,
+                for (int i = 0; i < _viewModel.notes.length; i++)
+                  Builder(builder: (context) {
+                    final note = _viewModel.notes[i];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AdminColors.background,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AdminColors.primary.withOpacity(0.08)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            height: 30,
+                            width: 30,
+                            decoration: BoxDecoration(
+                              color: AdminColors.primary.withOpacity(0.14),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.person_rounded, color: AdminColors.primary, size: 15),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _formatNoteDate(note['createdAt']),
+                                  style: const TextStyle(
+                                    color: AdminColors.greyText,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 10,
+                                  ),
                                 ),
-                              ),
-
-                              const SizedBox(height: 6),
-
-                              Text(
-                                note['text']?.toString() ?? '',
-                                style: const TextStyle(
-                                  color: AdminColors.darkText,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                  height: 1.4,
+                                const SizedBox(height: 6),
+                                Text(
+                                  note['text']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    color: AdminColors.darkText,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                    height: 1.4,
+                                  ),
                                 ),
-                              ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.more_vert_rounded, size: 18, color: AdminColors.greyText),
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                _editNote(i, note['text']?.toString() ?? '');
+                              } else if (value == 'delete') {
+                                _deleteNote(i);
+                              }
+                            },
+                            itemBuilder: (ctx) => const [
+                              PopupMenuItem(value: 'edit', child: PopupMenuRow(icon: Icons.edit_rounded, text: 'Edit')),
+                              PopupMenuItem(value: 'delete', child: PopupMenuRow(icon: Icons.delete_rounded, text: 'Delete')),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  }),
 
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: _noteController,
-                        maxLines: 2,
-                        style: const TextStyle(fontSize: 13),
-                        decoration: const InputDecoration(
-                          hintText: 'Add a note...',
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AdminColors.background,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: TextField(
+                          controller: _noteController,
+                          maxLines: 2,
+                          style: const TextStyle(fontSize: 13),
+                          decoration: const InputDecoration(
+                            hintText: 'Add a verification note...',
+                            prefixIcon: Icon(Icons.edit_note_rounded, color: AdminColors.primary),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 14),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 10),
-
-                    FilledButton(
+                    FilledButton.icon(
                       onPressed: _saveNote,
+                      icon: const Icon(Icons.send_rounded, size: 16),
+                      label: const Text('Save'),
                       style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 16,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
-                      child: const Text('Save Note'),
                     ),
                   ],
                 ),
@@ -600,7 +714,13 @@ class _HeaderMiniLine extends StatelessWidget {
           child: Text(text,
               maxLines: maxLines,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 11.5, height: 1.3)),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 11.5,
+                height: 1.3,
+                shadows: [Shadow(color: Colors.black45, blurRadius: 5, offset: Offset(0, 1))],
+              )),
         ),
       ],
     );
@@ -617,11 +737,21 @@ class _HeaderMetaTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white60, fontWeight: FontWeight.w600, fontSize: 11)),
+        Text(label, style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 11,
+          shadows: [Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1))],
+        )),
         const SizedBox(height: 3),
         Text(value,
             maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12.5)),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 12.5,
+              shadows: [Shadow(color: Colors.black45, blurRadius: 5, offset: Offset(0, 1))],
+            )),
       ],
     );
   }
