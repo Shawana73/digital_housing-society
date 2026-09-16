@@ -16,6 +16,8 @@ class AdminRoutes {
   static const String plotVisualization = '/plot-visualization';
   static const String notifications = '/notifications';
   static const String profile = '/profile';
+  static const String settings = '/settings';
+  static const String notificationPreferences = '/notification-preferences';
   static const List<String> bottomRoutes = [
     dashboard,
     applicants,

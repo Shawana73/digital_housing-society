@@ -265,10 +265,43 @@ class BallotingViewModel extends BaseAdminViewModel {
 
       eligibleApplicantsByScheme.clear();
 
+      // FIX (bug — matches the balloting engine): builds a quick
+      // applicantId -> CNIC lookup so this count can be deduplicated the
+      // same way BallotingProcessingViewModel dedupes before shuffling.
+      // Without this, a person with two applicant records (e.g. an
+      // accidental duplicate registration) would be counted twice here,
+      // showing an "Eligible" number on the scheme card that doesn't
+      // match how many people can actually be drawn.
+      final applicantCnicById = <String, String>{};
+      for (final doc in applicantsSnapshot.docs) {
+        final data = doc.data();
+        applicantCnicById[doc.id] = (data['cnic']?.toString() ??
+            data['cnicDigits']?.toString() ??
+            '').trim();
+      }
+
+      // FIX (missing feature — real-world fairness rule): "one plot per
+      // person, across the whole society" — so this card's count also
+      // excludes anyone who has already won a plot in a previous
+      // balloting for ANY scheme, matching the balloting engine's rule.
+      final priorWinnersSnapshot = await _firestore
+          .collection('ballot_results')
+          .where('isSelected', isEqualTo: true)
+          .get();
+
+      final priorWinnerCnics = <String>{};
+      for (final doc in priorWinnersSnapshot.docs) {
+        final cnic = (doc.data()['cnic'] ?? '').toString().trim();
+        if (cnic.isNotEmpty) {
+          priorWinnerCnics.add(cnic);
+        }
+      }
+
       for (final scheme in schemes) {
         final schemeSize =
         _extractPlotSize(scheme.size);
 
+        final seenCnics = <String>{};
         int count = 0;
 
         for (final doc in applicationsSnapshot.docs) {
@@ -289,7 +322,17 @@ class BallotingViewModel extends BaseAdminViewModel {
           _extractPlotSize(applicationPlotType);
 
           // Match application plot type with scheme size.
-          if (applicationSize == schemeSize) {
+          if (applicationSize != schemeSize) {
+            continue;
+          }
+
+          final cnic = applicantCnicById[applicantId] ?? '';
+
+          if (cnic.isNotEmpty && priorWinnerCnics.contains(cnic)) {
+            continue;
+          }
+
+          if (cnic.isEmpty || seenCnics.add(cnic)) {
             count++;
           }
         }

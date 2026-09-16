@@ -23,6 +23,8 @@ import 'screens/reports/reports_screen.dart';
 import 'screens/balloting_processing/balloting_processing_screen.dart';
 import 'screens/result/result_screen.dart';
 import 'theme/admin_theme.dart';
+import 'screens/admin_settings/admin_settings_screen.dart';
+import 'screens/notification_preferences/notification_preferences_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,6 +85,8 @@ class DigitalHousingAdminApp extends StatelessWidget {
         AdminRoutes.plotVisualization: (_) => const PlotVisualizationScreen(),
         AdminRoutes.notifications: (_) => const NotificationScreen(),
         AdminRoutes.profile: (_) => const ProfileScreen(),
+        AdminRoutes.settings: (_) => const AdminSettingsScreen(),
+        AdminRoutes.notificationPreferences: (_) => const NotificationPreferencesScreen(),
       },
       onGenerateRoute: (settings) {   //dynamic route handling
         if (settings.name == AdminRoutes.applicantDetails && settings.arguments is Applicant) {

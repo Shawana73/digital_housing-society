@@ -414,88 +414,59 @@ class _ResultScreenState extends State<ResultScreen> {
             successRate: _viewModel.successRate,
           ),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
+          const SizedBox(height: 20),
+          // FIX (bug): this screen used to render its own extra search
+          // TextField here — sharing the exact same controller as
+          // AdminShell's top search bar — so there were two visually
+          // separate search boxes doing the identical thing. The top one
+          // (AdminShell, consistent with every other screen in the app)
+          // is kept; only the Filter control stays here.
+          Align(
+            alignment: Alignment.centerRight,
+            child: Material(
+              color: AdminColors.white,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                onTap: _showFilterSheet,
+                borderRadius: BorderRadius.circular(14),
                 child: Container(
-                  height: 46,
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
-                    color: AdminColors.white,
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: AdminColors.primary.withOpacity(0.06),
+                        color:
+                        AdminColors.primary.withOpacity(0.06),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _viewModel.search,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AdminColors.darkText,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'Search by Application ID or Name...',
-                      prefixIcon: Icon(
-                        Icons.search_rounded,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.tune_rounded,
                         color: AdminColors.primary,
-                        size: 18,
+                        size: 16,
                       ),
-                      border: InputBorder.none,
-                      contentPadding:
-                      EdgeInsets.symmetric(vertical: 13),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Material(
-                color: AdminColors.white,
-                borderRadius: BorderRadius.circular(14),
-                child: InkWell(
-                  onTap: _showFilterSheet,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    height: 46,
-                    width: 60,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                          AdminColors.primary.withOpacity(0.06),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.tune_rounded,
+                      const SizedBox(width: 6),
+                      Text(
+                        _viewModel.selectedFilter == 'All'
+                            ? 'Filter'
+                            : _viewModel.selectedFilter,
+                        style: const TextStyle(
                           color: AdminColors.primary,
-                          size: 16,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
                         ),
-                        SizedBox(width: 3),
-                        Text(
-                          'Filter',
-                          style: TextStyle(
-                            color: AdminColors.primary,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 20),
           const ResultSLabel(text: 'Winners List'),

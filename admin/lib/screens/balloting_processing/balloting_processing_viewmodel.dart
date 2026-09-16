@@ -198,6 +198,24 @@ class BallotingProcessingViewModel extends ChangeNotifier {
       final paymentsSnapshot =
       await _firestore.collection('payments').get();
 
+      // FIX (missing feature — real-world fairness rule): one plot per
+      // person, across the WHOLE society, not just within one scheme.
+      // Fetches every past winner (any scheme, any previous balloting)
+      // and collects their CNICs, so they can be excluded below —
+      // matching how real housing schemes run their draws.
+      final priorWinnersSnapshot = await _firestore
+          .collection('ballot_results')
+          .where('isSelected', isEqualTo: true)
+          .get();
+
+      final priorWinnerCnics = <String>{};
+      for (final doc in priorWinnersSnapshot.docs) {
+        final cnic = (doc.data()['cnic'] ?? '').toString().trim();
+        if (cnic.isNotEmpty) {
+          priorWinnerCnics.add(cnic);
+        }
+      }
+
       // Verified document applicants
       final verifiedUploads = <String>{};
 
@@ -342,6 +360,37 @@ class BallotingProcessingViewModel extends ChangeNotifier {
               <String, dynamic>{},
         });
       }
+
+      // FIX (bug/missing feature — fairness): two safeguards before the
+      // shuffle:
+      //  1. Anyone who already won a plot in a PREVIOUS balloting (any
+      //     scheme) is excluded entirely — "one plot per person" applied
+      //     society-wide, the same rule real housing schemes use.
+      //  2. Within this run, the same physical person can still end up
+      //     with two different applicant/application records (e.g. an
+      //     accidental duplicate registration) that both pass
+      //     verification — those are deduplicated by CNIC so they're only
+      //     entered once. An applicant with no CNIC on record is kept
+      //     as-is rather than risk dropping a legitimate entry.
+      final seenCnics = <String>{};
+      final dedupedApplicants = <Map<String, dynamic>>[];
+
+      for (final applicant in applicants) {
+        final cnic = (applicant['cnic'] ?? '').toString().trim();
+
+        if (cnic.isNotEmpty && priorWinnerCnics.contains(cnic)) {
+          continue;
+        }
+
+        if (cnic.isEmpty || seenCnics.add(cnic)) {
+          dedupedApplicants.add(applicant);
+        }
+      }
+
+      applicants
+        ..clear()
+        ..addAll(dedupedApplicants);
+
       eligibleApplicantsCount = applicants.length;
       // --------------------------------------------------------
       // STEP 3 - GET AVAILABLE PLOTS

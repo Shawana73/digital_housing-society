@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/admin_models.dart';
 import '../../theme/admin_theme.dart';
-import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
 
 class DateRangeChip extends StatelessWidget {
@@ -39,34 +38,6 @@ class DateRangeChip extends StatelessWidget {
   }
 }
 
-class ReportsFilterChip extends StatelessWidget {
-  final VoidCallback onTap;
-  const ReportsFilterChip({super.key, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AdminColors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: AdminColors.primary.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 8))],
-          ),
-          child: const Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.tune_rounded, color: AdminColors.primary, size: 16),
-            SizedBox(width: 7),
-            Text('Filter', style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 12.5)),
-          ]),
-        ),
-      ),
-    );
-  }
-}
 
 class PeriodDropdown extends StatelessWidget {
   final String value;
@@ -97,9 +68,9 @@ class PeriodDropdown extends StatelessWidget {
     );
   }
 }
-
 class ReportsStatsGrid extends StatelessWidget {
   final int totalApplicants;
+  final int totalPayments;
   final int verifiedApplicants;
   final int pendingApplicants;
   final int rejectedApplicants;
@@ -110,140 +81,83 @@ class ReportsStatsGrid extends StatelessWidget {
     required this.verifiedApplicants,
     required this.pendingApplicants,
     required this.rejectedApplicants,
+    required this.totalPayments,
   });
 
   @override
   Widget build(BuildContext context) {
     final stats = [
-      (
-      'Total Applicants',
-      totalApplicants.toString(),
-      AdminColors.primary,
-      Icons.groups_rounded,
-      ),
-      (
-      'Verified Applicants',
-      verifiedApplicants.toString(),
-      AdminColors.success,
-      Icons.verified_rounded,
-      ),
-      (
-      'Pending Applicants',
-      pendingApplicants.toString(),
-      AdminColors.warning,
-      Icons.hourglass_top_rounded,
-      ),
-      (
-      'Rejected Applicants',
-      rejectedApplicants.toString(),
-      AdminColors.rejected,
-      Icons.cancel_rounded,
-      ),
+      ('Total Applicants', totalApplicants.toString(), AdminColors.primary, Icons.groups_rounded),
+      ('Total Payments', totalPayments.toString(), AdminColors.primary, Icons.payments_rounded),
+      ('Verified Applicants', verifiedApplicants.toString(), AdminColors.success, Icons.verified_rounded),
+      ('Pending Applicants', pendingApplicants.toString(), AdminColors.warning, Icons.hourglass_top_rounded),
+      ('Rejected Applicants', rejectedApplicants.toString(), AdminColors.rejected, Icons.cancel_rounded),
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: stats.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        mainAxisExtent: 130,
-      ),
-      itemBuilder: (context, index) {
-        final stat = stats[index];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = (constraints.maxWidth - 10) / 2;
 
-        return PremiumCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    stat.$4,
-                    color: stat.$3,
-                    size: 22,
-                  ),
-                  const Spacer(),
-                ],
-              ),
-              const Spacer(),
-              Text(
-                stat.$2,
-                style: const TextStyle(
-                  color: AdminColors.darkText,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: stats.map((stat) {
+            return SizedBox(
+              width: cardWidth,
+              child: PremiumCard(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 32,
+                      width: 32,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: stat.$3.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Icon(stat.$4, color: stat.$3, size: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            stat.$2,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AdminColors.darkText,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              height: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            stat.$1,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AdminColors.greyText,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              height: 1.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 3),
-              Text(
-                stat.$1,
-                style: const TextStyle(
-                  color: AdminColors.greyText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
+            );
+          }).toList(),
         );
       },
-    );
-  }
-}
-
-class ReportStatCard extends StatelessWidget {
-  final (String, String, String, bool, Color, IconData) data;
-  const ReportStatCard({super.key, required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    final (title, value, trend, isUp, color, icon) = data;
-    return PremiumCard(
-      onTap: () => showAdminSnack(context, '$title clicked'),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(
-              height: 40,
-              width: 40,
-              decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(13)),
-              child: Icon(icon, color: color, size: 20),
-            ),
-          ]),
-          const SizedBox(height: 12),
-          Text(title,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 12)),
-          const SizedBox(height: 4),
-          Text(value,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: -.5)),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              decoration: BoxDecoration(
-                color: (isUp ? AdminColors.success : AdminColors.rejected).withOpacity(0.12),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(trend,
-                    style: TextStyle(color: isUp ? AdminColors.success : AdminColors.rejected, fontWeight: FontWeight.w800, fontSize: 11)),
-                const SizedBox(width: 2),
-                Icon(isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                    color: isUp ? AdminColors.success : AdminColors.rejected, size: 12),
-              ]),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -262,7 +176,6 @@ class LegendDot extends StatelessWidget {
     ]);
   }
 }
-
 class TrendChart extends StatefulWidget {
   final List<String> months;
   final List<double> total;
@@ -482,8 +395,13 @@ class _TrendChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const labelSpace = 22.0;
     final chartHeight = size.height - labelSpace;
-    const maxV = 1500.0;
-    final step = size.width / (months.length - 1);
+    final maxV = [
+      ...total,
+      ...verified,
+      ...rejected,
+      1.0,
+    ].reduce((a, b) => a > b ? a : b) * 1.2;
+    final step = months.length > 1 ? size.width / (months.length - 1) : 0.0;
 
     final gridPaint = Paint()
       ..color = AdminColors.greyText.withOpacity(0.10)
@@ -495,7 +413,7 @@ class _TrendChartPainter extends CustomPainter {
     }
 
     Offset pointFor(List<double> series, int i) {
-      final x = step * i;
+      final x = months.length > 1 ? step * i : size.width / 2;
       final y = chartHeight * (1 - (series[i] / maxV));
       return Offset(x, y);
     }
@@ -556,7 +474,9 @@ class _TrendChartPainter extends CustomPainter {
       marker(rejected, AdminColors.rejected);
     }
 
+    final labelInterval = months.length > 10 ? (months.length / 8).ceil() : 1;
     for (int i = 0; i < months.length; i++) {
+      if (i % labelInterval != 0 && i != months.length - 1) continue;
       final tp = TextPainter(
         text: TextSpan(text: months[i], style: const TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w700, fontSize: 10)),
         textDirection: TextDirection.ltr,
@@ -677,50 +597,6 @@ class RecentReportRow extends StatelessWidget {
             tooltip: 'View Details',
           ),
         ],
-      ),
-    );
-  }
-}
-
-class RoundDownloadButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const RoundDownloadButton({super.key, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AdminColors.background,
-      borderRadius: BorderRadius.circular(11),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(11),
-        child: Container(
-          height: 36,
-          width: 36,
-          alignment: Alignment.center,
-          child: const Icon(Icons.download_rounded, color: AdminColors.primary, size: 18),
-        ),
-      ),
-    );
-  }
-}
-
-class ReportsSheetOption extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const ReportsSheetOption({super.key, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: PremiumCard(
-        onTap: onTap,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(children: [
-          Expanded(child: Text(label, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 14))),
-          const Icon(Icons.chevron_right_rounded, color: AdminColors.greyText, size: 18),
-        ]),
       ),
     );
   }

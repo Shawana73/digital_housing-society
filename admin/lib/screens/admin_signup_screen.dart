@@ -636,7 +636,7 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
       ),
       child: ClipOval(
         child: Image.asset(
-          'assets/logo/dhs_logo.png',
+          'assets/logo/dhs_icon.png',
           fit: BoxFit.contain,
         ),
       ),

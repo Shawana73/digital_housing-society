@@ -4,8 +4,6 @@ import '../../theme/admin_theme.dart';
 import '../../widgets/admin_shell.dart';
 import '../../widgets/app_snack.dart';
 import '../../widgets/premium_widgets.dart';
-import '../admin_settings/admin_settings_screen.dart';
-import '../notification_preferences/notification_preferences_screen.dart';
 import 'profile_viewmodel.dart';
 import 'profile_widgets.dart';
 
@@ -341,7 +339,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Settings',
             subtitle: 'Account, security and preferences',
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminSettingsScreen()));
+              Navigator.pushNamed(context, AdminRoutes.settings);
             },
           ),
           ProfileSettingsTile(
@@ -349,7 +347,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: 'Notification Preferences',
             subtitle: 'Manage alerts and reminders',
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationPreferencesScreen()));
+              Navigator.pushNamed(context, AdminRoutes.notificationPreferences);
             },
           ),
           ProfileSettingsTile(icon: Icons.lock_rounded, title: 'Change Password', subtitle: 'Update admin password', onTap: _changePassword),

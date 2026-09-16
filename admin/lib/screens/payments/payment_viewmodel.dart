@@ -26,8 +26,6 @@ class PaymentVerificationViewModel extends BaseAdminViewModel {
       return matchesQuery && matchesFilter;
     }).toList();
   }
-
-  @override
   @override
   Future<void> load() async {
     isLoading = true;

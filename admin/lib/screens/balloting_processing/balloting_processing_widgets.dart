@@ -135,6 +135,75 @@ class ProcessingStepTile extends StatelessWidget {
   }
 }
 
+/// FIX (missing feature — fit everything without scrolling, on narrow
+/// screens): a compact horizontal version of the steps list. Shows the 6
+/// pipeline stages as small connected circles instead of a tall vertical
+/// list, with the current stage's title as a single line of text below —
+/// so it takes roughly the height of one line instead of six rows.
+class StepsStripBar extends StatelessWidget {
+  final List<ProcessingStep> steps;
+  const StepsStripBar({super.key, required this.steps});
+
+  @override
+  Widget build(BuildContext context) {
+    if (steps.isEmpty) return const SizedBox.shrink();
+
+    final activeIndex = steps.indexWhere((s) => !s.completed);
+    final currentLabel =
+    activeIndex == -1 ? steps.last.title : steps[activeIndex].title;
+
+    final rowChildren = <Widget>[];
+    for (var i = 0; i < steps.length; i++) {
+      final step = steps[i];
+      final isCurrent = i == activeIndex;
+      final Color color = step.completed
+          ? AdminColors.success
+          : isCurrent
+          ? AdminColors.primary
+          : AdminColors.greyText.withOpacity(0.35);
+
+      rowChildren.add(Container(
+        height: 22,
+        width: 22,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: step.completed ? AdminColors.success : AdminColors.white,
+          border: Border.all(color: color, width: 1.6),
+        ),
+        child: step.completed
+            ? const Icon(Icons.check_rounded, color: Colors.white, size: 13)
+            : Text('${step.number}',
+            style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 10)),
+      ));
+
+      if (i != steps.length - 1) {
+        rowChildren.add(Expanded(
+          child: Container(
+            height: 2,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            color: step.completed ? AdminColors.success : AdminColors.border,
+          ),
+        ));
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: rowChildren),
+        const SizedBox(height: 8),
+        Text(
+          currentLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w800, fontSize: 12.5),
+        ),
+      ],
+    );
+  }
+}
+
 /// FIX (missing feature — live transparency): one event in the admin's
 /// real-time draw feed. Either a winner being drawn + allocated a plot, or
 /// (once the winner list is finalized) an applicant not selected this run.

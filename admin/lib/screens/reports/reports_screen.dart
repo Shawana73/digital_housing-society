@@ -109,6 +109,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ('Rejected', _viewModel.rejectedApplicants.toString()),
       ];
     }
+    final isBalloting = reportTitle == 'Balloting Report';
+    if (isBalloting) {
+      return [
+        ('Total Ballot Entries', _viewModel.totalBallotEntries.toString()),
+        ('Winners', _viewModel.ballotWinners.toString()),
+        ('Not Selected', _viewModel.ballotNotSelected.toString()),
+      ];
+    }
     if (isPlot) {
       return [
         ('Total Plots', _viewModel.totalPlots.toString()),
@@ -119,6 +127,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
     return [('Total Records', _viewModel.totalApplicants.toString())];
   }
+
   void _openReportPreview(String reportTitle) {
     final rows = _reportRows(reportTitle);
 
@@ -152,9 +161,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
               Row(children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.pop(ctx);
-                      _exportReportPdf(reportTitle, rows);
+                      final confirmed = await _confirmExport(
+                        'Export PDF',
+                        'Export "$reportTitle" as a PDF file?',
+                      );
+                      if (confirmed) _exportReportPdf(reportTitle, rows);
                     },
                     icon: const Icon(Icons.picture_as_pdf_rounded, color: AdminColors.rejected),
                     label: const Text('Export PDF'),
@@ -169,9 +182,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.pop(ctx);
-                      _exportReportExcel(reportTitle, rows);
+                      final confirmed = await _confirmExport(
+                        'Export Excel',
+                        'Export "$reportTitle" as an Excel file?',
+                      );
+                      if (confirmed) _exportReportExcel(reportTitle, rows);
                     },
                     icon: const Icon(Icons.table_chart_rounded),
                     label: const Text('Export Excel'),
@@ -238,6 +255,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final workbook = xls.Excel.createExcel();
     final sheet = workbook[reportTitle.length > 31 ? reportTitle.substring(0, 31) : reportTitle];
     workbook.setDefaultSheet(sheet.sheetName);
+    if (sheet.sheetName != 'Sheet1' && workbook.sheets.containsKey('Sheet1')) {
+      workbook.delete('Sheet1');
+    }
 
     sheet.appendRow([xls.TextCellValue('Metric'), xls.TextCellValue('Value')]);
     for (final r in rows) {
@@ -292,18 +312,26 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 leading: const Icon(Icons.picture_as_pdf_rounded, color: AdminColors.rejected),
                 title: const Text('Export All as PDF'),
                 subtitle: const Text('All 4 reports combined'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(sheetContext);
-                  _exportAllPdf();
+                  final confirmed = await _confirmExport(
+                    'Export All as PDF',
+                    'Export all 4 reports combined as a single PDF file?',
+                  );
+                  if (confirmed) _exportAllPdf();
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.table_chart_rounded, color: AdminColors.success),
                 title: const Text('Export All as Excel'),
                 subtitle: const Text('Separate sheet per report'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(sheetContext);
-                  _exportAllExcel();
+                  final confirmed = await _confirmExport(
+                    'Export All as Excel',
+                    'Export all 4 reports into a single Excel file with separate sheets?',
+                  );
+                  if (confirmed) _exportAllExcel();
                 },
               ),
             ],
@@ -433,10 +461,32 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
     );
   }
+  Future<bool> _confirmExport(String title, String message) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AdminColors.primary),
+            child: const Text('Export'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
 
   void _setTrendPeriod(String period) {
     setState(() => _trendPeriod = period);
-    showAdminSnack(context, 'Trend period: $period');
+    _viewModel.setTrendPeriod(period);
   }
 
   @override
@@ -478,6 +528,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             verifiedApplicants: _viewModel.verifiedApplicants,
             pendingApplicants: _viewModel.pendingApplicants,
             rejectedApplicants: _viewModel.rejectedApplicants,
+            totalPayments: _viewModel.totalPayments,
           ),
           const SizedBox(height: 18),
           PremiumCard(
@@ -493,7 +544,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   const SizedBox(width: 6),
                 ]),
                 const SizedBox(height: 6),
-                const Row(children: [
+                 const Row(children: [
                   LegendDot(color: AdminColors.primary, label: 'Total'),
                   SizedBox(width: 14),
                   LegendDot(color: AdminColors.success, label: 'Verified'),
@@ -514,19 +565,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
           ),
           const SizedBox(height: 22),
-          Row(children: [
-            const Expanded(
-              child: Text('Quick Reports', style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -.3)),
-            ),
-            GestureDetector(
-              onTap: () => showAdminSnack(context, 'View all reports'),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Text('View All', style: TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 13)),
-                SizedBox(width: 3),
-                Icon(Icons.arrow_forward_rounded, color: AdminColors.primary, size: 16),
-              ]),
-            ),
-          ]),
+          const Text('Quick Reports', style: TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -.3)),
           const SizedBox(height: 12),
           QuickReportsGrid(
             onTap: (label) => _openReportPreview(label),

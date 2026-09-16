@@ -18,6 +18,9 @@ class ReportsViewModel extends BaseAdminViewModel {
   int totalPayments = 0;
   DateTime? selectedStartDate;
   DateTime? selectedEndDate;
+  int totalBallotEntries = 0;
+  int ballotWinners = 0;
+  int ballotNotSelected = 0;
 
   // Plot statistics
   int totalPlots = 0;
@@ -27,6 +30,7 @@ class ReportsViewModel extends BaseAdminViewModel {
 
   // Applicant trend
   final List<String> trendMonths = [];
+  String trendPeriod = 'Monthly';
   final List<double> totalTrend = [];
   final List<double> verifiedTrend = [];
   final List<double> rejectedTrend = [];
@@ -70,6 +74,11 @@ class ReportsViewModel extends BaseAdminViewModel {
 
     await _saveDateRange();
     await load();
+  }
+  Future<void> setTrendPeriod(String period) async {
+    trendPeriod = period;
+    await _buildApplicantTrend();
+    notifyListeners();
   }
   Future<void> saveReportRecord({
     required String title,
@@ -136,6 +145,7 @@ class ReportsViewModel extends BaseAdminViewModel {
         _loadPlots(),
         _loadPayments(),
         _loadRecentReports(),
+        _loadBallotingStats(),
       ]);
 
       await _buildApplicantTrend();
@@ -271,6 +281,25 @@ class ReportsViewModel extends BaseAdminViewModel {
       debugPrintStack(stackTrace: stackTrace);
     }
   }
+  Future<void> _loadBallotingStats() async {
+    try {
+      final snapshot = await _firestore.collection('ballot_results').get();
+      totalBallotEntries = snapshot.docs.length;
+      ballotWinners = 0;
+      ballotNotSelected = 0;
+      for (final doc in snapshot.docs) {
+        final isSelected = doc.data()['isSelected'] == true;
+        if (isSelected) {
+          ballotWinners++;
+        } else {
+          ballotNotSelected++;
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error loading balloting stats: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
 
   // ------------------------------------------------------------
   // RECENT REPORTS
@@ -309,40 +338,56 @@ class ReportsViewModel extends BaseAdminViewModel {
 
       if (selectedStartDate != null && selectedEndDate != null) {
         queryRef = queryRef
-            .where(
-          'createdAt',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(
-            selectedStartDate!,
-          ),
-        )
-            .where(
-          'createdAt',
-          isLessThanOrEqualTo: Timestamp.fromDate(
-            selectedEndDate!,
-          ),
-        );
+            .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(selectedStartDate!))
+            .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(selectedEndDate!));
       }
 
       final snapshot = await queryRef.get();
 
-      final Map<String, int> totalByMonth = {};
-      final Map<String, int> verifiedByMonth = {};
-      final Map<String, int> rejectedByMonth = {};
+      const monthNames = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+
+      String bucketKey(DateTime date) {
+        switch (trendPeriod) {
+          case 'Daily':
+            return '${date.year}-${date.month}-${date.day}';
+          case 'Weekly':
+            final weekOfYear =
+            ((date.difference(DateTime(date.year, 1, 1)).inDays) / 7).floor();
+            return '${date.year}-W$weekOfYear';
+          default:
+            return '${date.year}-${date.month}';
+        }
+      }
+
+      String labelFor(DateTime date) {
+        switch (trendPeriod) {
+          case 'Daily':
+            return '${date.day} ${monthNames[date.month - 1]}';
+          case 'Weekly':
+            final weekOfYear =
+            ((date.difference(DateTime(date.year, 1, 1)).inDays) / 7).floor();
+            return 'W$weekOfYear';
+          default:
+            return monthNames[date.month - 1];
+        }
+      }
+
+      final Map<String, int> totalByKey = {};
+      final Map<String, int> verifiedByKey = {};
+      final Map<String, int> rejectedByKey = {};
 
       for (final doc in snapshot.docs) {
         final data = doc.data();
-
         final createdAt = data['createdAt'];
-
-        if (createdAt is! Timestamp) {
-          continue;
-        }
+        if (createdAt is! Timestamp) continue;
 
         final date = createdAt.toDate();
+        final key = bucketKey(date);
 
-        final key = '${date.year}-${date.month}';
-
-        totalByMonth[key] = (totalByMonth[key] ?? 0) + 1;
+        totalByKey[key] = (totalByKey[key] ?? 0) + 1;
 
         final status = (data['profileStatus'] ?? '')
             .toString()
@@ -350,69 +395,49 @@ class ReportsViewModel extends BaseAdminViewModel {
             .toLowerCase();
 
         if (status == 'verified' || status == 'approved') {
-          verifiedByMonth[key] = (verifiedByMonth[key] ?? 0) + 1;
+          verifiedByKey[key] = (verifiedByKey[key] ?? 0) + 1;
         } else if (status == 'rejected') {
-          rejectedByMonth[key] = (rejectedByMonth[key] ?? 0) + 1;
+          rejectedByKey[key] = (rejectedByKey[key] ?? 0) + 1;
         }
       }
 
       final startDate = selectedStartDate ??
-          DateTime(
-            DateTime.now().year,
-            DateTime.now().month - 5,
-            1,
-          );
-
+          DateTime(DateTime.now().year, DateTime.now().month - 5, 1);
       final endDate = selectedEndDate ?? DateTime.now();
 
-      final startMonth = DateTime(
-        startDate.year,
-        startDate.month,
-      );
+      DateTime current;
+      DateTime end;
+      DateTime Function(DateTime) advance;
 
-      final endMonth = DateTime(
-        endDate.year,
-        endDate.month,
-      );
+      switch (trendPeriod) {
+        case 'Daily':
+          current = DateTime(startDate.year, startDate.month, startDate.day);
+          end = DateTime(endDate.year, endDate.month, endDate.day);
+          advance = (d) => d.add(const Duration(days: 1));
+          break;
+        case 'Weekly':
+          current = DateTime(startDate.year, startDate.month, startDate.day);
+          end = DateTime(endDate.year, endDate.month, endDate.day);
+          advance = (d) => d.add(const Duration(days: 7));
+          break;
+        default:
+          current = DateTime(startDate.year, startDate.month);
+          end = DateTime(endDate.year, endDate.month);
+          advance = (d) => DateTime(d.year, d.month + 1);
+      }
 
-      final monthNames = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
+      // Safety cap so a huge date range with Daily can't loop forever.
+      var guard = 0;
+      while (!current.isAfter(end) && guard < 400) {
+        final key = bucketKey(current);
 
-      DateTime current = startMonth;
+        trendMonths.add(labelFor(current));
+        totalTrend.add((totalByKey[key] ?? 0).toDouble());
+        verifiedTrend.add((verifiedByKey[key] ?? 0).toDouble());
+        rejectedTrend.add((rejectedByKey[key] ?? 0).toDouble());
 
-      while (!current.isAfter(endMonth)) {
-        final key = '${current.year}-${current.month}';
-
-        trendMonths.add(monthNames[current.month - 1]);
-
-        totalTrend.add(
-          (totalByMonth[key] ?? 0).toDouble(),
-        );
-
-        verifiedTrend.add(
-          (verifiedByMonth[key] ?? 0).toDouble(),
-        );
-
-        rejectedTrend.add(
-          (rejectedByMonth[key] ?? 0).toDouble(),
-        );
-
-        current = DateTime(
-          current.year,
-          current.month + 1,
-        );
+        current = advance(current);
+        guard++;
       }
     } catch (e, stackTrace) {
       debugPrint('Error loading applicant trend: $e');

@@ -178,9 +178,15 @@ class AdminShell extends StatelessWidget {
     ),
     _AdminNavItem(
       label: 'Profile',
+      icon: Icons.person_outline_rounded,
+      selectedIcon: Icons.person_rounded,
+      route: AdminRoutes.profile,
+    ),
+    _AdminNavItem(
+      label: 'Settings',
       icon: Icons.settings_outlined,
       selectedIcon: Icons.settings_rounded,
-      route: AdminRoutes.profile,
+      route: AdminRoutes.settings,
     ),
   ];
 
@@ -213,6 +219,10 @@ class AdminShell extends StatelessWidget {
 
     if (route == AdminRoutes.ballotingProcessing) {
       return _indexOf(AdminRoutes.balloting);
+    }
+
+    if (route == AdminRoutes.notificationPreferences) {
+      return _indexOf(AdminRoutes.profile);
     }
 
     final index = _indexOf(route);
@@ -989,6 +999,8 @@ class AdminShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: AdminColors.background,
       appBar: AppBar(
+        automaticallyImplyLeading:
+        _currentRoute(context) != AdminRoutes.dashboard,
         titleSpacing: 20,
         title: Text(title),
         actions: [
