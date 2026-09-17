@@ -134,40 +134,42 @@ class DashboardHeroCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(children: [
-                  const Text('Welcome back!',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                        shadows: [
-                          Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(0, 2)),
-                          Shadow(color: Colors.black54, blurRadius: 3, offset: Offset(0, 1)),
-                        ],
-                      )),
-                  const Spacer(),
-                  if (unreadCount > 0) ...[
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    const Text('Welcome back,',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          shadows: [
+                            Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(0, 2)),
+                            Shadow(color: Colors.black54, blurRadius: 3, offset: Offset(0, 1)),
+                          ],
+                        )),
+                    if (unreadCount > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(20)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.notifications_rounded, color: Colors.white, size: 13),
+                          const SizedBox(width: 4),
+                          Text('$unreadCount new', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                        ]),
+                      ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(color: AdminColors.white, borderRadius: BorderRadius.circular(20)),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.notifications_rounded, color: Colors.white, size: 13),
-                        const SizedBox(width: 4),
-                        Text('$unreadCount new', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                        Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: AdminColors.success)),
+                        const SizedBox(width: 5),
+                        const Text('Active', style: TextStyle(color: AdminColors.success, fontWeight: FontWeight.w800, fontSize: 12)),
                       ]),
                     ),
-                    const SizedBox(width: 8),
                   ],
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                    decoration: BoxDecoration(color: AdminColors.white, borderRadius: BorderRadius.circular(20)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: AdminColors.success)),
-                      const SizedBox(width: 5),
-                      const Text('Active', style: TextStyle(color: AdminColors.success, fontWeight: FontWeight.w800, fontSize: 12)),
-                    ]),
-                  ),
-                ]),
+                ),
                 const SizedBox(height: 6),
                 Text('$adminName ',
                     style: const TextStyle(

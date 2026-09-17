@@ -1000,8 +1000,7 @@ class AdminShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: AdminColors.background,
       appBar: AppBar(
-        automaticallyImplyLeading:
-        _currentRoute(context) != AdminRoutes.dashboard,
+        automaticallyImplyLeading: true,
         titleSpacing: 20,
         title: Text(title),
         actions: [
