@@ -243,8 +243,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF4A28D4).withOpacity(0.82),
-              const Color(0xFF7B4DFF).withOpacity(0.72),
+              const Color(0xFF4A28D4).withOpacity(0.62),
+              const Color(0xFF7B4DFF).withOpacity(0.52),
             ],
           ),
         ),
