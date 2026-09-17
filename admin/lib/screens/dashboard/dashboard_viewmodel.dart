@@ -353,7 +353,7 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
   // ============================================================
   void _subscribeDealers() {
     _dealersSub?.cancel();
-    _dealersSub = _firestore.collection('dealers').snapshots().listen((snapshot) {
+    _dealersSub = _firestore.collection('dealer_registrations').snapshots().listen((snapshot) {
       _dealerDocs = snapshot.docs;
       _processDealers();
       notifyListeners();
@@ -368,8 +368,8 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
 
     for (final doc in _dealerDocs) {
       final data = doc.data();
-      final status = data['status']?.toString().toLowerCase();
-      if (status == 'verified') verifiedCount++;
+      final status = data['verificationStatus']?.toString().toLowerCase();
+      if (status == 'verified' || status == 'approved') verifiedCount++;
     }
 
     verifiedDealers = verifiedCount;

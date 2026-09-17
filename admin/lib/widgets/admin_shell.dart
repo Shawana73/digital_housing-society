@@ -385,15 +385,16 @@ class AdminShell extends StatelessWidget {
   // ============================================================
   // NOTIFICATIONS (APP BAR)
   // ============================================================
-
   Widget _notificationButton(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('notifications')
-          .where('unread', isEqualTo: true)
           .snapshots(),
       builder: (context, snapshot) {
-        final count = snapshot.data?.docs.length ?? 0;
+        final count = snapshot.data?.docs.where((doc) {
+          final data = doc.data();
+          return (data['unread'] ?? true) == true;
+        }).length ?? 0;
         final label = count > 9 ? '9+' : count.toString();
 
         return Stack(

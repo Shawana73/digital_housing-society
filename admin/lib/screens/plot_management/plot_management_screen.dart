@@ -736,17 +736,18 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
                         physics:
                         const NeverScrollableScrollPhysics(),
                         itemCount: plots.length,
-                        gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
+                        gridDelegate: crossAxisCount == 1
+                            ? const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 1,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          mainAxisExtent: 430,
+                        )
+                            : SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
-                          crossAxisSpacing:
-                          width < 700 ? 12 : 18,
-                          mainAxisSpacing:
-                          width < 700 ? 12 : 18,
-                          childAspectRatio:
-                          crossAxisCount == 1
-                              ? 1.55
-                              : 0.82,
+                          crossAxisSpacing: width < 700 ? 12 : 18,
+                          mainAxisSpacing: width < 700 ? 12 : 18,
+                          childAspectRatio: 0.82,
                         ),
                         itemBuilder: (context, index) {
                           final plot = plots[index];

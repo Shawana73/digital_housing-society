@@ -1,9 +1,7 @@
 
 import 'package:flutter/material.dart';
-
 import '../../models/plot_model.dart';
 import '../../theme/admin_theme.dart';
-import '../../widgets/premium_widgets.dart';
 
 class PlotCard extends StatelessWidget {
 final PlotModel plot;
@@ -203,88 +201,22 @@ fontWeight: FontWeight.w900,
 ),
 ),
 
-Positioned(
-top: 8,
-right: 8,
-child: Container(
-decoration: BoxDecoration(
-color: Colors.black.withValues(
-alpha: 0.28,
-),
-shape: BoxShape.circle,
-),
-child: PopupMenuButton<String>(
-tooltip: 'Plot options',
-icon: const Icon(
-Icons.more_horiz_rounded,
-color: AdminColors.white,
-size: 22,
-),
-color: AdminColors.white,
-elevation: 8,
-shape: RoundedRectangleBorder(
-borderRadius:
-BorderRadius.circular(18),
-),
-onSelected: (value) {
-if (value == 'edit') {
-onEdit();
-}
-
-if (value == 'delete') {
-onDelete();
-}
-},
-itemBuilder: (_) => const [
-PopupMenuItem<String>(
-value: 'edit',
-child: PopupMenuRow(
-icon: Icons.edit_rounded,
-text: 'Edit Plot',
-),
-),
-PopupMenuItem<String>(
-value: 'delete',
-child: PopupMenuRow(
-icon:
-Icons.delete_outline_rounded,
-text: 'Delete Plot',
-),
-),
-],
-),
-),
-),
-
-Positioned(
-left: 16,
-right: 16,
-bottom: 13,
-child: Row(
-children: [
-Expanded(
-child: Text(
-plot.plotId,
-maxLines: 1,
-overflow:
-TextOverflow.ellipsis,
-style: const TextStyle(
-color: AdminColors.white,
-fontSize: 22,
-fontWeight: FontWeight.w900,
-letterSpacing: -0.7,
-),
-),
-),
-const SizedBox(width: 10),
-const Icon(
-Icons.arrow_outward_rounded,
-color: AdminColors.white,
-size: 19,
-),
-],
-),
-),
+  Positioned(
+    left: 16,
+    right: 16,
+    bottom: 13,
+    child: Text(
+      plot.plotId,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: AdminColors.white,
+        fontSize: 22,
+        fontWeight: FontWeight.w900,
+        letterSpacing: -0.7,
+      ),
+    ),
+  ),
 ],
 ),
 );
@@ -436,36 +368,30 @@ children: [
 Expanded(
 child: SizedBox(
 height: 42,
-child: OutlinedButton.icon(
-onPressed: onEdit,
-icon: const Icon(
-Icons.edit_rounded,
-size: 16,
-),
-label: const Text(
-'Edit',
-style: TextStyle(
-fontWeight: FontWeight.w800,
-fontSize: 12,
-),
-),
-style: OutlinedButton.styleFrom(
-foregroundColor:
-AdminColors.primary,
-side: BorderSide(
-color: AdminColors.primary
-    .withValues(alpha: 0.22),
-),
-backgroundColor:
-AdminColors.primary
-    .withValues(alpha: 0.035),
-shape:
-RoundedRectangleBorder(
-borderRadius:
-BorderRadius.circular(14),
-),
-),
-),
+  child: ElevatedButton.icon(
+    onPressed: onEdit,
+    icon: const Icon(
+      Icons.edit_rounded,
+      size: 16,
+    ),
+    label: const Text(
+      'Edit',
+      style: TextStyle(
+        fontWeight: FontWeight.w800,
+        fontSize: 12,
+      ),
+    ),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: AdminColors.primary,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      shape:
+      RoundedRectangleBorder(
+        borderRadius:
+        BorderRadius.circular(14),
+      ),
+    ),
+  ),
 ),
 ),
 const SizedBox(width: 8),
