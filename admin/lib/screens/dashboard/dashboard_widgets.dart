@@ -135,12 +135,15 @@ class DashboardHeroCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(children: [
-                  const Text('Welcome back,',
+                  const Text('Welcome back!',
                       style: TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        shadows: [Shadow(color: Colors.black54, blurRadius: 6, offset: Offset(0, 1))],
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                        shadows: [
+                          Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(0, 2)),
+                          Shadow(color: Colors.black54, blurRadius: 3, offset: Offset(0, 1)),
+                        ],
                       )),
                   const Spacer(),
                   if (unreadCount > 0) ...[
@@ -177,11 +180,14 @@ class DashboardHeroCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 const Text('Monitor applicants, plots and\npayments with real-time insights',
                     style: TextStyle(
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
                       fontSize: 13,
                       height: 1.45,
-                      shadows: [Shadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 1))],
+                      shadows: [
+                        Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(0, 2)),
+                        Shadow(color: Colors.black54, blurRadius: 3, offset: Offset(0, 1)),
+                      ],
                     )),
                 const SizedBox(height: 18),
                 IntrinsicWidth(

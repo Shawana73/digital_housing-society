@@ -396,29 +396,28 @@ height: 42,
 ),
 const SizedBox(width: 8),
 SizedBox(
-height: 42,
-width: 44,
-child: IconButton(
-onPressed: onDelete,
-tooltip: 'Delete plot',
-style: IconButton.styleFrom(
-backgroundColor:
-AdminColors.rejected
-    .withValues(alpha: 0.09),
-foregroundColor:
-AdminColors.rejected,
-shape:
-RoundedRectangleBorder(
-borderRadius:
-BorderRadius.circular(14),
-),
-),
-icon: const Icon(
-Icons.delete_outline_rounded,
-size: 19,
-),
-),
-),
+  height: 42,
+  width: 44,
+  child: IconButton(
+  onPressed: onDelete,
+  tooltip: 'Delete plot',
+  style: IconButton.styleFrom(
+  backgroundColor:
+  AdminColors.rejected
+      .withValues(alpha: 0.09),
+  shape:
+  RoundedRectangleBorder(
+  borderRadius:
+  BorderRadius.circular(14),
+  ),
+  ),
+  icon: Icon(
+  Icons.delete_rounded,
+  size: 19,
+  color: AdminColors.rejected,
+  ),
+  ),
+  ),
 ],
 ),
 ],
