@@ -89,9 +89,6 @@ class _DealerVerificationScreenState extends State<DealerVerificationScreen> {
         _searchController.clear();
         _viewModel.clearSearch();
       },
-      onFabTap: () => showAdminSnack(context, 'Invite dealer clicked'),
-      fabLabel: 'Invite',
-      fabIcon: Icons.person_add_rounded,
       isLoading: _viewModel.isLoading,
       body: ListView(
         physics: const BouncingScrollPhysics(),

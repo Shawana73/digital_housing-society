@@ -182,7 +182,7 @@ class DashboardHeroCard extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
-                      fontSize: 13,
+                      fontSize: 14,
                       height: 1.45,
                       shadows: [
                         Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(0, 2)),
