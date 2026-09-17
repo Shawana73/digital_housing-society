@@ -104,7 +104,7 @@ class LoginHeroSection extends StatelessWidget {
                     'ADMIN PORTAL',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 3,
