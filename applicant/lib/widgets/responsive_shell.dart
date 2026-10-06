@@ -20,6 +20,7 @@ class DhsResponsiveShell extends StatelessWidget {
     this.backgroundColor = AppColors.pageBackground,
     this.mobileTitle = 'Digital Housing Society',
     this.showMobileAppBar = true,
+    this.showMobileNotification = true,
     this.mobileUserName,
   });
 
@@ -28,6 +29,7 @@ class DhsResponsiveShell extends StatelessWidget {
   final Color backgroundColor;
   final String mobileTitle;
   final bool showMobileAppBar;
+  final bool showMobileNotification;
   final String? mobileUserName;
 
   static const double desktopBreakpoint = 980;
@@ -120,8 +122,10 @@ class DhsResponsiveShell extends StatelessWidget {
           ],
         ),
         actions: [
-          _MobileNotificationButton(),
-          const SizedBox(width: 4),
+          if (showMobileNotification) ...[
+            _MobileNotificationButton(),
+            const SizedBox(width: 4),
+          ],
           _MobileProfileButton(name: mobileUserName),
           const SizedBox(width: 8),
         ],

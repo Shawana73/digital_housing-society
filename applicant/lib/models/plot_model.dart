@@ -47,7 +47,9 @@ class PlotModel {
         doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
 
     // Admin side uses plotId.
-    final plotId = data['plotId']?.toString() ?? doc.id;
+    final plotId = (data['plotId'] ?? data['plotNumber'] ?? doc.id)
+        .toString()
+        .trim();
 
     // Admin side uses plotSize.
     final plotSize = data['plotSize']?.toString() ??
@@ -68,19 +70,24 @@ class PlotModel {
     final rawStatus = data['status']?.toString().trim().toLowerCase();
 
     // Keep status compatible with Admin.
-    final status = switch (rawStatus) {
-      'booked' => 'booked',
-      'allocated' => 'allocated',
-      'available' => 'available',
-      'reserved' => 'booked',
-      'sold' => 'allocated',
-      _ => 'available',
-    };
+    final status = rawStatus == null || rawStatus.isEmpty
+        ? ''
+        : switch (rawStatus) {
+            'booked' => 'booked',
+            'allocated' => 'allocated',
+            'available' => 'available',
+            'reserved' => 'booked',
+            'sold' => 'allocated',
+            _ => rawStatus,
+          };
 
     final location = data['location']?.toString().trim() ?? '';
 
     // Prefer the actual backend block field.
-    final explicitBlock = data['block']?.toString().trim() ?? '';
+    final explicitBlock = (data['block'] ?? data['blockName'])
+        ?.toString()
+        .trim() ??
+        '';
 
     // If block is not stored separately, read common location values such as:
     // "Block A", "Block-A", "block D", etc.
@@ -104,8 +111,9 @@ class PlotModel {
         : derivedBlock;
 
     int development = 0;
-    final rawDevelopment =
-        data['developmentPercent'] ?? data['developmentStatus'];
+    final rawDevelopment = data['developmentPercent'] ??
+        data['developmentStatus'] ??
+        data['development'];
 
     if (rawDevelopment is num) {
       development = rawDevelopment.toInt().clamp(0, 100).toInt();
@@ -129,6 +137,29 @@ class PlotModel {
             data['plotType']?.toString() ??
             '';
 
+    final explicitPhase = (data['phase'] ??
+            data['phaseName'] ??
+            data['societyPhase'] ??
+            data['phaseNo'])
+        ?.toString()
+        .trim() ??
+        '';
+    final locationPhaseMatch = RegExp(
+      r'\bphase\s*[-:]?\s*([a-zA-Z0-9]+)\b',
+      caseSensitive: false,
+    ).firstMatch(location);
+    final phase = explicitPhase.isNotEmpty
+        ? explicitPhase
+        : (locationPhaseMatch?.group(1)?.trim() ?? '');
+
+    String firstText(List<dynamic> values) {
+      for (final value in values) {
+        final text = value?.toString().trim() ?? '';
+        if (text.isNotEmpty) return text;
+      }
+      return '';
+    }
+
     return PlotModel(
       id: plotId,
       plotNumber: plotId,
@@ -139,11 +170,21 @@ class PlotModel {
       status: status,
       allocatedTo: data['allocatedTo']?.toString() ?? '',
       block: block,
-      phase: data['phase']?.toString().trim() ?? '',
+      phase: phase,
       category: category.trim(),
-      roadWidth: data['roadWidth']?.toString() ?? '',
-      facing: data['facing']?.toString() ?? '',
-      dimensions: data['dimensions']?.toString() ?? '',
+      roadWidth: firstText([
+        data['roadWidth'],
+        data['road_width'],
+        data['roadWidthFt'],
+      ]),
+      facing: firstText([
+        data['facing'],
+        data['facingDirection'],
+      ]),
+      dimensions: firstText([
+        data['dimensions'],
+        data['plotDimensions'],
+      ]),
       developmentPercent: development,
       imageUrl: data['imageUrl']?.toString() ?? '',
       notes: description,

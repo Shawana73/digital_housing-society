@@ -95,19 +95,19 @@ class _LoginScreenState extends State<LoginScreen> {
               tag: 'app-logo',
               child: Image.asset(
                 AppAssets.logo,
-                width: 132,
+                width: 104,
                 fit: BoxFit.contain,
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           Text('Welcome Back', style: AppTextStyles.headingLarge),
           const SizedBox(height: 6),
           Text(
             'Login to manage your housing society application.',
             style: AppTextStyles.bodyMedium,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           AppTextField(
             label: 'Email',
             hint: 'you@example.com',
@@ -247,65 +247,75 @@ class _LoginScreenState extends State<LoginScreen> {
 
             if (desktop) {
               return SafeArea(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(28),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight - 56,
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: double.infinity,
-                        constraints: const BoxConstraints(maxWidth: 1160),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color: const Color(0xFFE7E9F1),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.darkNavy.withValues(alpha: .12),
-                              blurRadius: 34,
-                              offset: const Offset(0, 18),
-                            ),
-                          ],
+                child: LayoutBuilder(
+                  builder: (context, available) {
+                    // Centre the login card in tall desktop viewports without
+                    // leaving all of the spare space underneath the form.
+                    // Short browser windows can still scroll as needed.
+                    final panelHeight =
+                        (available.maxHeight - 32).clamp(550.0, 660.0).toDouble();
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: (available.maxHeight - 32)
+                              .clamp(0.0, double.infinity)
+                              .toDouble(),
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                flex: 11,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 48,
-                                    vertical: 36,
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1040),
+                            child: SizedBox(
+                              height: panelHeight,
+                              child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(28),
+                                border: Border.all(
+                                  color: const Color(0xFFE7E9F1),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.darkNavy.withValues(alpha: .1),
+                                    blurRadius: 30,
+                                    offset: const Offset(0, 14),
                                   ),
-                                  child: Center(
-                                    child: ConstrainedBox(
-                                      constraints:
-                                      const BoxConstraints(maxWidth: 430),
-                                      child: _formContent(),
+                                ],
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    flex: 11,
+                                    child: SingleChildScrollView(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 34,
+                                        vertical: 20,
+                                      ),
+                                      child: Center(
+                                        child: ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                            maxWidth: 390,
+                                          ),
+                                          child: _formContent(),
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
+                                  Expanded(
+                                    flex: 9,
+                                    child: _desktopImagePanel(),
+                                  ),
+                                ],
                               ),
-                              Expanded(
-                                flex: 10,
-                                child: ConstrainedBox(
-                                  constraints:
-                                  const BoxConstraints(minHeight: 610),
-                                  child: _desktopImagePanel(),
-                                ),
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               );
             }

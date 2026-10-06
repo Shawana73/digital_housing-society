@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
-import '../utils/app_text_styles.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/responsive_shell.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/batch3_ui.dart';
 
 class FileUploadScreen extends StatefulWidget {
   const FileUploadScreen({super.key});
@@ -102,14 +102,21 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
   }
 
   Future<void> _pickForSlot(int index) async {
-    final result = await FilePicker.pickFiles(
-      allowMultiple: false,
-      withData: true,
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
-    );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
+    final PlatformFile file;
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: false,
+        withData: true,
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+      );
+      if (!mounted || result == null || result.files.isEmpty) return;
+      file = result.files.first;
+    } catch (e) {
+      debugPrint('Document picker error: $e');
+      if (mounted) _showSnack('Could not open files. Please try again.');
+      return;
+    }
     final ext = (file.extension ?? file.name
         .split('.')
         .last).toLowerCase();
@@ -124,6 +131,12 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
       return _showSnack(
           'Please rename the file using only letters, numbers, spaces, dot, dash, underscore or brackets.');
     }
+    // withData is requested, but on some Android providers bytes can still
+    // be absent. Show an error rather than crashing on a null assertion.
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      return _showSnack('This file could not be read. Please choose it again.');
+    }
     final picked = _DocumentRecord(
       name: file.name,
       type: ext,
@@ -131,7 +144,7 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
       serial: _serial(_slots[index].id),
       documentId: _slots[index].id,
       documentTitle: _slots[index].title,
-      bytes: file.bytes!,
+      bytes: bytes,
     );
     setState(() => _slots[index] = _slots[index].copyWith(record: picked));
   }
@@ -173,24 +186,38 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
         );
       }
 
-      await _firestoreService
-          .saveUpload({
+      var savedHere = false;
+      try {
+        await _firestoreService.saveUpload({
         'applicantId': uid,
         'documents': uploadedDocuments,
         'documentCount': uploadedDocuments.length,
         'requiredCompleted': missing.isEmpty,
         'verificationStatus': 'pending',
         'uploadedAt': FieldValue.serverTimestamp(),
-      })
-          .timeout(const Duration(seconds: 60));
-      await FirebaseFirestore.instance.collection('activity_logs').add({
-        'applicantId': uid,
-        'action': 'Documents uploaded',
-        'description':
-        'Applicant uploaded ${uploadedDocuments.length} required documents.',
-        'type': 'document',
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+        }).timeout(const Duration(seconds: 60));
+        savedHere = true;
+      } catch (e) {
+        // The document itself may have been written before an optional
+        // notification or network acknowledgement failed.
+        final existing = await _firestoreService.getUpload(uid);
+        if (existing == null) rethrow;
+        debugPrint('Documents already saved; follow-up action failed: $e');
+      }
+      if (savedHere) {
+        try {
+        await FirebaseFirestore.instance.collection('activity_logs').add({
+          'applicantId': uid,
+          'action': 'Documents uploaded',
+          'description':
+              'Applicant uploaded ${uploadedDocuments.length} required documents.',
+          'type': 'document',
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+        } catch (e) {
+          debugPrint('Document activity log could not be written: $e');
+        }
+      }
 
       if (!mounted) return;
 
@@ -220,6 +247,7 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
   }
 
   void _showSnack(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -249,15 +277,14 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
       return DhsResponsiveShell(
         currentRoute: AppConstants.uploadRoute,
         mobileTitle: 'Documents',
+        backgroundColor: const Color(0xFFF8F6FD),
         child: Scaffold(
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: _SubmittedDocumentsView(
-                data: _existingUpload!,
-              ),
-            ),
-          ),
+          backgroundColor: const Color(0xFFF8F6FD),
+          body: SafeArea(child: ListView(
+            padding: const EdgeInsets.fromLTRB(15, 18, 15, 30),
+            children: [DhsContentWidth(child: _SubmittedDocumentsView(
+              data: _existingUpload!))],
+          )),
         ),
       );
     }
@@ -265,50 +292,96 @@ class _FileUploadScreenState extends State<FileUploadScreen> {
     return DhsResponsiveShell(
       currentRoute: AppConstants.uploadRoute,
       mobileTitle: 'Documents',
+      backgroundColor: const Color(0xFFF8F6FD),
       child: Scaffold(
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _HeroCard(
-                  count: _selectedCount,
-                  total: _slots.length,
+        backgroundColor: const Color(0xFFF8F6FD),
+        body: SafeArea(child: ListView(
+          padding: const EdgeInsets.fromLTRB(15, 18, 15, 30),
+          children: [DhsContentWidth(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DhsPageBanner(
+                eyebrow: 'Application • Supporting files',
+                title: 'Required documents',
+                subtitle: 'Upload the four required files. Your documents '
+                    'will be reviewed after submission.',
+                icon: Icons.folder_copy_outlined,
+                footer: Text('$_selectedCount of ${_slots.length} selected',
+                  style: const TextStyle(color: Colors.white,
+                      fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
+              const SizedBox(height: 16),
+              DhsSection(
+                title: 'Upload checklist',
+                subtitle: 'Select each item separately. Every file is '
+                    'checked before uploading.',
+                icon: Icons.fact_check_outlined,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: LinearProgressIndicator(
+                        minHeight: 7,
+                        value: _selectedCount / _slots.length,
+                        backgroundColor: const Color(0xFFECE6F5),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF7855C6)),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const _InfoCard(),
+                  ],
                 ),
-                const SizedBox(height: 18),
-                _InfoCard(),
-                const SizedBox(height: 18),
-
-                ..._slots.asMap().entries.map(
-                      (entry) => _DocumentSlotCard(
-                    slot: entry.value,
-                    onPick: () => _pickForSlot(entry.key),
-                    onRemove: () {
-                      setState(() {
+              ),
+              const SizedBox(height: 16),
+              LayoutBuilder(builder: (context, constraints) {
+                final two = constraints.maxWidth >= 760;
+                const gap = 14.0;
+                final width = two
+                    ? (constraints.maxWidth - gap) / 2
+                    : constraints.maxWidth;
+                return Wrap(spacing: gap, runSpacing: 14,
+                  children: _slots.asMap().entries.map((entry) => SizedBox(
+                    width: width,
+                    child: _DocumentSlotCard(
+                      slot: entry.value,
+                      onPick: () => _pickForSlot(entry.key),
+                      onRemove: () => setState(() {
                         _slots[entry.key] =
-                            _slots[entry.key].copyWith(record: null);
-                      });
-                    },
-                  ),
+                            _slots[entry.key].copyWith(clearRecord: true);
+                      }),
+                    ),
+                  )).toList(),
+                );
+              }),
+              const SizedBox(height: 18),
+              DhsSection(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('Ready to submit?',
+                      style: TextStyle(fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF2C2141))),
+                    const SizedBox(height: 6),
+                    const Text('All four documents must be selected. '
+                      'Your existing file-type and 5 MB checks still apply.',
+                      style: TextStyle(color: Color(0xFF786D87),
+                        height: 1.4, fontSize: 12.5)),
+                    const SizedBox(height: 15),
+                    PrimaryGradientButton(
+                      text: _loading
+                          ? 'Uploading Documents...'
+                          : 'Submit Documents',
+                      icon: Icons.cloud_upload_outlined,
+                      isLoading: _loading,
+                      onPressed: _loading ? null : _submit,
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 10),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: PrimaryGradientButton(
-                    text: _loading
-                        ? 'Uploading Documents...'
-                        : 'Submit Documents',
-                    icon: Icons.cloud_upload_rounded,
-                    onPressed: _loading ? null : _submit,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+              ),
+            ],
+          ))],
+        )),
       ),
     );
   }
@@ -322,71 +395,72 @@ class _SubmittedDocumentsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final docs = data['documents'] is List ? data['documents'] as List : const [];
     final status = data['verificationStatus']?.toString() ?? 'pending';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: AppColors.premiumShadow(),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              const CircleAvatar(
-                radius: 28,
-                backgroundColor: AppColors.white,
-                child: Icon(Icons.verified_rounded, color: AppColors.successGreen, size: 32),
-              ),
-              const SizedBox(width: 14),
-              Expanded(child: Text('Documents Submitted', style: AppTextStyles.headingMedium.copyWith(color: AppColors.white))),
-              StatusBadge(text: status.toUpperCase(), type: badgeTypeFromStatus(status)),
-            ]),
-            const SizedBox(height: 12),
-            Text('Your document records have been received for review.', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.white.withValues(alpha: .86))),
+        DhsPageBanner(
+          eyebrow: 'Saved files',
+          title: 'Documents submitted',
+          subtitle: 'Your uploaded files are saved and are available '
+              'for administration review.',
+          icon: Icons.folder_open_outlined,
+          footer: Wrap(spacing: 9, runSpacing: 8, children: [
+            StatusBadge(text: status.toUpperCase(),
+              type: badgeTypeFromStatus(status)),
+            Text('${docs.length} documents',
+              style: const TextStyle(color: Colors.white,
+                fontWeight: FontWeight.w700, fontSize: 12)),
           ]),
         ),
-        const SizedBox(height: 18),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderColor), boxShadow: AppColors.premiumShadow(opacity: .2)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Submitted Documents', style: AppTextStyles.headingSmall),
-              const SizedBox(height: 12),
-              if (docs.isEmpty)
-                Text('No document details available.', style: AppTextStyles.bodyMedium)
-              else
-                ...docs.map((item) {
+        const SizedBox(height: 16),
+        DhsSection(
+          title: 'Submitted files',
+          subtitle: 'Read from your existing upload record.',
+          icon: Icons.inventory_2_outlined,
+          child: docs.isEmpty
+              ? const Text('No document details available.')
+              : Column(children: docs.map<Widget>((item) {
                   final map = item is Map ? item : {};
                   final title = map['documentTitle']?.toString() ?? 'Document';
                   final fileName = map['fileName']?.toString() ?? '-';
                   final type = map['fileType']?.toString().toUpperCase() ?? '';
                   return Container(
                     margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: AppColors.pageBackground, borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F6FD),
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(color: const Color(0xFFECE6F5)),
+                    ),
                     child: Row(children: [
-                      const Icon(Icons.insert_drive_file_rounded, color: AppColors.deepPurple),
-                      const SizedBox(width: 10),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(title, style: AppTextStyles.labelBold),
-                        Text('$fileName ${type.isEmpty ? '' : '• $type'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.captionText),
-                      ])),
-                      const Icon(Icons.check_circle_rounded, color: AppColors.successGreen),
+                      const Icon(Icons.insert_drive_file_outlined,
+                          color: Color(0xFF7051BB)),
+                      const SizedBox(width: 11),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF352849))),
+                          const SizedBox(height: 4),
+                          Text('$fileName ${type.isEmpty ? '' : '• $type'}',
+                            style: const TextStyle(fontSize: 12.5,
+                                color: Color(0xFF70677F)),
+                            softWrap: true),
+                        ],
+                      )),
+                      const SizedBox(width: 9),
+                      const Icon(Icons.check_circle_outline_rounded,
+                        color: Color(0xFF378C65), size: 19),
                     ]),
                   );
-                }),
-            ],
-          ),
+                }).toList()),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         PrimaryGradientButton(
           text: 'Continue to Payment',
-          icon: Icons.payment_rounded,
-          onPressed: () => Navigator.pushReplacementNamed(context, AppConstants.paymentRoute),
+          icon: Icons.payment_outlined,
+          onPressed: () => Navigator.pushReplacementNamed(
+              context, AppConstants.paymentRoute),
         ),
       ],
     );
@@ -402,8 +476,9 @@ class _DocumentSlot {
   final bool required;
   final _DocumentRecord? record;
 
-  _DocumentSlot copyWith({_DocumentRecord? record}) {
-    return _DocumentSlot(id: id, title: title, subtitle: subtitle, icon: icon, required: required, record: record);
+  _DocumentSlot copyWith({_DocumentRecord? record, bool clearRecord = false}) {
+    return _DocumentSlot(id: id, title: title, subtitle: subtitle, icon: icon, required: required,
+      record: clearRecord ? null : (record ?? this.record));
   }
 }
 
@@ -438,48 +513,23 @@ class _DocumentRecord {
   };
 }
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.count, required this.total});
-  final int count;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: AppColors.white.withValues(alpha: .95), borderRadius: BorderRadius.circular(28), boxShadow: AppColors.premiumShadow()),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(width: 54, height: 54, decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.folder_copy_rounded, color: AppColors.white)),
-          const SizedBox(width: 12),
-          Expanded(child: Text('Required Documents', style: AppTextStyles.headingMedium)),
-          StatusBadge(text: '$count / $total', type: count == 0 ? StatusBadgeType.warning : StatusBadgeType.success),
-        ]),
-        const SizedBox(height: 12),
-        Text('Select each required document separately and submit them once for review.', style: AppTextStyles.bodyMedium),
-      ]),
-    );
-  }
-}
-
 class _InfoCard extends StatelessWidget {
+  const _InfoCard();
   @override
-  Widget build(BuildContext context) {
-    final items = [
-      ('Allowed types', 'PDF, JPG, JPEG, PNG'),
-      ('Maximum size', '5MB per document'),
-      ('Required items', 'CNIC front/back, form, photo'),
-    ];
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.white.withValues(alpha: .93), borderRadius: BorderRadius.circular(22), border: Border.all(color: AppColors.borderColor)),
-      child: Column(children: items.map((e) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [Text(e.$1, style: AppTextStyles.captionText), const Spacer(), Flexible(child: Text(e.$2, textAlign: TextAlign.right, style: AppTextStyles.labelBold))]))).toList()),
-    );
-  }
+  Widget build(BuildContext context) => const DhsDetailWrap(
+    twoColumnAt: 500,
+    children: [
+      DhsInfoBox(label: 'File formats', value: 'PDF, JPG, JPEG, PNG',
+          icon: Icons.file_present_outlined),
+      DhsInfoBox(label: 'Maximum file size', value: '5 MB per document',
+          icon: Icons.data_usage_outlined),
+    ],
+  );
 }
 
 class _DocumentSlotCard extends StatelessWidget {
-  const _DocumentSlotCard({required this.slot, required this.onPick, required this.onRemove});
+  const _DocumentSlotCard({required this.slot,
+      required this.onPick, required this.onRemove});
   final _DocumentSlot slot;
   final VoidCallback onPick;
   final VoidCallback onRemove;
@@ -488,40 +538,83 @@ class _DocumentSlotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final record = slot.record;
     final selected = record != null;
-    final mb = record == null ? '' : (record.size / (1024 * 1024)).toStringAsFixed(2);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: selected ? AppColors.successGreen.withValues(alpha: .28) : AppColors.borderColor), boxShadow: AppColors.premiumShadow(opacity: .18)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          CircleAvatar(backgroundColor: selected ? AppColors.successLightBackground : AppColors.lightPurpleBackground, child: Icon(selected ? Icons.check_rounded : slot.icon, color: selected ? AppColors.successGreen : AppColors.deepPurple)),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [Expanded(child: Text(slot.title, style: AppTextStyles.labelBold)), if (slot.required) StatusBadge(text: 'REQUIRED', type: StatusBadgeType.warning)]),
-            const SizedBox(height: 3),
-            Text(slot.subtitle, style: AppTextStyles.captionText),
-          ])),
-        ]),
-        if (selected) ...[
+    final mb = record == null
+        ? '' : (record.size / (1024 * 1024)).toStringAsFixed(2);
+    return DhsSection(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(spacing: 10, runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: selected ? const Color(0xFFEAF7EF)
+                      : const Color(0xFFF0EBFA),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(selected ? Icons.check_circle_outline : slot.icon,
+                  color: selected ? const Color(0xFF2A8754)
+                      : const Color(0xFF6748AF)),
+              ),
+              StatusBadge(text: selected ? 'SELECTED' : 'REQUIRED',
+                type: selected ? StatusBadgeType.success
+                    : StatusBadgeType.warning),
+            ],
+          ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppColors.pageBackground, borderRadius: BorderRadius.circular(16)),
-            child: Row(children: [
-              Icon(record.type == 'pdf' ? Icons.picture_as_pdf_rounded : Icons.image_rounded, color: AppColors.deepPurple),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(record.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.labelBold),
-                Text('${record.type.toUpperCase()} • $mb MB', maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTextStyles.captionText),
-              ])),
-              IconButton(onPressed: onRemove, icon: const Icon(Icons.close_rounded, color: AppColors.errorRed)),
-            ]),
+          Text(slot.title, style: const TextStyle(
+              fontWeight: FontWeight.w800, fontSize: 16,
+              color: Color(0xFF2D2241))),
+          const SizedBox(height: 4),
+          Text(slot.subtitle, style: const TextStyle(
+              color: Color(0xFF756D81), height: 1.4, fontSize: 12.5)),
+          if (selected) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFF6F4FA),
+                  borderRadius: BorderRadius.circular(12)),
+              child: Row(children: [
+                Icon(record.type == 'pdf' ? Icons.picture_as_pdf_outlined
+                    : Icons.image_outlined, color: const Color(0xFF6748AF)),
+                const SizedBox(width: 9),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(record.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700,
+                          fontSize: 12.5),
+                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text('${record.type.toUpperCase()} • $mb MB',
+                      style: const TextStyle(color: Color(0xFF756C82),
+                          fontSize: 12)),
+                  ],
+                )),
+                IconButton(
+                  tooltip: 'Remove selected document',
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.close_rounded,
+                      color: Color(0xFFAC4D67)),
+                ),
+              ]),
+            ),
+          ],
+          const SizedBox(height: 15),
+          OutlinedButton.icon(
+            onPressed: onPick,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF6242AF),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              side: const BorderSide(color: Color(0xFFCEBEED))),
+            icon: Icon(selected ? Icons.change_circle_outlined
+                : Icons.upload_file_outlined),
+            label: Text(selected ? 'Change document' : 'Select document'),
           ),
         ],
-        const SizedBox(height: 12),
-        OutlinedButton.icon(onPressed: onPick, icon: Icon(selected ? Icons.change_circle_rounded : Icons.upload_file_rounded), label: Text(selected ? 'Change Document' : 'Select Document')),
-      ]),
+      ),
     );
   }
 }

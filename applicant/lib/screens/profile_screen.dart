@@ -406,15 +406,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _sendPasswordReset() async {
-    final email = FirebaseAuth.instance.currentUser?.email;
-    if (email == null || email.isEmpty) return;
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      _snack('Password reset email sent.');
-    } catch (_) {
-      _snack('Could not send password reset email.');
-    }
+  Future<void> _showPrivacyAndSecurity() async {
+    final email = FirebaseAuth.instance.currentUser?.email ?? '';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD9D4E7),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Privacy & Security',
+                style: TextStyle(
+                  color: AppColors.primaryText,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                email.isEmpty
+                    ? 'Manage your privacy information and account safety.'
+                    : 'Signed in as $email',
+                style: const TextStyle(
+                  color: AppColors.secondaryText,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F3FF),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE7DDFE)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.shield_outlined,
+                      color: AppColors.deepPurple,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'For better security, password changes should be handled from the login screen using “Forgot Password”. This profile section now only shows privacy and account safety information.',
+                        style: TextStyle(
+                          color: AppColors.primaryText,
+                          fontSize: 13,
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.pushNamed(context, AppConstants.privacyRoute);
+                },
+                icon: const Icon(Icons.privacy_tip_outlined),
+                label: const Text('View Privacy Policy'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                ),
+              ),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: () => Navigator.pop(sheetContext),
+                icon: const Icon(Icons.check_circle_outline_rounded),
+                label: const Text('Done'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.deepPurple,
+                  minimumSize: const Size.fromHeight(50),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -461,7 +556,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return DhsResponsiveShell(
       currentRoute: AppConstants.profileRoute,
       mobileTitle: 'Applicant Profile',
-      child: _loading
+      backgroundColor: const Color(0xFFF1ECFF),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFEDE5FF),
+              Color(0xFFF9F7FF),
+              Color(0xFFF1E9FF),
+            ],
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -80,
+              right: -95,
+              child: IgnorePointer(
+                child: Container(
+                  width: 240,
+                  height: 240,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0x207B4AE8),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 620,
+              left: -100,
+              child: IgnorePointer(
+                child: Container(
+                  width: 230,
+                  height: 230,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0x1E8B5CF6),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: _loading
           ? const Center(
         child: CircularProgressIndicator(
           color: AppColors.primaryPurple,
@@ -492,28 +631,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onShare: _shareProfile,
                       onIdCard: _showIdCard,
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
+                    // One unified, polished settings list rather than three
+                    // disconnected two-item boxes.
                     _ProfileMenuGroup(
                       children: [
                         _ProfileMenuItem(
                           icon: Icons.person_outline_rounded,
                           title: 'About Applicant',
-                          subtitle:
-                          'Membership, residency and applicant overview',
+                          subtitle: 'Membership, residency and applicant overview',
                           onTap: () => _showAbout(context),
                         ),
                         _ProfileMenuItem(
                           icon: Icons.badge_outlined,
                           title: 'Personal Details',
-                          subtitle:
-                          'Contact, CNIC, date of birth and address',
+                          subtitle: 'Contact, CNIC, date of birth and address',
                           onTap: _editProfile,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _ProfileMenuGroup(
-                      children: [
                         _ProfileMenuItem(
                           icon: Icons.favorite_border_rounded,
                           title: 'Saved Items / Favourites',
@@ -526,11 +660,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _ProfileMenuItem(
                           icon: Icons.notifications_none_rounded,
                           title: 'Notifications',
-                          subtitle:
-                          'Application, payment and balloting alerts',
+                          subtitle: 'Application, payment and balloting alerts',
                           trailing: Switch(
-                            value:
-                            _applicant?.notificationsEnabled ?? true,
+                            value: _applicant?.notificationsEnabled ?? true,
                             onChanged: _toggleNotifications,
                             activeThumbColor: AppColors.deepPurple,
                           ),
@@ -539,23 +671,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             AppConstants.notificationsRoute,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _ProfileMenuGroup(
-                      children: [
                         _ProfileMenuItem(
                           icon: Icons.shield_outlined,
                           title: 'Privacy & Security',
-                          subtitle:
-                          'Password, privacy policy and account safety',
-                          onTap: _sendPasswordReset,
+                          subtitle: 'Password, privacy policy and account safety',
+                          onTap: _showPrivacyAndSecurity,
                         ),
                         _ProfileMenuItem(
                           icon: Icons.support_agent_rounded,
                           title: 'Help & Support',
-                          subtitle:
-                          'FAQs, contact DHS and support assistance',
+                          subtitle: 'FAQs, contact DHS and support assistance',
                           onTap: () => Navigator.pushNamed(
                             context,
                             AppConstants.contactRoute,
@@ -577,6 +702,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       label: const Text('Logout'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.errorRed,
+                        backgroundColor: const Color(0xFFFFECEF),
                         side: const BorderSide(
                           color: Color(0xFFF3B6B7),
                         ),
@@ -589,6 +715,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 12),
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
               ),
             ),
           ],
@@ -688,12 +818,7 @@ class _ProfileHeader extends StatelessWidget {
       borderRadius: BorderRadius.circular(28),
       child: Container(
         decoration: BoxDecoration(
-          image: const DecorationImage(
-            image: AssetImage(AppAssets.profileBackground),
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-            filterQuality: FilterQuality.high,
-          ),
+          color: const Color(0xFF312839),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: .12),
@@ -705,20 +830,7 @@ class _ProfileHeader extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Colors.black.withValues(alpha: .68),
-                      Colors.black.withValues(alpha: .42),
-                      Colors.black.withValues(alpha: .18),
-                    ],
-                    stops: const [0.0, .58, 1.0],
-                  ),
-                ),
-              ),
+              child: _ProfilePatternBackground(compact: compact),
             ),
             Padding(
               padding: EdgeInsets.all(compact ? 16 : 22),
@@ -803,6 +915,115 @@ class _ProfileHeader extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class _ProfilePatternBackground extends StatelessWidget {
+  const _ProfilePatternBackground({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF3F1F9E),
+            Color(0xFF5C2ED6),
+            Color(0xFF8A5CFF),
+          ],
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            left: compact ? -46 : -60,
+            top: compact ? -34 : -50,
+            child: _ProfilePatternOrb(size: compact ? 140 : 190),
+          ),
+          Positioned(
+            right: compact ? -26 : -40,
+            top: compact ? 18 : 24,
+            child: _ProfilePatternOrb(
+              size: compact ? 120 : 168,
+              opacity: .12,
+            ),
+          ),
+          Positioned(
+            right: compact ? 24 : 54,
+            bottom: compact ? -38 : -55,
+            child: _ProfilePatternOrb(
+              size: compact ? 150 : 220,
+              opacity: .10,
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Colors.black.withValues(alpha: compact ? .22 : .18),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: compact ? 14 : 22,
+            right: compact ? 14 : 22,
+            bottom: compact ? 10 : 16,
+            child: Opacity(
+              opacity: .14,
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: List.generate(
+                  compact ? 18 : 24,
+                  (index) => Container(
+                    width: compact ? 18 : 22,
+                    height: compact ? 18 : 22,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.white30),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfilePatternOrb extends StatelessWidget {
+  const _ProfilePatternOrb({required this.size, this.opacity = .16});
+
+  final double size;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: opacity),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: opacity + .06),
         ),
       ),
     );
@@ -1088,9 +1309,9 @@ class _ProfileMenuGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFFDFBFF),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE6E7F0)),
+        border: Border.all(color: const Color(0xFFDCD1FA)),
         boxShadow: [
           BoxShadow(
             color: AppColors.deepPurple.withValues(alpha: .055),
@@ -1108,7 +1329,7 @@ class _ProfileMenuGroup extends StatelessWidget {
                 const Divider(
                   height: 1,
                   indent: 76,
-                  color: Color(0xFFE8E9F0),
+                  color: Color(0xFFE8E0F5),
                 ),
             ],
           );
@@ -1141,7 +1362,7 @@ class _ProfileMenuItem extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 15,
+          vertical: 12,
         ),
         child: Row(
           children: [
@@ -1161,7 +1382,7 @@ class _ProfileMenuItem extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: AppColors.primaryText,

@@ -54,7 +54,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: BrandedImageBackground(
-        imagePath: AppAssets.profileBackground,
+        imagePath: AppAssets.passwordBackground,
         overlayOpacity: .66,
         child: SafeArea(
           child: LayoutBuilder(

@@ -18,6 +18,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   late final Animation<double> _scale;
   late final Animation<double> _fade;
   StreamSubscription<User?>? _authSubscription;
+  bool _didPrecacheAssets = false;
 
   @override
   void initState() {
@@ -27,6 +28,20 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
     Future.delayed(const Duration(milliseconds: 2000), _routeNext);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didPrecacheAssets) return;
+    _didPrecacheAssets = true;
+
+    // Preload the local photography most likely to be used immediately after
+    // splash. This avoids a temporary solid-colour frame when navigating to a
+    // screen whose hero image has not been decoded yet.
+    for (final asset in AppAssets.precacheAssets) {
+      precacheImage(AssetImage(asset), context);
+    }
   }
 
   void _routeNext() {
@@ -71,23 +86,32 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    final desktop = MediaQuery.sizeOf(context).width >= 850;
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            AppAssets.heroBackground,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-            filterQuality: FilterQuality.high,
-          ),
-          ColoredBox(
-            color: Colors.black.withValues(alpha: .16),
-          ),
-          Center(
-            child: FadeTransition(
-              opacity: _fade,
-              child: ScaleTransition(
+      body: LayoutBuilder(
+        builder: (context, constraints) => Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              AppAssets.splashBackground,
+              fit: BoxFit.cover,
+              // The approved source is portrait. On a wide Chrome window a
+              // slightly lower focal point keeps both open gates and the
+              // driveway visible instead of spending most of the crop on sky.
+              alignment: desktop
+                  ? const Alignment(0, .42)
+                  : const Alignment(0, .08),
+              filterQuality: FilterQuality.high,
+              gaplessPlayback: true,
+            ),
+            ColoredBox(
+              color: Colors.black.withValues(alpha: desktop ? .24 : .16),
+            ),
+            Align(
+              alignment: Alignment.center,
+              child: FadeTransition(
+                opacity: _fade,
+                child: ScaleTransition(
                 scale: _scale,
                 child: Container(
                   width: 260,
@@ -132,9 +156,10 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                   ),
                 ),
               ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

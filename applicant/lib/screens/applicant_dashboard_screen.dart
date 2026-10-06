@@ -12,6 +12,7 @@ import '../models/plot_model.dart';
 import '../providers/applicant_provider.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
+import '../widgets/sharp_photo_backdrop.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../widgets/responsive_shell.dart';
@@ -92,16 +93,14 @@ class _ApplicantDashboardScreenState
                   ),
                   const SizedBox(height: 16),
 
-                  _VerificationNotesPanel(uid: uid),
-
-                  const SizedBox(height: 16),
-                  const SizedBox(height: 16),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final wide = constraints.maxWidth >= 900;
                       if (!wide) {
                         return Column(
                           children: [
+                            _VerificationNotesPanel(uid: uid),
+                            const SizedBox(height: 16),
                             const _QuickActionsPanel(),
                             const SizedBox(height: 16),
                             _FeaturedPlotPanel(service: _service),
@@ -111,9 +110,15 @@ class _ApplicantDashboardScreenState
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Expanded(
+                          Expanded(
                             flex: 11,
-                            child: _QuickActionsPanel(),
+                            child: Column(
+                              children: [
+                                const _QuickActionsPanel(),
+                                const SizedBox(height: 16),
+                                _VerificationNotesPanel(uid: uid),
+                              ],
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -546,6 +551,9 @@ class _DashboardHero extends StatelessWidget {
         ? applicant!.fullName.trim()
         : 'Applicant';
     final compact = MediaQuery.sizeOf(context).width < 650;
+    final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    final double extraHeight =
+        (textScale - 1).clamp(0.0, 0.9).toDouble() * 145.0;
 
     return FutureBuilder<_JourneySnapshot>(
       future: _JourneySnapshot.load(uid),
@@ -553,7 +561,9 @@ class _DashboardHero extends StatelessWidget {
         final journey = snapshot.data ?? const _JourneySnapshot();
 
         return Container(
-          height: compact ? 430 : 340,
+          // Separate dashboard crops are used for mobile and desktop so the
+          // approved house stays sharp and naturally framed on both layouts.
+          height: (compact ? 430.0 : 405.0) + extraHeight,
           width: double.infinity,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
@@ -564,12 +574,7 @@ class _DashboardHero extends StatelessWidget {
                 offset: const Offset(0, 14),
               ),
             ],
-            image: const DecorationImage(
-              image: AssetImage(AppAssets.courtyardBackground),
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              filterQuality: FilterQuality.high,
-            ),
+            color: const Color(0xFF222A3A),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(28),
@@ -577,18 +582,52 @@ class _DashboardHero extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 Positioned.fill(
+                  child: SharpPhotoBackdrop(
+                    asset: compact
+                        ? AppAssets.dashboardMobileBackground
+                        : AppAssets.dashboardDesktopBackground,
+                    compact: compact,
+                    background: const Color(0xFF1B2532),
+                    desktopPhotoWidth: .42,
+                    desktopFit: BoxFit.cover,
+                    mobileFit: BoxFit.cover,
+                    mobileAlignment: Alignment.center,
+                    desktopAlignment: Alignment.center,
+                  ),
+                ),
+                Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: [
-                          Colors.black.withValues(alpha: .62),
-                          Colors.black.withValues(alpha: .34),
-                          Colors.black.withValues(alpha: .08),
+                          Colors.black.withValues(alpha: compact ? .62 : .70),
+                          Colors.black.withValues(alpha: compact ? .34 : .42),
+                          Colors.black.withValues(alpha: compact ? .08 : .10),
                           Colors.transparent,
                         ],
-                        stops: const [0.0, 0.34, 0.62, 0.82],
+                        stops: compact
+                            ? const [0.0, .34, .57, .82]
+                            : const [0.0, .36, .65, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+                // The bottom journey labels must stay readable over the pale
+                // driveway in the original photograph.
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: .64),
+                        ],
+                        stops: const [0.0, .50, 1.0],
                       ),
                     ),
                   ),
@@ -857,7 +896,11 @@ class _StatusCards extends StatelessWidget {
                 : (result['status'] ??
                 result['result'] ??
                 result['selectionStatus'] ??
-                'Available')
+                (result['isSelected'] == true
+                    ? 'Selected'
+                    : result['isSelected'] == false
+                        ? 'Not Selected'
+                        : 'Pending'))
                 .toString();
 
             final cards = [
@@ -893,11 +936,11 @@ class _StatusCards extends StatelessWidget {
 
             return LayoutBuilder(
               builder: (context, constraints) {
-                final columns = constraints.maxWidth >= 1050
+                final columns = constraints.maxWidth >= 1040
                     ? 4
-                    : constraints.maxWidth >= 560
-                    ? 2
-                    : 1;
+                    : constraints.maxWidth >= 390
+                        ? 2
+                        : 1;
                 const gap = 12.0;
                 final width =
                     (constraints.maxWidth - gap * (columns - 1)) / columns;
@@ -959,8 +1002,8 @@ class _StatusCard extends StatelessWidget {
       child: GestureDetector(
         onTap: () => Navigator.pushNamed(context, data.route),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 88),
-          padding: const EdgeInsets.all(12),
+          constraints: const BoxConstraints(minHeight: 68),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
@@ -976,19 +1019,19 @@ class _StatusCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: tone.$2,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   data.icon,
                   color: tone.$1,
-                  size: 21,
+                  size: 19,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 9),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1004,14 +1047,14 @@ class _StatusCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 3),
                     Text(
                       _titleCase(data.value),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: tone.$1,
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w900,
                         height: 1.1,
                       ),
@@ -1106,8 +1149,8 @@ class _QuickActionsPanel extends StatelessWidget {
           const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 520 ? 2 : 1;
-              const gap = 12.0;
+              final columns = constraints.maxWidth >= 440 ? 2 : 1;
+              const gap = 10.0;
               final width =
                   (constraints.maxWidth - gap * (columns - 1)) / columns;
               return Wrap(
@@ -1197,7 +1240,7 @@ class _FeaturedPlotCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AspectRatio(
-          aspectRatio: 2.2,
+          aspectRatio: 2.55,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(18),
             child: image.isNotEmpty
@@ -1605,82 +1648,92 @@ class _ActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final featured = data.featured;
+    final foreground = featured ? Colors.white : AppColors.primaryText;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => Navigator.pushNamed(context, data.route),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 74),
         child: Ink(
-          height: 150,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
             gradient: featured
                 ? const LinearGradient(
-              colors: [
-                Color(0xFF5B42E8),
-                Color(0xFF8B4CF1),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            )
+                    colors: [Color(0xFF5B42E8), Color(0xFF8B4CF1)],
+                  )
                 : const LinearGradient(
-              colors: [
-                Color(0xFFF4F2FF),
-                Color(0xFFEEF5FF),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
+                    colors: [Color(0xFFF4F2FF), Color(0xFFEEF5FF)],
+                  ),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: featured
                   ? Colors.white.withValues(alpha: .15)
                   : const Color(0xFFE2E3F1),
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   color: featured
-                      ? Colors.white.withValues(alpha: .16)
+                      ? Colors.white.withValues(alpha: .18)
                       : Colors.white,
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 child: Icon(
                   data.icon,
+                  size: 21,
                   color: featured ? Colors.white : AppColors.deepPurple,
                 ),
               ),
-              const SizedBox(height: 13),
-              Text(
-                data.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: featured ? Colors.white : AppColors.primaryText,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data.label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: foreground,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        height: 1.18,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      data.subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: featured
+                            ? Colors.white.withValues(alpha: .88)
+                            : AppColors.secondaryText,
+                        fontSize: 11,
+                        height: 1.28,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                data.subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: featured
-                      ? Colors.white.withValues(alpha: .82)
-                      : AppColors.secondaryText,
-                  fontSize: 12,
-                  height: 1.35,
-                ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 13,
+                color: foreground.withValues(alpha: .8),
               ),
             ],
           ),
         ),
+      ),
       ),
     );
   }

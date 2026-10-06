@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -25,44 +27,123 @@ class FirestoreService {
       throw Exception('A valid CNIC is required.');
     }
 
-    await _db.runTransaction((tx) async {
-      final registryRef = _db.collection('cnic_registry').doc(cnicDigits);
-      final existing = await tx.get(registryRef);
+    final registryRef = _db.collection('cnic_registry').doc(cnicDigits);
+    final applicantRef = _db.collection('applicants').doc(uid);
 
-      if (existing.exists) {
-        final owner =
-        existing.data()?['uid']?.toString();
-        if (owner != uid) {
-          throw Exception('An account with this CNIC already exists.');
-        }
+    // The deployed DHS rules allow a CNIC document to be read only by its
+    // owner (or an admin).  A *new* CNIC document has no resource.data.uid,
+    // so checking registryRef.get() BEFORE creating it is permission-denied.
+    // First read only the applicant's own UID document (an allowed read).
+    // For a new applicant, claim the CNIC and create the profile together in
+    // one atomic batch. A CNIC already owned by a different UID will make the
+    // registry write fail, rolling back the profile write as well.
+    //
+    // For a saved applicant, we can safely check their OWN registry record.
+    // Never read other people's CNIC documents, reassign a CNIC, or delete an
+    // Auth user. This uses the user's already-published rules unchanged.
+    if (_auth.currentUser?.uid != uid) {
+      throw StateError('Your login session changed. Please sign in again.');
+    }
+
+    developer.log('Reading own applicant profile', name: 'DHS.registration');
+    final applicant = await applicantRef.get(
+      const GetOptions(source: Source.server),
+    );
+
+    if (applicant.exists) {
+      final saved = applicant.data() ?? <String, dynamic>{};
+      final savedDigits = (saved['cnicDigits'] ?? saved['cnic'] ?? '')
+          .toString()
+          .replaceAll(RegExp(r'\D'), '');
+      if (savedDigits != cnicDigits) {
+        throw StateError(
+          'Your account already has a different CNIC. Contact DHS support.',
+        );
       }
 
-      tx.set(
-        registryRef,
-        {
-          'uid': uid,
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      // Only an existing owner's CNIC is readable under the deployed rules.
+      // A missing or other-owned record needs administrator investigation.
+      developer.log('Confirming own CNIC registry entry', name: 'DHS.registration');
+      try {
+        final registry = await registryRef.get(
+          const GetOptions(source: Source.server),
+        );
+        if (!registry.exists || registry.data()?['uid']?.toString() != uid) {
+          throw StateError(
+            'The CNIC registry does not match your saved account. '
+            'DHS support must review it before registration can continue.',
+          );
+        }
+      } on FirebaseException catch (error, stack) {
+        if (error.code != 'permission-denied') rethrow;
+        developer.log(
+          'Existing profile could not read its own CNIC registry entry',
+          name: 'DHS.registration',
+          error: error,
+          stackTrace: stack,
+        );
+        throw StateError(
+          'Your profile exists, but DHS cannot verify its CNIC registry '
+          'entry. An administrator must check that this CNIC belongs '
+          'to your account. Your account has not been deleted.',
+        );
+      }
+      developer.log('Existing registration documents confirmed',
+          name: 'DHS.registration');
+      return;
+    }
 
-      tx.set(
-        _db.collection('applicants').doc(uid),
-        {
-          ...data,
-          'uid': uid,
-          'cnicDigits': cnicDigits,
-        },
-        SetOptions(merge: true),
-      );
+    // Important: there is deliberately NO pre-read of a missing CNIC here.
+    // Under the deployed rules, that pre-read was the permission-denied bug.
+    // The registry write is create (new CNIC), owner-update (same-UID legacy
+    // partial signup), or denied (another UID). Both writes commit together.
+    developer.log('Atomically creating CNIC registry and applicant profile',
+        name: 'DHS.registration');
+    final batch = _db.batch();
+    batch.set(registryRef, {
+      'uid': uid,
+      'createdAt': FieldValue.serverTimestamp(),
     });
+    batch.set(applicantRef, {
+      ...data,
+      'uid': uid,
+      'cnicDigits': cnicDigits,
+    });
+    try {
+      await batch.commit();
+    } on FirebaseException catch (error, stack) {
+      if (error.code != 'permission-denied') rethrow;
+      developer.log(
+        'Atomic registration write was denied; check CNIC ownership and rules',
+        name: 'DHS.registration',
+        error: error,
+        stackTrace: stack,
+      );
+      throw StateError(
+        'This CNIC may already be linked to another account, or Firestore '
+        'blocked the registration write. DHS support should check CNIC '
+        'registry ownership against your Firebase account. No existing '
+        'account or document has been deleted.',
+      );
+    }
+    developer.log('Registration documents confirmed', name: 'DHS.registration');
 
-    await createNotification(
-      recipientId: uid,
-      title: 'Welcome to Digital Housing Society',
-      message: 'Your applicant profile has been created successfully.',
-      type: 'application',
-    );
+    // A welcome-notification failure must never undo a saved registration.
+    try {
+      await createNotification(
+        recipientId: uid,
+        title: 'Welcome to Digital Housing Society',
+        message: 'Your applicant profile has been created successfully.',
+        type: 'application',
+      );
+    } catch (error, stack) {
+      developer.log(
+        'Welcome notification could not be written; profile is saved.',
+        name: 'DHS.registration',
+        error: error,
+        stackTrace: stack,
+      );
+    }
   }
 
   Future<DocumentSnapshot> getApplicant(String uid) {

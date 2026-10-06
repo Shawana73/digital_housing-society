@@ -8,7 +8,6 @@ import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../utils/app_text_styles.dart';
 import '../utils/formatters_validators.dart';
-import '../widgets/branded_background.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 
@@ -41,6 +40,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  // Keep a newly created Auth account attached to this form if a later
+  // Firestore or verification-email operation fails. Submit retries must not
+  // call createUserWithEmailAndPassword again for that same account.
+  String? _registrationUid;
+  String? _registrationEmail;
+  bool _profileSaved = false;
 
   @override
   void dispose() {
@@ -73,6 +78,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _next() {
+    if (_loading) return;
     FocusScope.of(context).unfocus();
     if (!_formKeys[_step].currentState!.validate()) return;
     if (_step < 2) {
@@ -115,47 +121,183 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
     setState(() => _loading = true);
+    var stage = 'opening your registration account';
     try {
-      final credential = await _authService.register(_email.text, _password.text);
-      final user = credential.user!;
+      User user;
+      if (_registrationUid == null) {
+        final enteredEmail = _email.text.trim().toLowerCase();
+        final signedIn = _authService.currentUser;
+        // A failed Firestore save may have already CREATED this Auth user.
+        // Resuming the signed-in unverified user avoids creating a second UID
+        // and makes a browser refresh / reopening registration recoverable.
+        if (signedIn != null &&
+            signedIn.email?.trim().toLowerCase() == enteredEmail) {
+          if (signedIn.emailVerified) {
+            throw StateError(
+              'This account is already email-verified. Please sign in instead.',
+            );
+          }
+          user = signedIn;
+        } else if (signedIn != null) {
+          throw StateError(
+            'A different account is currently signed in. Sign out of that '
+            'account before starting this registration.',
+          );
+        } else {
+          stage = 'creating or recovering your account';
+          try {
+            final credential =
+                await _authService.register(_email.text, _password.text);
+            if (credential.user == null) {
+              throw StateError('Could not open your registration account.');
+            }
+            user = credential.user!;
+          } on FirebaseAuthException catch (error) {
+            if (error.code != 'email-already-in-use') rethrow;
+            // An earlier app run can have created Auth successfully but
+            // stopped before the profile write. Only somebody who knows the
+            // existing password can resume it; NEVER delete an account.
+            stage = 'recovering an earlier registration';
+            final recovered =
+                await _authService.login(_email.text, _password.text);
+            if (recovered.user == null) {
+              throw StateError('Could not recover your existing account.');
+            }
+            if (recovered.user!.emailVerified) {
+              throw StateError(
+                'This email already has a verified account. Please use Login.',
+              );
+            }
+            user = recovered.user!;
+          }
+        }
+        _registrationUid = user.uid;
+        _registrationEmail = user.email?.trim().toLowerCase();
+      } else {
+        if (_email.text.trim().toLowerCase() != _registrationEmail) {
+          throw StateError(
+            'This account was created with a different email. Restore the '
+            'original email to retry, or contact DHS support.',
+          );
+        }
+        // A failed save or email delivery should be recoverable by pressing
+        // Submit again, even if the SDK has lost the in-memory auth session.
+        final current = _authService.currentUser;
+        if (current?.uid == _registrationUid) {
+          user = current!;
+        } else {
+          final recovered =
+              await _authService.login(_email.text, _password.text);
+          if (recovered.user?.uid != _registrationUid) {
+            throw StateError(
+              'The previous account could not be recovered. Contact DHS support.',
+            );
+          }
+          user = recovered.user!;
+        }
+      }
       final uid = user.uid;
-      await user.updateDisplayName(_fullName.text.trim());
-      await _firestoreService.saveApplicant({
-        'uid': uid,
-        'fullName': _fullName.text.trim(),
-        'email': _email.text.trim(),
-        'phone': _phone.text.trim(),
-        'cnic': _cnic.text.trim(),
-        'cnicDigits': _cnic.text.replaceAll(RegExp(r'\D'), ''),
-        'dateOfBirth': Timestamp.fromDate(_dobValue!),
-        'address': _address.text.trim(),
-        'city': _city.text.trim(),
-        'createdAt': FieldValue.serverTimestamp(),
-        'profileStatus': 'email verification pending',
-        'notificationsEnabled': true,
-        'ballotingRegistered': false,
-        'emailVerified': false,
-      });
+      if (!_profileSaved) {
+        stage = 'saving your applicant profile';
+        await _firestoreService.saveApplicant({
+          'uid': uid,
+          'fullName': _fullName.text.trim(),
+          'email': _email.text.trim(),
+          'phone': _phone.text.trim(),
+          'cnic': _cnic.text.trim(),
+          'cnicDigits': _cnic.text.replaceAll(RegExp(r'\D'), ''),
+          'dateOfBirth': Timestamp.fromDate(_dobValue!),
+          'address': _address.text.trim(),
+          'city': _city.text.trim(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'profileStatus': 'email verification pending',
+          'notificationsEnabled': true,
+          'ballotingRegistered': false,
+          'emailVerified': false,
+        });
+        _profileSaved = true;
+        // Display-name update isn't critical to the Firestore profile.
+        try {
+          await user.updateDisplayName(_fullName.text.trim());
+        } catch (error, stack) {
+          debugPrint('DHS registration display-name update: $error');
+          debugPrintStack(stackTrace: stack);
+        }
+      }
+      stage = 'sending your verification email';
       await _sendVerificationEmail(user);
+      stage = 'signing out after registration';
       await _authService.logout();
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, AppConstants.loginRoute, (_) => false);
     } on FirebaseAuthException catch (e) {
-      _showError(e.message ?? e.code);
-    } catch (e) {
-      final current = FirebaseAuth.instance.currentUser;
-      if (current != null && current.emailVerified == false) {
-        try {
-          await current.delete();
-        } catch (_) {}
+      debugPrint('DHS registration [$stage] Auth error: ${e.code}');
+      _showError(_registrationError(stage, e.code));
+    } on FirebaseException catch (e, stack) {
+      debugPrint('DHS registration [$stage] Firebase error: ${e.code}');
+      debugPrintStack(stackTrace: stack);
+      _showError(_registrationError(stage, e.code));
+    } catch (error, stack) {
+      debugPrint('DHS registration [$stage] ${error.runtimeType}: $error');
+      debugPrintStack(stackTrace: stack);
+      if (error is StateError &&
+          (error.message.contains('CNIC') ||
+              error.message.contains('account') ||
+              error.message.contains('email') ||
+              error.message.contains('login session'))) {
+        _showError(error.message);
+      } else {
+        _showError(
+          'Registration stopped while $stage (${error.runtimeType}). '
+          'Your account was not deleted. If Retry still fails, please send '
+          'DHS support this stage and the error shown in the Chrome console.',
+        );
       }
-      _showError(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  void _showError(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  String _registrationError(String stage, String code) {
+    switch (code) {
+      case 'email-already-in-use':
+        return 'This email already has an account. Please sign in instead. '
+            'If an earlier registration stopped midway, contact DHS support.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'weak-password':
+        return 'Please choose a stronger password.';
+      case 'network-request-failed':
+      case 'unavailable':
+        return 'Network unavailable while $stage. Check your internet and '
+            'try Submit again; an account already created will be preserved.';
+      case 'permission-denied':
+        return 'Firestore rejected the request while $stage. Your account '
+            'has not been deleted. Please contact DHS support to check the '
+            'deployed database rules (permission-denied).';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait before trying again.';
+      case 'invalid-credential':
+      case 'wrong-password':
+      case 'user-not-found':
+        return 'This email may already have an account with a different '
+            'password. Try Login or Forgot Password instead of creating '
+            'another account.';
+      default:
+        return 'Could not finish $stage ($code). Please try Submit again. '
+            'No existing account has been deleted.';
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 9),
+      ));
+  }
 
   double get _strength {
     final p = _password.text;
@@ -168,42 +310,205 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final desktopScreen = MediaQuery.sizeOf(context).width >= 860;
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account'), leading: IconButton(onPressed: _back, icon: const Icon(Icons.arrow_back_rounded))),
-      body: BrandedImageBackground(
-        imagePath: AppAssets.courtyardBackground,
-        overlayOpacity: .56,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: .96),
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [BoxShadow(color: AppColors.darkNavy.withValues(alpha: .14), blurRadius: 24, offset: const Offset(0, 14))],
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(22),
-                    child: _StepIndicator(currentStep: _step),
-                  ),
-                  Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [_personalStep(), _securityStep(), _addressStep()],
+      backgroundColor: const Color(0xFFF5F1FF),
+      // The desktop AppBar was an otherwise empty white horizontal stripe
+      // above the registration panel. Mobile retains its existing back bar.
+      appBar: desktopScreen ? null : AppBar(
+        title: const Text('Create Account'),
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.primaryText,
+        leading: IconButton(
+          onPressed: _back,
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final desktop = constraints.maxWidth >= 860;
+            if (desktop) {
+              final panelHeight =
+                  (constraints.maxHeight - 28).clamp(560.0, 740.0).toDouble();
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(14),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1130),
+                    child: SizedBox(
+                      height: panelHeight,
+                      child: Container(
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.deepPurple.withValues(alpha: .14),
+                              blurRadius: 30,
+                              offset: const Offset(0, 14),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 9,
+                              child: _registrationImagePanel(compact: false),
+                            ),
+                            Expanded(
+                              flex: 11,
+                              child: _registrationCard(),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(22),
-                    child: PrimaryGradientButton(text: _step == 2 ? 'Submit Registration' : 'Continue', onPressed: _next, isLoading: _loading),
+                ),
+              );
+            }
+
+            // Mobile keeps the photography as a short header so the form
+            // and its validation messages have the available screen height.
+            final photoHeight = constraints.maxHeight < 570 ? 86.0 : 134.0;
+            return Column(
+              children: [
+                SizedBox(
+                  height: photoHeight,
+                  width: double.infinity,
+                  child: _registrationImagePanel(compact: true),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    child: _registrationCard(),
                   ),
-                ],
-              ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _registrationImagePanel({required bool compact}) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          AppAssets.registrationBackground,
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.high,
+        ),
+        // Subtle purple photo tint is requested ONLY on registration.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                const Color(0xFF3D226B).withValues(alpha: .13),
+                const Color(0xFF201737).withValues(alpha: compact ? .57 : .72),
+              ],
             ),
           ),
         ),
+        Padding(
+          padding: EdgeInsets.all(compact ? 17 : 34),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                compact ? 'Your journey starts here' : 'Welcome to DHS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: compact ? 20 : 32,
+                  height: 1.15,
+                ),
+              ),
+              if (!compact) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Build your applicant profile and discover a better way to manage your future home.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _registrationCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE7DEFA)),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (MediaQuery.sizeOf(context).width >= 860)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _loading ? null : _back,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 17),
+                      label: const Text('Back'),
+                    ),
+                  ),
+                Text(
+                  'Applicant Registration',
+                  style: AppTextStyles.headingMedium.copyWith(
+                    color: AppColors.deepPurple,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Step ${_step + 1} of 3',
+                  style: AppTextStyles.bodyMedium,
+                ),
+                const SizedBox(height: 14),
+                _StepIndicator(currentStep: _step),
+              ],
+            ),
+          ),
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _personalStep(),
+                _securityStep(),
+                _addressStep(),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 17),
+            child: PrimaryGradientButton(
+              text: _step == 2 ? 'Submit Registration' : 'Continue',
+              onPressed: _next,
+              isLoading: _loading,
+            ),
+          ),
+        ],
       ),
     );
   }

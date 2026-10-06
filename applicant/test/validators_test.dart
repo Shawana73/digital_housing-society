@@ -40,6 +40,12 @@ void main() {
       expect(Validators.ntn('-1234567'), isNotNull);
     });
 
+
+    test('NTN formatter normalizes values for consistent display', () {
+      expect(Validators.normalizeNtn('12345678'), '1234567-8');
+      expect(Validators.normalizeNtn('1234567'), '1234567');
+    });
+
     test('address and area require meaningful text', () {
       expect(Validators.address('Office 12, Block A'), isNull);
       expect(Validators.address('1234'), isNotNull);

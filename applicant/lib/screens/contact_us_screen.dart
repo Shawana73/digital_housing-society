@@ -4,6 +4,7 @@ import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_text_styles.dart';
+import '../utils/formatters_validators.dart';
 import '../widgets/branded_background.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
@@ -69,7 +70,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Contact Us')),
       body: BrandedImageBackground(
-        imagePath: AppAssets.courtyardBackground,
+        imagePath: AppAssets.contactBackground,
         overlayOpacity: .34,
         child: SafeArea(
           child: Center(
@@ -116,7 +117,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
         const SizedBox(height: 20),
         AppTextField(label: 'Full Name', hint: 'Enter your name', controller: _name, prefixIcon: Icons.person_rounded, validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null),
         const SizedBox(height: 12),
-        AppTextField(label: 'Email Address', hint: 'you@example.com', controller: _email, prefixIcon: Icons.email_rounded, validator: (v) => v == null || v.trim().isEmpty ? 'Email is required' : null),
+        AppTextField(label: 'Email Address', hint: 'you@example.com', controller: _email, prefixIcon: Icons.email_rounded, validator: Validators.email),
         const SizedBox(height: 12),
         AppTextField(label: 'Subject', hint: 'Application / Payment / Balloting', controller: _subject, prefixIcon: Icons.subject_rounded, validator: (v) => v == null || v.trim().isEmpty ? 'Subject is required' : null),
         const SizedBox(height: 12),

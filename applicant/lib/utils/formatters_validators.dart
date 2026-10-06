@@ -56,12 +56,29 @@ class Validators {
     return null;
   }
 
+  static String normalizeNtn(String value) {
+    final digits = onlyDigits(value);
+    final clipped = digits.length > 8 ? digits.substring(0, 8) : digits;
+    if (clipped.length <= 7) return clipped;
+    return '${clipped.substring(0, 7)}-${clipped.substring(7)}';
+  }
+
   static String? ntn(String? value) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return 'NTN number is required';
+    if (!RegExp(r'^[0-9\s-]+$').hasMatch(v)) {
+      return 'NTN can contain numbers only';
+    }
+
+    final digits = onlyDigits(v);
+    if (digits.length != 7 && digits.length != 8) {
+      return 'Enter a valid NTN, e.g. 1234567 or 1234567-8';
+    }
+
+    final normalized = normalizeNtn(v);
     final compact = v.replaceAll(' ', '');
-    if (!RegExp(r'^\d{7}(-\d)?$').hasMatch(compact)) {
-      return 'Enter a valid NTN, e.g. 1234567-8';
+    if (compact.contains('-') && compact != normalized) {
+      return 'Use the format 1234567 or 1234567-8';
     }
     return null;
   }
@@ -134,6 +151,21 @@ class CnicInputFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+
+class NtnInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final normalized = Validators.normalizeNtn(newValue.text);
+    return TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
     );
   }
 }

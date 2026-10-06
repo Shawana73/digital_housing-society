@@ -5,8 +5,11 @@ import 'package:flutter/material.dart';
 import '../models/plot_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
+import '../widgets/sharp_photo_backdrop.dart';
+import '../utils/plot_size_labels.dart';
 import '../utils/app_constants.dart';
 import '../widgets/responsive_shell.dart';
+import '../widgets/full_photo.dart';
 
 class PlotsScreen extends StatefulWidget {
   const PlotsScreen({super.key, this.initialFavouritesOnly = false});
@@ -29,14 +32,7 @@ class _PlotsScreenState extends State<PlotsScreen> {
 
   final Set<String> _favourites = <String>{};
 
-  static const List<String> _fallbackImages = <String>[
-    'assets/backgrounds/dashboard_hero_hd.jpg',
-    'assets/backgrounds/explore_plots_hero_hd.jpg',
-    'assets/backgrounds/dealer_registration_banner_hd.jpg',
-    'assets/backgrounds/dealers_banner_hd.jpg',
-    'assets/backgrounds/profile_hero_hd.jpg',
-    'assets/backgrounds/auth_hero_hd.jpg',
-  ];
+  static const List<String> _fallbackImages = AppAssets.plotFallbacks;
 
 
   @override
@@ -137,6 +133,17 @@ class _PlotsScreenState extends State<PlotsScreen> {
                 ...raw,
                 ...plot.toMap(),
                 '_id': doc.id,
+                // PlotModel intentionally normalizes absent development to 0.
+                // Preserve whether Firestore actually supplied that field so
+                // the UI does not invent a visible "0%" value.
+                '_hasDevelopment': _hasBackendValue(
+                  raw['developmentPercent'] ??
+                      raw['developmentStatus'] ??
+                      raw['development'],
+                ),
+                '_developmentRaw': raw['developmentPercent'] ??
+                    raw['developmentStatus'] ??
+                    raw['development'],
               };
             }).toList() ??
                 <Map<String, dynamic>>[];
@@ -149,15 +156,13 @@ class _PlotsScreenState extends State<PlotsScreen> {
               final id = (plot['_id'] ?? '').toString();
 
               final block = _normalize(plot['block']);
-              final size = _normalize(plot['size']);
-              final status = _normalize(plot['status'] ?? 'Available');
+              final status = _normalize(plot['status']);
 
               final blockOk =
                   _block == 'All' ||
                       block == _normalize(_block);
-              final sizeOk =
-                  _size == 'All' ||
-                      size == _normalize(_size);
+              final sizeOk = PlotSizeLabels.matchesFilter(
+                  plot['size'], _size);
               final availabilityOk =
                   _availability == 'All' ||
                       status == _normalize(_availability);
@@ -346,6 +351,10 @@ class _PlotsScreenState extends State<PlotsScreen> {
                                                     Navigator.pushNamed(
                                                       context,
                                                       AppConstants.mapRoute,
+                                                      arguments: (plot['plotNumber'] ??
+                                                              plot['_id'] ??
+                                                              '')
+                                                          .toString(),
                                                     );
                                                   },
                                                   onDetails: () {
@@ -381,7 +390,9 @@ class _PlotsScreenState extends State<PlotsScreen> {
       String key,
       ) {
     final values = rows
-        .map((row) => (row[key] ?? '').toString().trim())
+        .map((row) => key == 'size'
+            ? PlotSizeLabels.display(row[key])
+            : (row[key] ?? '').toString().trim())
         .where((value) => value.isNotEmpty)
         .toSet()
         .toList()
@@ -397,6 +408,12 @@ class _PlotsScreenState extends State<PlotsScreen> {
         .trim()
         .toLowerCase()
         .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  bool _hasBackendValue(dynamic value) {
+    if (value == null) return false;
+    if (value is String) return value.trim().isNotEmpty;
+    return true;
   }
 
   DateTime _dateValue(dynamic value) {
@@ -477,8 +494,9 @@ class _PlotsScreenState extends State<PlotsScreen> {
                   _DetailRow(label: 'Facing', value: plot['facing']),
                   _DetailRow(
                     label: 'Development',
-                    value: plot['developmentPercent'] ??
-                        plot['developmentStatus'],
+                    value: plot['_hasDevelopment'] == true
+                        ? plot['_developmentRaw']
+                        : null,
                   ),
                   const SizedBox(height: 18),
                   SizedBox(
@@ -499,6 +517,7 @@ class _PlotsScreenState extends State<PlotsScreen> {
                           Navigator.pushNamed(
                             context,
                             AppConstants.mapRoute,
+                            arguments: plotNumber,
                           );
                         },
                         style: FilledButton.styleFrom(
@@ -523,7 +542,6 @@ class _PlotsScreenState extends State<PlotsScreen> {
 class _HeroBanner extends StatelessWidget {
   const _HeroBanner();
 
-  static const String _backgroundAsset = AppAssets.explorePlotsBackground;
 
   @override
   Widget build(BuildContext context) {
@@ -540,16 +558,19 @@ class _HeroBanner extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(compact ? 0 : 26),
         child: SizedBox(
-          height: compact ? 330 : 305,
+          height: compact ? 330 : 370,
           width: double.infinity,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(
-                _backgroundAsset,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                filterQuality: FilterQuality.high,
+              SharpPhotoBackdrop(
+                asset: AppAssets.explorePlotsMobileBackground,
+                compact: compact,
+                background: const Color(0xFF16252C),
+                desktopPhotoWidth: .48,
+                desktopFit: BoxFit.cover,
+                mobileFit: BoxFit.cover,
+                desktopAlignment: const Alignment(0.3, 0),
               ),
               const DecoratedBox(
                 decoration: BoxDecoration(
@@ -874,20 +895,20 @@ class _PlotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final plotNumber =
     (data['plotNumber'] ?? data['_id'] ?? '-').toString();
-    final block = (data['block'] ?? '-').toString();
-    final size = (data['size'] ?? '-').toString();
-    final roadWidth = (data['roadWidth'] ?? '-').toString();
-    final facing = (data['facing'] ?? '-').toString();
-    final status = (data['status'] ?? 'Available').toString();
+    final block = (data['block'] ?? '').toString().trim();
+    final size = (data['size'] ?? '').toString().trim();
+    final roadWidth = (data['roadWidth'] ?? '').toString().trim();
+    final facing = (data['facing'] ?? '').toString().trim();
+    final status = (data['status'] ?? '').toString().trim();
     final imageUrl = (data['imageUrl'] ?? '').toString().trim();
 
     final development = _developmentValue(
-      data['developmentPercent'] ??
-          data['developmentStatus'] ??
-          data['development'],
+      data['_developmentRaw'],
     );
+    final showDevelopment =
+        data['_hasDevelopment'] == true && _hasNumericDevelopment(data['_developmentRaw']);
 
-    final facts = [
+    final facts = <_PlotFact>[
       _PlotFact(
         icon: Icons.crop_square_rounded,
         label: 'Plot Size',
@@ -903,7 +924,7 @@ class _PlotCard extends StatelessWidget {
         label: 'Facing',
         value: facing,
       ),
-    ];
+    ].where((fact) => _hasVisibleValue(fact.value)).toList();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -933,6 +954,7 @@ class _PlotCard extends StatelessWidget {
             imageUrl: imageUrl,
             facts: facts,
             development: development,
+            showDevelopment: showDevelopment,
           )
               : _buildWide(
             plotNumber: plotNumber,
@@ -941,6 +963,7 @@ class _PlotCard extends StatelessWidget {
             imageUrl: imageUrl,
             facts: facts,
             development: development,
+            showDevelopment: showDevelopment,
           ),
         );
       },
@@ -954,15 +977,18 @@ class _PlotCard extends StatelessWidget {
     required String imageUrl,
     required List<_PlotFact> facts,
     required double development,
+    required bool showDevelopment,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          height: 190,
-          child: _plotImage(
-            imageUrl: imageUrl,
-            status: status,
+        LayoutBuilder(
+          builder: (context, constraints) => SizedBox(
+            height: (constraints.maxWidth * .54).clamp(190.0, 255.0).toDouble(),
+            child: _plotImage(
+              imageUrl: imageUrl,
+              status: status,
+            ),
           ),
         ),
         const SizedBox(height: 13),
@@ -970,10 +996,14 @@ class _PlotCard extends StatelessWidget {
           plotNumber: plotNumber,
           block: block,
         ),
-        const SizedBox(height: 12),
-        _factsGrid(facts),
-        const SizedBox(height: 12),
-        _developmentRow(development),
+        if (facts.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _factsGrid(facts),
+        ],
+        if (showDevelopment) ...[
+          const SizedBox(height: 10),
+          _developmentRow(development),
+        ],
         const SizedBox(height: 14),
         _buttons(),
       ],
@@ -987,11 +1017,12 @@ class _PlotCard extends StatelessWidget {
     required String imageUrl,
     required List<_PlotFact> facts,
     required double development,
+    required bool showDevelopment,
   }) {
     return Column(
       children: [
         SizedBox(
-          height: 225,
+          height: 205,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1011,17 +1042,19 @@ class _PlotCard extends StatelessWidget {
                       plotNumber: plotNumber,
                       block: block,
                     ),
-                    const SizedBox(height: 11),
-                    const Divider(
-                      height: 1,
-                      color: Color(0xFFE8EBF2),
-                    ),
-                    const SizedBox(height: 11),
-                    Expanded(
-                      child: _factsGrid(facts),
-                    ),
-                    const SizedBox(height: 8),
-                    _developmentRow(development),
+                    if (facts.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      const Divider(
+                        height: 1,
+                        color: Color(0xFFE8EBF2),
+                      ),
+                      const SizedBox(height: 10),
+                      _factsGrid(facts),
+                    ],
+                    if (showDevelopment) ...[
+                      const SizedBox(height: 8),
+                      _developmentRow(development),
+                    ],
                   ],
                 ),
               ),
@@ -1043,25 +1076,17 @@ class _PlotCard extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: imageUrl.isNotEmpty
-              ? Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Image.asset(
-              fallbackAsset,
-              fit: BoxFit.cover,
-            ),
-          )
-              : Image.asset(
-            fallbackAsset,
-            fit: BoxFit.cover,
+          child: FullPhoto(
+            asset: fallbackAsset,
+            networkUrl: imageUrl,
           ),
         ),
-        Positioned(
-          top: 10,
-          left: 10,
-          child: _AvailabilityBadge(status: status),
-        ),
+        if (status.isNotEmpty)
+          Positioned(
+            top: 10,
+            left: 10,
+            child: _AvailabilityBadge(status: status),
+          ),
       ],
     );
   }
@@ -1105,11 +1130,12 @@ class _PlotCard extends StatelessWidget {
           spacing: 12,
           runSpacing: 7,
           children: [
-            _MetaChip(
-              icon: Icons.apartment_rounded,
-              text: 'Block $block',
-              color: const Color(0xFF3157D5),
-            ),
+            if (_hasVisibleValue(block))
+              _MetaChip(
+                icon: Icons.apartment_rounded,
+                text: 'Block $block',
+                color: const Color(0xFF3157D5),
+              ),
           ],
         ),
       ],
@@ -1119,7 +1145,7 @@ class _PlotCard extends StatelessWidget {
   Widget _factsGrid(List<_PlotFact> facts) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 320 ? 2 : 1;
+        final columns = facts.length > 1 && constraints.maxWidth >= 320 ? 2 : 1;
         const gap = 9.0;
         final width =
             (constraints.maxWidth - gap * (columns - 1)) / columns;
@@ -1201,7 +1227,7 @@ class _PlotCard extends StatelessWidget {
           color: Color(0xFF3653DD),
           width: 1.2,
         ),
-        minimumSize: const Size.fromHeight(48),
+        minimumSize: const Size.fromHeight(44),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(15),
         ),
@@ -1223,7 +1249,7 @@ class _PlotCard extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
-          minimumSize: const Size.fromHeight(48),
+          minimumSize: const Size.fromHeight(44),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
@@ -1287,6 +1313,20 @@ class _PlotCard extends StatelessWidget {
     }
 
     return 0;
+  }
+
+  static bool _hasVisibleValue(String value) {
+    final normalized = value.trim().toLowerCase();
+    return normalized.isNotEmpty &&
+        normalized != '-' &&
+        normalized != 'null' &&
+        normalized != 'n/a' &&
+        normalized != 'not available';
+  }
+
+  static bool _hasNumericDevelopment(dynamic value) {
+    if (value is num) return true;
+    return RegExp(r'\d{1,3}').hasMatch(value?.toString() ?? '');
   }
 }
 

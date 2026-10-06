@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../utils/app_colors.dart';
 
 class BrandedImageBackground extends StatelessWidget {
   const BrandedImageBackground({
@@ -34,9 +33,9 @@ class BrandedImageBackground extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppColors.infoBlue.withValues(alpha: overlayOpacity),
-              AppColors.primaryPurple.withValues(alpha: overlayOpacity * .92),
-              AppColors.deepPurple.withValues(alpha: overlayOpacity * .88),
+              Colors.black.withValues(alpha: overlayOpacity * .78),
+              const Color(0xFF213241).withValues(alpha: overlayOpacity),
+              Colors.black.withValues(alpha: overlayOpacity * .83),
             ],
           ),
         ),

@@ -774,7 +774,7 @@ class _LiveState extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _PhotoHeader(
-          image: AppAssets.heroBackground,
+          image: AppAssets.ballotingDrawBackground,
           badge: 'LIVE NOW',
           badgeType: StatusBadgeType.success,
           title: 'Live Balloting Session',
@@ -1315,7 +1315,7 @@ class _CompletedState extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _PhotoHeader(
-          image: AppAssets.authBackground,
+          image: AppAssets.ballotingResultBackground,
           badge: 'COMPLETED',
           badgeType: StatusBadgeType.success,
           title: 'Balloting Completed',

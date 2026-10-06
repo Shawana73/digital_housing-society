@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 
 import '../services/firestore_service.dart';
 import '../utils/app_assets.dart';
+import '../widgets/sharp_photo_backdrop.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
+import '../utils/formatters_validators.dart';
 import '../utils/app_text_styles.dart';
 import '../widgets/responsive_shell.dart';
 
@@ -18,6 +20,13 @@ class DealersScreen extends StatefulWidget {
 
 class _DealersScreenState extends State<DealersScreen> {
   final FirestoreService _service = FirestoreService();
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   String _query = '';
   String _city = 'All';
@@ -40,9 +49,8 @@ class _DealersScreenState extends State<DealersScreen> {
               return <String, dynamic>{...data, '_id': doc.id};
             }).toList();
 
-            // Applicant-facing dealer information comes only from the
-            // sanitized verified `dealers` collection. No dummy dealer data is
-            // shown when the backend has not published a verified dealer yet.
+            // The service queries only admin-approved registrations.
+            // No dummy or unapproved dealers are shown.
             final allDealers = firestoreDealers;
 
             final cities = _options(allDealers, 'city');
@@ -93,6 +101,7 @@ class _DealersScreenState extends State<DealersScreen> {
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
                               child: _DealerSearchBox(
+                                controller: _searchController,
                                 onChanged: (value) =>
                                     setState(() => _query = value.trim()),
                               ),
@@ -102,65 +111,104 @@ class _DealersScreenState extends State<DealersScreen> {
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
                               child: _DealerFilters(
-                                  city: _city,
-                                  specialization: _specialization,
-                                  cities: cities,
-                                  specializations: specializations,
-                                  onCity: (value) =>
-                                      setState(() => _city = value),
-                                  onSpecialization: (value) =>
-                                      setState(() => _specialization = value),
-                                  onReset: () => setState(() {
-                                    _city = 'All';
-                                    _specialization = 'All';
-                                  }),
-                                ),
+                                city: _city,
+                                specialization: _specialization,
+                                cities: cities,
+                                specializations: specializations,
+                                onCity: (value) =>
+                                    setState(() => _city = value),
+                                onSpecialization: (value) =>
+                                    setState(() => _specialization = value),
                               ),
+                            ),
                           ),
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+                              padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
-                                  final compact = constraints.maxWidth < 560;
-                                  return Align(
-                                    alignment: compact
-                                        ? Alignment.centerRight
-                                        : Alignment.centerRight,
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxWidth: compact ? 205 : 220,
+                                  final compact = constraints.maxWidth < 640;
+
+                                  final resetButton = TextButton(
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _query = '';
+                                        _city = 'All';
+                                        _specialization = 'All';
+                                      });
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 0,
+                                        vertical: 12,
                                       ),
-                                      child: FilledButton.icon(
-                                        onPressed: () => Navigator.pushNamed(
-                                          context,
-                                          AppConstants.dealerRegistrationRoute,
+                                      foregroundColor: AppColors.deepPurple,
+                                      textStyle: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    child: const Text('Reset'),
+                                  );
+
+                                  final registerButton = ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minWidth: compact ? 0 : 214,
+                                      maxWidth: compact ? double.infinity : 230,
+                                    ),
+                                    child: FilledButton.icon(
+                                      onPressed: () => Navigator.pushNamed(
+                                        context,
+                                        AppConstants.dealerRegistrationRoute,
+                                      ),
+                                      icon: const Icon(
+                                        Icons.add_business_rounded,
+                                        size: 18,
+                                      ),
+                                      label: const Text(
+                                        'Register as a Dealer',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      style: FilledButton.styleFrom(
+                                        minimumSize: const Size(0, 46),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
                                         ),
-                                        icon: const Icon(
-                                          Icons.add_business_rounded,
-                                          size: 18,
+                                        textStyle: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
                                         ),
-                                        label: const Text(
-                                          'Register as a Dealer',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        style: FilledButton.styleFrom(
-                                          minimumSize: const Size(0, 44),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 11,
-                                          ),
-                                          textStyle: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(13),
-                                          ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14),
                                         ),
                                       ),
                                     ),
+                                  );
+
+                                  if (compact) {
+                                    return Row(
+                                      children: [
+                                        Expanded(
+                                          child: Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: resetButton,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(child: registerButton),
+                                      ],
+                                    );
+                                  }
+
+                                  return Row(
+                                    children: [
+                                      resetButton,
+                                      const Spacer(),
+                                      registerButton,
+                                    ],
                                   );
                                 },
                               ),
@@ -183,33 +231,41 @@ class _DealersScreenState extends State<DealersScreen> {
                             )
                           else
                             SliverPadding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
                               sliver: SliverLayoutBuilder(
                                 builder: (context, constraints) {
-                                  final width = constraints.crossAxisExtent;
-                                  final columns = width >= 980 ? 2 : 1;
-
-                                  return SliverGrid(
+                                  final columns = constraints.crossAxisExtent >= 940 ? 2 : 1;
+                                  return SliverList(
                                     delegate: SliverChildBuilderDelegate(
-                                      (context, index) {
-                                        final dealer = dealers[index];
-                                        return _DealerCard(
-                                          data: dealer,
-                                          onViewProfile: () =>
-                                              _showDealerProfile(dealer),
-                                          onContact: () =>
-                                              _showContactSheet(dealer),
+                                      (context, rowIndex) {
+                                        final first = rowIndex * columns;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 14),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: List.generate(columns, (column) {
+                                              final index = first + column;
+                                              if (index >= dealers.length) {
+                                                return const Expanded(child: SizedBox());
+                                              }
+                                              final dealer = dealers[index];
+                                              return Expanded(
+                                                child: Padding(
+                                                  padding: EdgeInsets.only(
+                                                    right: column == 0 && columns > 1 ? 14 : 0,
+                                                  ),
+                                                  child: _DealerCard(
+                                                    data: dealer,
+                                                    onViewProfile: () => _showDealerProfile(dealer),
+                                                    onContact: () => _showContactSheet(dealer),
+                                                  ),
+                                                ),
+                                              );
+                                            }),
+                                          ),
                                         );
                                       },
-                                      childCount: dealers.length,
-                                    ),
-                                    gridDelegate:
-                                        SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: columns,
-                                      crossAxisSpacing: 16,
-                                      mainAxisSpacing: 16,
-                                      mainAxisExtent: columns == 1 ? 300 : 260,
+                                      childCount: (dealers.length + columns - 1) ~/ columns,
                                     ),
                                   );
                                 },
@@ -271,7 +327,7 @@ class _DealersScreenState extends State<DealersScreen> {
             .toString();
     final license =
         (dealer['licenseNumber'] ?? dealer['licenseId'] ?? '').toString().trim();
-    final ntn = (dealer['ntnNumber'] ?? '').toString().trim();
+    final ntn = Validators.normalizeNtn((dealer['ntnNumber'] ?? '').toString().trim());
     final credential = license.isNotEmpty
         ? 'License ID: $license'
         : ntn.isNotEmpty
@@ -535,18 +591,21 @@ class _DealersHeader extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(compact ? 0 : 26),
         child: SizedBox(
-          height: compact ? 220 : 210,
+          height: compact ? 260 : 345,
           width: double.infinity,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(
-                compact
+              SharpPhotoBackdrop(
+                asset: compact
                     ? AppAssets.dealersMobileBackground
                     : AppAssets.dealersBackground,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                filterQuality: FilterQuality.high,
+                compact: compact,
+                background: const Color(0xFF192B37),
+                desktopPhotoWidth: .56,
+                desktopFit: BoxFit.cover,
+                mobileFit: BoxFit.cover,
+                desktopAlignment: const Alignment(0.15, 0),
               ),
               DecoratedBox(
                 decoration: BoxDecoration(
@@ -602,8 +661,12 @@ class _DealersHeader extends StatelessWidget {
 }
 
 class _DealerSearchBox extends StatelessWidget {
-  const _DealerSearchBox({required this.onChanged});
+  const _DealerSearchBox({
+    required this.controller,
+    required this.onChanged,
+  });
 
+  final TextEditingController controller;
   final ValueChanged<String> onChanged;
 
   @override
@@ -613,6 +676,7 @@ class _DealerSearchBox extends StatelessWidget {
       shadowColor: const Color(0xFF6671D7).withValues(alpha: .15),
       borderRadius: BorderRadius.circular(22),
       child: TextField(
+        controller: controller,
         onChanged: onChanged,
         decoration: InputDecoration(
           filled: true,
@@ -651,7 +715,6 @@ class _DealerFilters extends StatelessWidget {
     required this.specializations,
     required this.onCity,
     required this.onSpecialization,
-    required this.onReset,
   });
 
   final String city;
@@ -660,7 +723,6 @@ class _DealerFilters extends StatelessWidget {
   final List<String> specializations;
   final ValueChanged<String> onCity;
   final ValueChanged<String> onSpecialization;
-  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -684,11 +746,6 @@ class _DealerFilters extends StatelessWidget {
           options: specializations,
           value: specialization,
           onChanged: onSpecialization,
-        ),
-        const _VerifiedOnlyChip(),
-        TextButton(
-          onPressed: onReset,
-          child: const Text('Reset'),
         ),
       ],
     );
@@ -760,47 +817,6 @@ class _DealerFilterChip extends StatelessWidget {
   }
 }
 
-class _VerifiedOnlyChip extends StatelessWidget {
-  const _VerifiedOnlyChip();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFE5E8F0)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.verified_user_outlined,
-            size: 19,
-            color: Color(0xFF48526B),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Verified Only',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: const Color(0xFF30394F),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: 5),
-          const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            size: 18,
-            color: Color(0xFF48526B),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DealerCard extends StatelessWidget {
   const _DealerCard({
     required this.data,
@@ -818,7 +834,7 @@ class _DealerCard extends StatelessWidget {
         (data['companyName'] ?? data['name'] ?? 'DHS Dealer').toString();
     final license =
         (data['licenseNumber'] ?? data['licenseId'] ?? '').toString().trim();
-    final ntn = (data['ntnNumber'] ?? '').toString().trim();
+    final ntn = Validators.normalizeNtn((data['ntnNumber'] ?? '').toString().trim());
     final credential = license.isNotEmpty
         ? 'License ID: $license'
         : ntn.isNotEmpty
@@ -846,8 +862,7 @@ class _DealerCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Expanded(
-            child: Row(
+          Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _DealerLogo(
@@ -865,7 +880,7 @@ class _DealerCard extends StatelessWidget {
                           Flexible(
                             child: Text(
                               company,
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: AppTextStyles.headingSmall.copyWith(
                                 fontSize: 18,
@@ -884,7 +899,7 @@ class _DealerCard extends StatelessWidget {
                       const SizedBox(height: 5),
                       Text(
                         credential,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.bodyMedium.copyWith(
                           color: const Color(0xFF4D5871),
@@ -900,52 +915,28 @@ class _DealerCard extends StatelessWidget {
                         icon: Icons.business_center_outlined,
                         text: specialization,
                       ),
+                      const SizedBox(height: 8),
+                      _DealerMeta(
+                        icon: Icons.phone_outlined,
+                        text: phone,
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F5FA),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: IconButton(
-                        onPressed: onContact,
-                        icon: const Icon(
-                          Icons.phone_outlined,
-                          color: Color(0xFF33406A),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 112),
-                      child: Text(
-                        phone,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.end,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: const Color(0xFF5E687E),
-                        ),
-                      ),
-                    ),
-                  ],
+                IconButton.filledTonal(
+                  tooltip: 'Contact dealer',
+                  onPressed: onContact,
+                  icon: const Icon(Icons.phone_outlined, size: 20),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 46,
+                  height: 44,
                   child: OutlinedButton.icon(
                     onPressed: onViewProfile,
                     style: OutlinedButton.styleFrom(
@@ -956,14 +947,14 @@ class _DealerCard extends StatelessWidget {
                       ),
                     ),
                     icon: const Icon(Icons.person_outline_rounded, size: 19),
-                    label: const Text('View Profile'),
+                    label: const Text('Profile'),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: SizedBox(
-                  height: 46,
+                  height: 44,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
@@ -1155,7 +1146,7 @@ class _DealerMeta extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: AppTextStyles.bodyMedium.copyWith(
               color: const Color(0xFF667085),

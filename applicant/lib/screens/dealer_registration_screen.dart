@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
 import '../utils/app_assets.dart';
+import '../widgets/sharp_photo_backdrop.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../utils/app_text_styles.dart';
@@ -338,7 +339,7 @@ class _DealerRegistrationScreenState extends State<DealerRegistrationScreen> {
           'companyName': _companyName.text.trim(),
           'businessType': _businessType,
           'specialization': _businessType,
-          'ntnNumber': _ntnNumber.text.trim(),
+          'ntnNumber': Validators.normalizeNtn(_ntnNumber.text),
           'yearsInBusiness': _yearsInBusiness,
           'businessAddress': _officeAddress.text.trim(),
           'officeAddress': _officeAddress.text.trim(),
@@ -692,18 +693,23 @@ class _RegistrationHero extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(compact ? 0 : 26),
         child: SizedBox(
-          height: compact ? 255 : 200,
+          height: compact ? 290 : 350,
           width: double.infinity,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(
-                compact
-                    ? AppAssets.dealerRegistrationMobileBackground
-                    : AppAssets.dealerRegistrationBackground,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                filterQuality: FilterQuality.high,
+              SharpPhotoBackdrop(
+                // The landscape entrance is used at both breakpoints: the
+                // previous tall mobile photo lost most of its building when
+                // forced into a short, wide banner.
+                asset: AppAssets.dealerRegistrationBackground,
+                compact: compact,
+                background: const Color(0xFF2B2526),
+                desktopPhotoWidth: .56,
+                desktopFit: BoxFit.cover,
+                mobileFit: BoxFit.cover,
+                mobileAlignment: const Alignment(0, -.2),
+                desktopAlignment: const Alignment(0.15, 0),
               ),
               DecoratedBox(
                 decoration: BoxDecoration(
@@ -1636,7 +1642,7 @@ class _BusinessStep extends StatelessWidget {
                       controller: ntnNumber,
                       keyboardType: TextInputType.text,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
+                        NtnInputFormatter(),
                         LengthLimitingTextInputFormatter(9),
                       ],
                       validator: Validators.ntn,
