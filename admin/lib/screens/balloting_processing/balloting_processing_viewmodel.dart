@@ -15,7 +15,8 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   bool isRunning = false;
   bool isPaused = false;
   bool isProcessing = false;
-
+  int _runId = 0;
+  int _cancelledRun = -1;
   String? errorMessage;
 
   // FIX (missing feature — live transparency): every draw event (a winner
@@ -157,6 +158,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
 
     try {
       errorMessage = null;
+      final myRun = ++_runId;
 
       isProcessing = true;
       isRunning = true;
@@ -501,8 +503,8 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           await Future.delayed(const Duration(milliseconds: 300));
         }
 
-        // STOP: if admin stopped, exit the loop before drawing the next winner.
-        if (!isProcessing) {
+        // STOP: if admin stopped THIS run, exit before the next winner.
+        if (_cancelledRun == myRun || !isProcessing) {
           break;
         }
 
@@ -585,7 +587,14 @@ class BallotingProcessingViewModel extends ChangeNotifier {
       // The partial ballot_live_results entries already written stay as
       // history (per the agreed behavior), and ballot_config is marked
       // 'stopped' so the applicant-facing live screen reflects it too.
-      if (drawnCount < winners.length) {
+      final wasCancelled = _cancelledRun == myRun;
+
+      if (wasCancelled || drawnCount < winners.length) {
+        // A newer run has already started: don't touch its state.
+        if (myRun != _runId) {
+          return false;
+        }
+
         await _firestore.collection('ballot_config').doc('main').set({
           'status': 'stopped',
           'stage': 'stopped',
@@ -826,6 +835,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   void stop() {
     if (!isProcessing) return;
 
+    _cancelledRun = _runId;
     isProcessing = false;
     isRunning = false;
     isPaused = false;

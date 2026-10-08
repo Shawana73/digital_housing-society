@@ -202,9 +202,25 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
           'createdAt': FieldValue.serverTimestamp(),
         });
       } catch (e) {
+        debugPrint('ADMIN DOC ERROR: $e');
+
+        // Roll back: delete the account WE just created, or just sign out
+        // if it was a pre-existing (applicant) account.
+        try {
+          if (createdNewAuthAccount) {
+            await FirebaseAuth.instance.currentUser?.delete();
+          } else {
+            await FirebaseAuth.instance.signOut();
+          }
+        } catch (_) {
+          try {
+            await FirebaseAuth.instance.signOut();
+          } catch (_) {}
+        }
+
         if (mounted) {
           setState(() => _isSigningUp = false);
-          _showError('ADMIN DOC ERROR: $e');
+          _showError('Could not create your admin profile. Please try again.');
         }
         return;
       }
@@ -271,9 +287,10 @@ class _AdminSignupScreenState extends State<AdminSignupScreen> {
         } catch (_) {}
       }
 
+      debugPrint('SIGNUP ERROR: $e');
       if (mounted) {
         setState(() => _isSigningUp = false);
-        _showError('ERROR: $e');
+        _showError('Something went wrong. Please try again.');
       }
     }
   }

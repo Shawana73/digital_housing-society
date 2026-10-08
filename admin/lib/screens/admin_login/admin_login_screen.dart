@@ -138,14 +138,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       const SizedBox(height: 24),
 
       const LoginFieldLabel(
-        text: 'Email or Username',
+        text: 'Email',
       ),
 
       const SizedBox(height: 8),
 
       LoginInputField(
         controller: _viewModel.emailController,
-        hintText: 'Enter admin email or username',
+        hintText: 'Enter admin email',
         keyboardType: TextInputType.emailAddress,
         prefixIcon: Icons.person_outline_rounded,
       ),

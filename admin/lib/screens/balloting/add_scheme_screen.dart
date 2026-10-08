@@ -678,7 +678,7 @@ class _AddSchemeScreenState extends State<AddSchemeScreen> {
                         const SizedBox(height: 4),
 
                         Text(
-                          'Optional — add an asset path for the scheme image.',
+                          'Optional — a default placeholder icon is used if left blank.',
                           style: TextStyle(
                             color: AdminColors.greyText.withOpacity(0.85),
                             fontSize: 11.5,
@@ -696,7 +696,7 @@ class _AddSchemeScreenState extends State<AddSchemeScreen> {
                             fontSize: 14,
                           ),
                           decoration: _inputDecoration(
-                            'assets/images/your_scheme.png',
+                            'Leave blank (default icon will be used)',
                             prefixIcon: Icons.image_search_rounded,
                           ),
                         ),
@@ -714,7 +714,7 @@ class _AddSchemeScreenState extends State<AddSchemeScreen> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                'Leave blank to show a default placeholder icon instead of an image.',
+                                'Custom scheme images will be supported in a future update.',
                                 style: TextStyle(
                                   color: AdminColors.greyText,
                                   fontWeight: FontWeight.w600,

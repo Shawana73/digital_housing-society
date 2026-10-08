@@ -106,6 +106,19 @@ class ResultViewModel extends BaseAdminViewModel {
               : null,
         );
       }).toList();
+      // Winners first, in draw order (serial 1, 2, 3...), then the
+      // not-selected applicants sorted by name.
+      results.sort((a, b) {
+        if (a.selected != b.selected) return a.selected ? -1 : 1;
+        if (a.selected) {
+          final sa = int.tryParse(a.serialNumber) ?? (1 << 30);
+          final sb = int.tryParse(b.serialNumber) ?? (1 << 30);
+          return sa.compareTo(sb);
+        }
+        return a.applicantName
+            .toLowerCase()
+            .compareTo(b.applicantName.toLowerCase());
+      });
     } catch (e) {
       debugPrint('ERROR LOADING BALLOT RESULTS: $e');
       errorMessage = 'Could not load results. Pull down to retry.';

@@ -70,15 +70,9 @@ class BallotingViewModel extends BaseAdminViewModel {
     )
         .length;
   }
-
-  int get resultsDeclaredCount {
-    return schemes
-        .where(
-          (scheme) =>
-      scheme.status.trim().toLowerCase() == 'completed',
-    )
-        .length;
-  }
+  // Results are declared for every completed balloting,
+  // so this is simply the same number as completedCount.
+  int get resultsDeclaredCount => completedCount;
 
   String get statusLabel {
     switch (status) {
@@ -467,7 +461,7 @@ class BallotingViewModel extends BaseAdminViewModel {
     } catch (e) {
       debugPrint('ERROR LOADING BALLOTING DATA: $e');
       errorMessage =
-      'Could not load balloting data. Pull down to retry.';
+      'Could not load balloting data. Please tap Retry.';
     }
 
     isLoading = false;

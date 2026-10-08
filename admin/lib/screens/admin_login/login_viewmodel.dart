@@ -58,8 +58,6 @@ class LoginViewModel extends ChangeNotifier {
       if (uid == null) {
         return 'Something went wrong. Please try again.';
       }
-      debugPrint('LOGIN SUCCESS UID: $uid');
-      debugPrint('LOGIN SUCCESS EMAIL: ${credential.user?.email}');
 
       final adminDoc = await FirebaseFirestore.instance.collection('admins').doc(uid).get();
       if (!adminDoc.exists) {
