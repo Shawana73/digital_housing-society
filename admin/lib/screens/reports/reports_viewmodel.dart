@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../models/admin_models.dart';
@@ -7,6 +9,12 @@ import '../../viewmodels/admin_view_models.dart';
 
 class ReportsViewModel extends BaseAdminViewModel {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Real-time listeners
+  final List<StreamSubscription> _subs = [];
+
+  // Latest applicants docs (trend isi se banta ha, dobara query nahi hoti)
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _applicantDocs = [];
 
   List<ReportModel> reports = [];
 
@@ -73,7 +81,7 @@ class ReportsViewModel extends BaseAdminViewModel {
     );
 
     await _saveDateRange();
-    await load();
+    await load(); // naye date range ke saath listeners dobara lagte hain
   }
   Future<void> setTrendPeriod(String period) async {
     trendPeriod = period;
@@ -127,11 +135,55 @@ class ReportsViewModel extends BaseAdminViewModel {
   }
 
   // ------------------------------------------------------------
+  // REAL-TIME HELPER
+  // ------------------------------------------------------------
+
+  // Query par listener lagata ha. Future pehla data (ya error) aane par
+  // complete hota ha. Har naye snapshot par onData chalta ha aur UI update hoti ha.
+  Future<void> _subscribe(
+      Query<Map<String, dynamic>> queryRef,
+      void Function(QuerySnapshot<Map<String, dynamic>>) onData,
+      String label,
+      ) {
+    final first = Completer<void>();
+
+    _subs.add(
+      queryRef.snapshots().listen(
+            (snapshot) {
+          try {
+            onData(snapshot);
+          } catch (e, stackTrace) {
+            debugPrint('Error loading $label for reports: $e');
+            debugPrintStack(stackTrace: stackTrace);
+          }
+          notifyListeners();
+          if (!first.isCompleted) first.complete();
+        },
+        onError: (e, stackTrace) {
+          debugPrint('Error loading $label for reports: $e');
+          if (!first.isCompleted) first.complete();
+        },
+      ),
+    );
+
+    return first.future;
+  }
+
+  Future<void> _cancelSubs() async {
+    for (final s in _subs) {
+      await s.cancel();
+    }
+    _subs.clear();
+  }
+
+  // ------------------------------------------------------------
   // LOAD ALL REPORT DATA
   // ------------------------------------------------------------
 
   @override
   Future<void> load() async {
+    await _cancelSubs();
+
     isLoading = true;
     notifyListeners();
 
@@ -147,8 +199,6 @@ class ReportsViewModel extends BaseAdminViewModel {
         _loadRecentReports(),
         _loadBallotingStats(),
       ]);
-
-      await _buildApplicantTrend();
     } catch (e, stackTrace) {
       debugPrint('Error loading reports: $e');
       debugPrintStack(stackTrace: stackTrace);
@@ -162,28 +212,28 @@ class ReportsViewModel extends BaseAdminViewModel {
   // APPLICANTS
   // ------------------------------------------------------------
 
-  Future<void> _loadApplicants() async {
-    try {
-      Query<Map<String, dynamic>> queryRef =
-      _firestore.collection('applicants');
+  Future<void> _loadApplicants() {
+    Query<Map<String, dynamic>> queryRef =
+    _firestore.collection('applicants');
 
-      if (selectedStartDate != null && selectedEndDate != null) {
-        queryRef = queryRef
-            .where(
-          'createdAt',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(
-            selectedStartDate!,
-          ),
-        )
-            .where(
-          'createdAt',
-          isLessThanOrEqualTo: Timestamp.fromDate(
-            selectedEndDate!,
-          ),
-        );
-      }
+    if (selectedStartDate != null && selectedEndDate != null) {
+      queryRef = queryRef
+          .where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(
+          selectedStartDate!,
+        ),
+      )
+          .where(
+        'createdAt',
+        isLessThanOrEqualTo: Timestamp.fromDate(
+          selectedEndDate!,
+        ),
+      );
+    }
 
-      final snapshot = await queryRef.get();
+    return _subscribe(queryRef, (snapshot) {
+      _applicantDocs = snapshot.docs;
 
       totalApplicants = snapshot.docs.length;
       verifiedApplicants = 0;
@@ -206,21 +256,18 @@ class ReportsViewModel extends BaseAdminViewModel {
           pendingApplicants++;
         }
       }
-    } catch (e, stackTrace) {
-      debugPrint('Error loading applicants for reports: $e');
-      debugPrintStack(stackTrace: stackTrace);
-    }
+
+      // Trend bhi isi snapshot se dobara banta ha
+      _buildApplicantTrend();
+    }, 'applicants');
   }
 
   // ------------------------------------------------------------
   // PLOTS
   // ------------------------------------------------------------
 
-  Future<void> _loadPlots() async {
-    try {
-      final snapshot =
-      await _firestore.collection('plots').get();
-
+  Future<void> _loadPlots() {
+    return _subscribe(_firestore.collection('plots'), (snapshot) {
       totalPlots = snapshot.docs.length;
 
       availablePlots = 0;
@@ -247,43 +294,34 @@ class ReportsViewModel extends BaseAdminViewModel {
             break;
         }
       }
-    } catch (e, stackTrace) {
-      debugPrint('Error loading plots for reports: $e');
-      debugPrintStack(stackTrace: stackTrace);
-    }
+    }, 'plots');
   }
-  Future<void> _loadPayments() async {
-    try {
-      Query<Map<String, dynamic>> queryRef =
-      _firestore.collection('payments');
+  Future<void> _loadPayments() {
+    Query<Map<String, dynamic>> queryRef =
+    _firestore.collection('payments');
 
-      if (selectedStartDate != null && selectedEndDate != null) {
-        queryRef = queryRef
-            .where(
-          'submittedAt',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(
-            selectedStartDate!,
-          ),
-        )
-            .where(
-          'submittedAt',
-          isLessThanOrEqualTo: Timestamp.fromDate(
-            selectedEndDate!,
-          ),
-        );
-      }
+    if (selectedStartDate != null && selectedEndDate != null) {
+      queryRef = queryRef
+          .where(
+        'submittedAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(
+          selectedStartDate!,
+        ),
+      )
+          .where(
+        'submittedAt',
+        isLessThanOrEqualTo: Timestamp.fromDate(
+          selectedEndDate!,
+        ),
+      );
+    }
 
-      final snapshot = await queryRef.get();
-
+    return _subscribe(queryRef, (snapshot) {
       totalPayments = snapshot.docs.length;
-    } catch (e, stackTrace) {
-      debugPrint('Error loading payments for reports: $e');
-      debugPrintStack(stackTrace: stackTrace);
-    }
+    }, 'payments');
   }
-  Future<void> _loadBallotingStats() async {
-    try {
-      final snapshot = await _firestore.collection('ballot_results').get();
+  Future<void> _loadBallotingStats() {
+    return _subscribe(_firestore.collection('ballot_results'), (snapshot) {
       totalBallotEntries = snapshot.docs.length;
       ballotWinners = 0;
       ballotNotSelected = 0;
@@ -295,31 +333,24 @@ class ReportsViewModel extends BaseAdminViewModel {
           ballotNotSelected++;
         }
       }
-    } catch (e, stackTrace) {
-      debugPrint('Error loading balloting stats: $e');
-      debugPrintStack(stackTrace: stackTrace);
-    }
+    }, 'balloting stats');
   }
 
   // ------------------------------------------------------------
   // RECENT REPORTS
   // ------------------------------------------------------------
 
-  Future<void> _loadRecentReports() async {
-    try {
-      final snapshot = await _firestore
-          .collection('reports')
-          .orderBy('createdAt', descending: true)
-          .limit(20)
-          .get();
+  Future<void> _loadRecentReports() {
+    final queryRef = _firestore
+        .collection('reports')
+        .orderBy('createdAt', descending: true)
+        .limit(20);
 
+    return _subscribe(queryRef, (snapshot) {
       reports = snapshot.docs
           .map((doc) => ReportModel.fromMap(doc.data(), doc.id))
           .toList();
-    } catch (e, stackTrace) {
-      debugPrint('Error loading recent reports: $e');
-      debugPrintStack(stackTrace: stackTrace);
-    }
+    }, 'recent reports');
   }
 
   // ------------------------------------------------------------
@@ -333,16 +364,9 @@ class ReportsViewModel extends BaseAdminViewModel {
     rejectedTrend.clear();
 
     try {
-      Query<Map<String, dynamic>> queryRef =
-      _firestore.collection('applicants');
-
-      if (selectedStartDate != null && selectedEndDate != null) {
-        queryRef = queryRef
-            .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(selectedStartDate!))
-            .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(selectedEndDate!));
-      }
-
-      final snapshot = await queryRef.get();
+      // Pehle yahan dobara applicants ki query hoti thi; ab latest
+      // real-time snapshot (_applicantDocs) hi use hota ha.
+      final docs = _applicantDocs;
 
       const monthNames = [
         'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -379,7 +403,7 @@ class ReportsViewModel extends BaseAdminViewModel {
       final Map<String, int> verifiedByKey = {};
       final Map<String, int> rejectedByKey = {};
 
-      for (final doc in snapshot.docs) {
+      for (final doc in docs) {
         final data = doc.data();
         final createdAt = data['createdAt'];
         if (createdAt is! Timestamp) continue;
@@ -444,4 +468,13 @@ class ReportsViewModel extends BaseAdminViewModel {
       debugPrintStack(stackTrace: stackTrace);
     }
   }
+
+  @override
+  void dispose() {
+    for (final s in _subs) {
+      s.cancel();
+    }
+    _subs.clear();
+    super.dispose();
   }
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/admin_models.dart';
 import '../../theme/admin_theme.dart';
+
 class MapPlotBlock extends StatelessWidget {
   final SocietyPlot plot;
 
@@ -128,11 +129,12 @@ class MapPlotBlock extends StatelessWidget {
   }
 }
 
-/// Paints a dashed center-line marking for a road segment.
 class _DashedLinePainter extends CustomPainter {
   final bool vertical;
 
-  const _DashedLinePainter({required this.vertical});
+  const _DashedLinePainter({
+    required this.vertical,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -147,15 +149,27 @@ class _DashedLinePainter extends CustomPainter {
     if (vertical) {
       final x = size.width / 2;
       double y = 2;
+
       while (y < size.height - 2) {
-        canvas.drawLine(Offset(x, y), Offset(x, y + dash), paint);
+        canvas.drawLine(
+          Offset(x, y),
+          Offset(x, y + dash),
+          paint,
+        );
+
         y += dash + gap;
       }
     } else {
       final y = size.height / 2;
       double x = 2;
+
       while (x < size.width - 2) {
-        canvas.drawLine(Offset(x, y), Offset(x + dash, y), paint);
+        canvas.drawLine(
+          Offset(x, y),
+          Offset(x + dash, y),
+          paint,
+        );
+
         x += dash + gap;
       }
     }
@@ -167,24 +181,34 @@ class _DashedLinePainter extends CustomPainter {
   }
 }
 
-/// Paints a soft scatter of landscaping dots (trees) used around roads/park.
 class _TreeScatterPainter extends CustomPainter {
   final int count;
 
-  const _TreeScatterPainter({this.count = 6});
+  const _TreeScatterPainter({
+    this.count = 6,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF6FA66A);
+    final paint = Paint()
+      ..color = const Color(0xFF6FA66A);
+
     for (int i = 0; i < count; i++) {
       final dx = size.width * ((i + 1) / (count + 1));
       final dy = size.height * (i.isEven ? 0.3 : 0.7);
-      canvas.drawCircle(Offset(dx, dy), 2.4, paint);
+
+      canvas.drawCircle(
+        Offset(dx, dy),
+        2.4,
+        paint,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _TreeScatterPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _TreeScatterPainter oldDelegate) {
+    return false;
+  }
 }
 
 class SocietyLayoutMap extends StatelessWidget {
@@ -195,21 +219,58 @@ class SocietyLayoutMap extends StatelessWidget {
     required this.plots,
   });
 
-  SocietyPlot? _findPlot(String id) {
+  List<SocietyPlot> _plotsForBlock(String blockLetter) {
+    return plots.where((p) {
+      final id = p.id.trim();
+
+      if (!id.contains('-')) {
+        return false;
+      }
+
+      final prefix = id.split('-').first.trim().toUpperCase();
+
+      return prefix == blockLetter.toUpperCase();
+    }).toList();
+  }
+
+  String _blockLetter(SocietyPlot plot) {
+    final id = plot.id.trim();
+
+    if (!id.contains('-')) {
+      return id.toUpperCase();
+    }
+
+    return id.split('-').first.trim().toUpperCase();
+  }
+
+  List<String> _allBlockLetters() {
+    final blocks = <String>{};
+
     for (final plot in plots) {
-      if (plot.id.toLowerCase() == id.toLowerCase()) {
-        return plot;
+      final block = _blockLetter(plot);
+
+      if (block.isNotEmpty) {
+        blocks.add(block);
       }
     }
 
-    return null;
-  }
+    final result = blocks.toList();
 
-  List<SocietyPlot> _plotsForBlock(String blockLetter) {
-    return plots.where((p) {
-      final prefix = p.id.split('-').first.trim().toUpperCase();
-      return prefix == blockLetter.toUpperCase();
-    }).toList();
+    result.sort((a, b) {
+      final aNumber = int.tryParse(a);
+      final bNumber = int.tryParse(b);
+
+      if (aNumber != null && bNumber != null) {
+        return aNumber.compareTo(bNumber);
+      }
+
+      if (aNumber != null) return -1;
+      if (bNumber != null) return 1;
+
+      return a.compareTo(b);
+    });
+
+    return result;
   }
 
   Widget _road({
@@ -217,27 +278,44 @@ class SocietyLayoutMap extends StatelessWidget {
     bool vertical = false,
     bool main = false,
   }) {
-    final asphalt = main ? const Color(0xFFD5D6DB) : const Color(0xFFE2E3E7);
-    final edge = const Color(0xFFEFEFF1);
+    final asphalt = main
+        ? const Color(0xFFD5D6DB)
+        : const Color(0xFFE2E3E7);
+
+    const edge = Color(0xFFEFEFF1);
 
     return Container(
       decoration: BoxDecoration(
         color: asphalt,
         border: vertical
-            ? Border(
-          left: BorderSide(color: edge, width: 3),
-          right: BorderSide(color: edge, width: 3),
+            ? const Border(
+          left: BorderSide(
+            color: edge,
+            width: 3,
+          ),
+          right: BorderSide(
+            color: edge,
+            width: 3,
+          ),
         )
-            : Border(
-          top: BorderSide(color: edge, width: 3),
-          bottom: BorderSide(color: edge, width: 3),
+            : const Border(
+          top: BorderSide(
+            color: edge,
+            width: 3,
+          ),
+          bottom: BorderSide(
+            color: edge,
+            width: 3,
+          ),
         ),
       ),
       child: Stack(
         children: [
           Positioned.fill(
             child: CustomPaint(
-              painter: _DashedLinePainter(vertical: vertical),
+              painter: _DashedLinePainter(
+                vertical: vertical,
+              ),
             ),
           ),
           if (label != null)
@@ -247,7 +325,9 @@ class SocietyLayoutMap extends StatelessWidget {
               top: vertical ? 6 : 0,
               bottom: vertical ? null : 0,
               child: Align(
-                alignment: vertical ? Alignment.topCenter : Alignment.centerLeft,
+                alignment: vertical
+                    ? Alignment.topCenter
+                    : Alignment.centerLeft,
                 child: RotatedBox(
                   quarterTurns: vertical ? 1 : 0,
                   child: Text(
@@ -293,7 +373,9 @@ class SocietyLayoutMap extends StatelessWidget {
             padding: const EdgeInsets.only(right: 3),
             child: SizedBox(
               width: 38,
-              child: MapPlotBlock(plot: plot),
+              child: MapPlotBlock(
+                plot: plot,
+              ),
             ),
           );
         }).toList(),
@@ -301,7 +383,10 @@ class SocietyLayoutMap extends StatelessWidget {
     );
 
     final titleChip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 6,
+        vertical: 2,
+      ),
       decoration: BoxDecoration(
         color: AdminColors.primary.withOpacity(0.10),
         borderRadius: BorderRadius.circular(4),
@@ -320,16 +405,16 @@ class SocietyLayoutMap extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Container below has EdgeInsets.all(6) => 12px vertical padding total.
         const containerVerticalPadding = 8.0;
-        // Rough minimum height the plots row itself needs (icon + gap + label),
-        // plus a small safety buffer.
         const plotsRowMinHeight = 30.0;
-        // Rough minimum height the title chip + the gap under it needs.
         const titleAndGapHeight = 18.0;
 
-        final contentHeight = constraints.maxHeight - containerVerticalPadding;
-        final canShowTitle = contentHeight >= (plotsRowMinHeight + titleAndGapHeight);
+        final contentHeight =
+            constraints.maxHeight - containerVerticalPadding;
+
+        final canShowTitle =
+            contentHeight >=
+                (plotsRowMinHeight + titleAndGapHeight);
 
         return Container(
           padding: const EdgeInsets.all(4),
@@ -343,11 +428,14 @@ class SocietyLayoutMap extends StatelessWidget {
           ),
           child: canShowTitle
               ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment:
+            CrossAxisAlignment.stretch,
             children: [
               titleChip,
               const SizedBox(height: 4),
-              Expanded(child: content),
+              Expanded(
+                child: content,
+              ),
             ],
           )
               : content,
@@ -356,7 +444,78 @@ class SocietyLayoutMap extends StatelessWidget {
     );
   }
 
-  Widget _park({required String title}) {
+  Widget _dynamicBlocksPanel() {
+    const fixedBlocks = {
+      'A',
+      'C',
+      'D',
+      'E',
+      'G',
+      'P',
+    };
+
+    final allBlocks = _allBlockLetters();
+
+    final dynamicBlocks = allBlocks
+        .where((block) => !fixedBlocks.contains(block))
+        .toList();
+
+    if (dynamicBlocks.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F7FC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFFD8D3EC),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 7,
+              vertical: 3,
+            ),
+            decoration: BoxDecoration(
+              color: AdminColors.primary.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(5),
+            ),
+          ),
+          const SizedBox(height: 5),
+          SizedBox(
+            height: 66,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: dynamicBlocks.length,
+              separatorBuilder: (_, __) =>
+              const SizedBox(width: 6),
+              itemBuilder: (context, index) {
+                final block = dynamicBlocks[index];
+
+                return SizedBox(
+                  width: 125,
+                  child: _block(
+                    title: 'BLOCK $block',
+                    blockLetter: block,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _park({
+    required String title,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFE1F0DD),
@@ -370,7 +529,9 @@ class SocietyLayoutMap extends StatelessWidget {
         children: [
           Positioned.fill(
             child: CustomPaint(
-              painter: const _TreeScatterPainter(count: 6),
+              painter: const _TreeScatterPainter(
+                count: 6,
+              ),
             ),
           ),
           Center(
@@ -380,7 +541,10 @@ class SocietyLayoutMap extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFFCFE8CC),
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF9DC79A), width: 1),
+                border: Border.all(
+                  color: const Color(0xFF9DC79A),
+                  width: 1,
+                ),
               ),
               child: const Icon(
                 Icons.park_rounded,
@@ -449,7 +613,12 @@ class SocietyLayoutMap extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(width: 3, height: 14, color: AdminColors.primary.withOpacity(0.4)),
+              Container(
+                width: 3,
+                height: 14,
+                color: AdminColors.primary
+                    .withOpacity(0.4),
+              ),
               const SizedBox(width: 6),
               const Icon(
                 Icons.apartment_rounded,
@@ -457,7 +626,12 @@ class SocietyLayoutMap extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 6),
-              Container(width: 3, height: 14, color: AdminColors.primary.withOpacity(0.4)),
+              Container(
+                width: 3,
+                height: 14,
+                color: AdminColors.primary
+                    .withOpacity(0.4),
+              ),
             ],
           ),
           const SizedBox(height: 2),
@@ -521,196 +695,234 @@ class SocietyLayoutMap extends StatelessWidget {
           color: const Color(0xFFD1D3D6),
         ),
       ),
-      child: AspectRatio(
-        aspectRatio: 0.72,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final height = constraints.maxHeight;
+      child: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: 0.72,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final height = constraints.maxHeight;
 
-            return Stack(
-              children: [
-                // GREEN PERIMETER
-                Positioned(
-                  left: width * 0.01,
-                  right: width * 0.01,
-                  top: height * 0.01,
-                  bottom: height * 0.01,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF5EC),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: const Color(0xFFC9D8C4),
-                        width: 1,
+                return Stack(
+                  children: [
+                    // GREEN PERIMETER
+                    Positioned(
+                      left: width * 0.01,
+                      right: width * 0.01,
+                      top: height * 0.01,
+                      bottom: height * 0.01,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF5EC),
+                          borderRadius:
+                          BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFFC9D8C4),
+                            width: 1,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
 
-                // MAIN HORIZONTAL BOULEVARD
-                Positioned(
-                  left: width * 0.03,
-                  right: width * 0.03,
-                  top: height * 0.19,
-                  height: height * 0.065,
-                  child: _road(
-                    label: 'MAIN BOULEVARD',
-                    main: true,
-                  ),
-                ),
-
-                // MAIN VERTICAL ROAD
-                Positioned(
-                  left: width * 0.46,
-                  top: height * 0.08,
-                  bottom: height * 0.07,
-                  width: width * 0.08,
-                  child: _road(
-                    label: 'MAIN ROAD',
-                    vertical: true,
-                    main: true,
-                  ),
-                ),
-
-                // SECONDARY ROADS
-                Positioned(
-                  left: width * 0.03,
-                  right: width * 0.03,
-                  top: height * 0.41,
-                  height: height * 0.045,
-                  child: _road(),
-                ),
-                Positioned(
-                  left: width * 0.03,
-                  right: width * 0.03,
-                  top: height * 0.67,
-                  height: height * 0.045,
-                  child: _road(),
-                ),
-
-                // SIDE ROADS
-                Positioned(
-                  left: width * 0.22,
-                  top: height * 0.19,
-                  bottom: height * 0.07,
-                  width: width * 0.035,
-                  child: _road(vertical: true),
-                ),
-                Positioned(
-                  right: width * 0.22,
-                  top: height * 0.19,
-                  bottom: height * 0.07,
-                  width: width * 0.035,
-                  child: _road(vertical: true),
-                ),
-
-                // ENTRANCE
-                Positioned(
-                  left: width * 0.29,
-                  right: width * 0.29,
-                  top: height * 0.035,
-                  height: height * 0.105,
-                  child: _entrance(),
-                ),
-
-                // BLOCK A
-                Positioned(
-                  left: width * 0.055,
-                  top: height * 0.25,
-                  width: width * 0.31,
-                  height: height * 0.13,
-                  child: _block(title: 'BLOCK A', blockLetter: 'A'),
-                ),
-
-                // BLOCK C
-                Positioned(
-                  right: width * 0.055,
-                  top: height * 0.25,
-                  width: width * 0.31,
-                  height: height * 0.13,
-                  child: _block(title: 'BLOCK C', blockLetter: 'C'),
-                ),
-
-                // CENTRAL PARK
-                Positioned(
-                  left: width * 0.28,
-                  right: width * 0.28,
-                  top: height * 0.43,
-                  height: height * 0.14,
-                  child: _park(title: 'CENTRAL PARK'),
-                ),
-
-                // BLOCK D
-                Positioned(
-                  left: width * 0.055,
-                  right: width * 0.055,
-                  top: height * 0.60,
-                  height: height * 0.13,
-                  child: _block(title: 'BLOCK D', blockLetter: 'D'),
-                ),
-
-                // GREEN AREA LEFT
-                Positioned(
-                  left: width * 0.055,
-                  top: height * 0.76,
-                  width: width * 0.18,
-                  height: height * 0.10,
-                  child: _greenArea('GREEN\nBELT'),
-                ),
-
-                // BLOCK E
-                Positioned(
-                  left: width * 0.27,
-                  top: height * 0.76,
-                  width: width * 0.20,
-                  height: height * 0.10,
-                  child: _block(title: 'BLOCK E', blockLetter: 'E'),
-                ),
-
-                // BLOCK G
-                Positioned(
-                  right: width * 0.055,
-                  top: height * 0.76,
-                  width: width * 0.20,
-                  height: height * 0.10,
-                  child: _block(title: 'BLOCK G', blockLetter: 'G'),
-                ),
-
-                // BLOCK P
-                Positioned(
-                  left: width * 0.31,
-                  right: width * 0.31,
-                  bottom: height * 0.015,
-                  height: height * 0.10,
-                  child: _block(title: 'BLOCK P', blockLetter: 'P'),
-                ),
-
-                // NORTH
-                Positioned(
-                  right: width * 0.035,
-                  top: height * 0.025,
-                  child: _northIndicator(),
-                ),
-
-                // SITE PLAN LABEL
-                Positioned(
-                  left: width * 0.045,
-                  top: height * 0.035,
-                  child: const Text(
-                    'MASTER PLAN',
-                    style: TextStyle(
-                      color: Color(0xFF6E7177),
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1,
+                    // MAIN HORIZONTAL BOULEVARD
+                    Positioned(
+                      left: width * 0.03,
+                      right: width * 0.03,
+                      top: height * 0.19,
+                      height: height * 0.065,
+                      child: _road(
+                        label: 'MAIN BOULEVARD',
+                        main: true,
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+
+                    // MAIN VERTICAL ROAD
+                    Positioned(
+                      left: width * 0.46,
+                      top: height * 0.08,
+                      bottom: height * 0.07,
+                      width: width * 0.08,
+                      child: _road(
+                        label: 'MAIN ROAD',
+                        vertical: true,
+                        main: true,
+                      ),
+                    ),
+
+                    // SECONDARY ROADS
+                    Positioned(
+                      left: width * 0.03,
+                      right: width * 0.03,
+                      top: height * 0.41,
+                      height: height * 0.045,
+                      child: _road(),
+                    ),
+                    Positioned(
+                      left: width * 0.03,
+                      right: width * 0.03,
+                      top: height * 0.67,
+                      height: height * 0.045,
+                      child: _road(),
+                    ),
+
+                    // SIDE ROADS
+                    Positioned(
+                      left: width * 0.22,
+                      top: height * 0.19,
+                      bottom: height * 0.07,
+                      width: width * 0.035,
+                      child: _road(
+                        vertical: true,
+                      ),
+                    ),
+                    Positioned(
+                      right: width * 0.22,
+                      top: height * 0.19,
+                      bottom: height * 0.07,
+                      width: width * 0.035,
+                      child: _road(
+                        vertical: true,
+                      ),
+                    ),
+
+                    // ENTRANCE
+                    Positioned(
+                      left: width * 0.29,
+                      right: width * 0.29,
+                      top: height * 0.035,
+                      height: height * 0.105,
+                      child: _entrance(),
+                    ),
+
+                    // BLOCK A
+                    Positioned(
+                      left: width * 0.055,
+                      top: height * 0.25,
+                      width: width * 0.31,
+                      height: height * 0.13,
+                      child: _block(
+                        title: 'BLOCK A',
+                        blockLetter: 'A',
+                      ),
+                    ),
+
+                    // BLOCK C
+                    Positioned(
+                      right: width * 0.055,
+                      top: height * 0.25,
+                      width: width * 0.31,
+                      height: height * 0.13,
+                      child: _block(
+                        title: 'BLOCK C',
+                        blockLetter: 'C',
+                      ),
+                    ),
+
+                    // CENTRAL PARK
+                    Positioned(
+                      left: width * 0.28,
+                      right: width * 0.28,
+                      top: height * 0.43,
+                      height: height * 0.14,
+                      child: _park(
+                        title: 'CENTRAL PARK',
+                      ),
+                    ),
+
+                    // BLOCK D
+                    Positioned(
+                      left: width * 0.055,
+                      right: width * 0.055,
+                      top: height * 0.60,
+                      height: height * 0.13,
+                      child: _block(
+                        title: 'BLOCK D',
+                        blockLetter: 'D',
+                      ),
+                    ),
+
+                    // GREEN AREA LEFT
+                    Positioned(
+                      left: width * 0.055,
+                      top: height * 0.76,
+                      width: width * 0.18,
+                      height: height * 0.10,
+                      child: _greenArea(
+                        'GREEN\nBELT',
+                      ),
+                    ),
+
+                    // BLOCK E
+                    Positioned(
+                      left: width * 0.27,
+                      top: height * 0.76,
+                      width: width * 0.20,
+                      height: height * 0.10,
+                      child: _block(
+                        title: 'BLOCK E',
+                        blockLetter: 'E',
+                      ),
+                    ),
+
+                    // BLOCK G
+                    Positioned(
+                      right: width * 0.055,
+                      top: height * 0.76,
+                      width: width * 0.20,
+                      height: height * 0.10,
+                      child: _block(
+                        title: 'BLOCK G',
+                        blockLetter: 'G',
+                      ),
+                    ),
+
+                    // BLOCK P
+                    Positioned(
+                      left: width * 0.31,
+                      right: width * 0.31,
+                      bottom: height * 0.015,
+                      height: height * 0.10,
+                      child: _block(
+                        title: 'BLOCK P',
+                        blockLetter: 'P',
+                      ),
+                    ),
+
+                    // NORTH
+                    Positioned(
+                      right: width * 0.035,
+                      top: height * 0.025,
+                      child: _northIndicator(),
+                    ),
+
+                    // SITE PLAN LABEL
+                    Positioned(
+                      left: width * 0.045,
+                      top: height * 0.035,
+                      child: const Text(
+                        'MASTER PLAN',
+                        style: TextStyle(
+                          color: Color(0xFF6E7177),
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+          // ANY NEW BLOCK FROM FIRESTORE
+          // Example:
+          // Q-109 + Q-110 -> BLOCK Q
+          // R-101 -> BLOCK R
+          // B-205 -> BLOCK B
+          _dynamicBlocksPanel(),
+        ],
       ),
     );
   }

@@ -46,7 +46,7 @@ class BallotingSchemeCard extends StatelessWidget {
   final String eligibleLabel;
   final String plotsLabel;
   final VoidCallback onStart;
-
+  final bool isExpired;
   const BallotingSchemeCard({
     super.key,
     required this.name,
@@ -60,6 +60,7 @@ class BallotingSchemeCard extends StatelessWidget {
     required this.onStart,
     this.eligibleLabel = 'Eligible Applicants',
     this.plotsLabel = 'Available Plots',
+    this.isExpired = false,
   });
 
   @override
@@ -127,9 +128,10 @@ class BallotingSchemeCard extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: onStart,
-            icon: const Icon(Icons.play_circle_rounded, size: 18),
-            label: const Text('Start Balloting', style: TextStyle(fontWeight: FontWeight.w900)),
+            onPressed: isExpired ? null : onStart,
+            icon: Icon(isExpired ? Icons.event_busy_rounded : Icons.play_circle_rounded, size: 18),
+            label: Text(isExpired ? 'Balloting Expired' : 'Start Balloting',
+                style: const TextStyle(fontWeight: FontWeight.w900)),
             style: FilledButton.styleFrom(
               backgroundColor: AdminColors.primary,
               padding: const EdgeInsets.symmetric(vertical: 13),

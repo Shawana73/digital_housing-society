@@ -100,11 +100,31 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   }) async {
     if (isProcessing) return false;
 
-    if (scheduledDate != null && DateTime.now().isBefore(scheduledDate)) {
-      errorMessage =
-      'This balloting is scheduled for ${_formatScheduledDate(scheduledDate)}. '
-          'It cannot be started before that date.';
-      return false;
+    // Balloting can only be started on its own scheduled day
+    // (00:00 to 23:59). Before that day it is too early; after it, the
+    // balloting has expired.
+    if (scheduledDate != null) {
+      final now = DateTime.now();
+      final dayStart = DateTime(
+        scheduledDate.year, scheduledDate.month, scheduledDate.day,
+      );
+      final dayEnd = DateTime(
+        scheduledDate.year, scheduledDate.month, scheduledDate.day, 23, 59, 59,
+      );
+
+      if (now.isBefore(dayStart)) {
+        errorMessage =
+        'This balloting is scheduled for ${_formatScheduledDate(scheduledDate)}. '
+            'It cannot be started before that date.';
+        return false;
+      }
+
+      if (now.isAfter(dayEnd)) {
+        errorMessage =
+        'The scheduled date (${_formatScheduledDate(scheduledDate)}) for this '
+            'balloting has passed. It has expired and can no longer be started.';
+        return false;
+      }
     }
 
     // FIX (bug — re-run prevention): check the SCHEME's own document
@@ -431,6 +451,13 @@ class BallotingProcessingViewModel extends ChangeNotifier {
         }).toList();
 
         availablePlots = matchingPlots;
+      }
+
+      // Plots belong to a scheme: only this scheme's own plots are used.
+      if (schemeId != null && schemeId.isNotEmpty) {
+        availablePlots = availablePlots
+            .where((plot) => plot.schemeId == schemeId)
+            .toList();
       }
 
       if (availablePlots.isEmpty) {

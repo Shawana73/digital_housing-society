@@ -56,8 +56,12 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
 
   Future<void> _openEditSheet(PlotModel plot) async {
     String selectedStatus = plot.status;
+    String selectedSchemeId =
+    _viewModel.schemes.any((s) => s.documentId == plot.schemeId)
+        ? plot.schemeId
+        : '';
 
-    final result = await showModalBottomSheet<String>(
+    final result = await showModalBottomSheet<({String status, String schemeId})>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -197,13 +201,68 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
                         },
                       ),
                     ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Scheme',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AdminColors.darkText,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AdminColors.background,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AdminColors.border),
+                      ),
+                      child: DropdownButtonFormField<String>(
+                        initialValue: selectedSchemeId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: AdminColors.greyText,
+                        ),
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: '',
+                            child: Text('No scheme'),
+                          ),
+                          ..._viewModel.schemes.map(
+                                (s) => DropdownMenuItem<String>(
+                              value: s.documentId,
+                              child: Text('${s.name} (${s.size})',
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setModalState(() {
+                              selectedSchemeId = value;
+                            });
+                          }
+                        },
+                      ),
+                    ),
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.pop(context, selectedStatus);
+                          Navigator.pop(context, (
+                          status: selectedStatus,
+                          schemeId: selectedSchemeId,
+                          ));
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AdminColors.primary,
@@ -231,10 +290,17 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
       },
     );
 
-    if (result == null || result == plot.status) return;
+    if (result == null ||
+        (result.status == plot.status && result.schemeId == plot.schemeId)) {
+      return;
+    }
 
     try {
-      await _viewModel.updateStatus(plot, result);
+      await _viewModel.updatePlot(
+        plot,
+        status: result.status,
+        schemeId: result.schemeId,
+      );
 
       if (!mounted) return;
 
@@ -751,10 +817,15 @@ class _PlotManagementScreenState extends State<PlotManagementScreen> {
                         ),
                         itemBuilder: (context, index) {
                           final plot = plots[index];
+                          final schemeMatch = _viewModel.schemes
+                              .where((s) => s.documentId == plot.schemeId);
+                          final schemeName =
+                          schemeMatch.isEmpty ? '' : schemeMatch.first.name;
 
                           return PlotCard(
                             plot: plot,
                             index: index,
+                            schemeName: schemeName,
                             onEdit: () =>
                                 _openEditSheet(plot),
                             onDelete: () =>

@@ -92,14 +92,21 @@ class _BallotingScreenState
     final availablePlots =
     _viewModel.getAvailablePlotsForScheme(scheme);
 
+    // Expired = the scheme's scheduled day has fully passed (after 23:59).
+    final scheduled = scheme.date.toDate();
+    final isExpired = DateTime.now().isAfter(
+      DateTime(scheduled.year, scheduled.month, scheduled.day, 23, 59, 59),
+    );
+
     return BallotingSchemeCard(
       name: scheme.name,
       size: scheme.size,
       eligibleApplicants: eligibleApplicants,
       availablePlots: availablePlots,
       date: _formatDate(scheme.date.toDate()),
-      status: scheme.status,
-      statusColor: AdminColors.primary,
+      status: isExpired ? 'Expired' : scheme.status,
+      statusColor: isExpired ? AdminColors.rejected : AdminColors.primary,
+      isExpired: isExpired,
       imagePath: scheme.imagePath,
       eligibleLabel: 'Eligible',
       plotsLabel: 'Plots',

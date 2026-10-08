@@ -123,7 +123,60 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
       ),
     );
   }
+  Future<void> _setDocumentStatus(int index, String status) async {
+    // Rejecting any document rejects the whole applicant, so ask first.
+    if (status == 'rejected') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AdminColors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AdminColors.radius),
+          ),
+          title: const Text(
+            'Reject Document?',
+            style: TextStyle(
+              color: AdminColors.darkText,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: const Text(
+            'Rejecting a document will also mark the whole applicant as '
+                'Rejected. You can reopen the applicant later.',
+            style: TextStyle(color: AdminColors.greyText),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AdminColors.rejected,
+              ),
+              child: const Text('Reject'),
+            ),
+          ],
+        ),
+      );
 
+      if (confirmed != true) return;
+    }
+
+    try {
+      await _viewModel.updateDocumentStatus(index, status);
+
+      if (status == 'rejected') {
+        await _viewModel.updateStatus(VerificationStatus.rejected);
+        if (!mounted) return;
+        showAdminSnack(context, 'Document rejected. Applicant marked Rejected.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      showAdminSnack(context, 'Failed to update document status');
+    }
+  }
 
   Future<void> _setStatus(VerificationStatus status) async {
     try {
@@ -388,7 +441,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
                             Row(children: [
                               Expanded(child: _HeaderMetaTile(label: 'Applied On', value: _viewModel.appliedOn)),
                               const SizedBox(width: 12),
-                              Expanded(child: _HeaderMetaTile(label: 'Last Updated', value: _viewModel.profileCreatedOn)),
+                              Expanded(child: _HeaderMetaTile(label: 'Profile Created', value: _viewModel.profileCreatedOn)),
                             ]),
                             const SizedBox(height: 12),
                             _HeaderMetaTile(label: 'Application Type', value: _viewModel.applicationType),
@@ -561,6 +614,17 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
     );
   }
   Future<void> _confirmAndSetStatus(VerificationStatus status) async {
+    // Applicant can be verified only when every document is verified.
+    if (status == VerificationStatus.verified) {
+      final docs = _viewModel.documents;
+      final allVerified = docs.isNotEmpty &&
+          docs.every((d) => d.status.toLowerCase() == 'verified');
+
+      if (!allVerified) {
+        showAdminSnack(context, 'Verify all documents first.');
+        return;
+      }
+    }
     final actionLabel = status == VerificationStatus.verified
         ? 'Verify'
         : status == VerificationStatus.rejected
@@ -576,7 +640,7 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
             style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900)),
         content: Text(
           status == VerificationStatus.pending
-              ? '${widget.applicant.name} will be reopened for review. Previous decision will be cleared.'
+              ? '${widget.applicant.name} will be reopened for review. The applicant status goes back.'
               : '${widget.applicant.name} will be marked as ${status.label}.',
           style: const TextStyle(color: AdminColors.greyText),
         ),
@@ -676,14 +740,10 @@ class _ApplicantDetailsScreenState extends State<ApplicantDetailsScreen> {
           },
           onVerify: locked
               ? null
-              : (index) async {
-            await _viewModel.updateDocumentStatus(index, 'verified');
-          },
+              : (index) => _setDocumentStatus(index, 'verified'),
           onReject: locked
               ? null
-              : (index) async {
-            await _viewModel.updateDocumentStatus(index, 'rejected');
-          },
+              : (index) => _setDocumentStatus(index, 'rejected'),
         );
 
       case 1:

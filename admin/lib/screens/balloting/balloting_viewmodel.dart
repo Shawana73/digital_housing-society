@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
@@ -7,6 +9,21 @@ import '../../models/scheme_model.dart';
 
 class BallotingViewModel extends BaseAdminViewModel {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Real-time listeners
+  final List<StreamSubscription> _subs = [];
+  bool _initialized = false;
+  String _searchText = '';
+
+  // Latest snapshots of every collection used for the counts
+  QuerySnapshot<Map<String, dynamic>>? _schemesSnap;
+  QuerySnapshot<Map<String, dynamic>>? _applicantsSnap;
+  QuerySnapshot<Map<String, dynamic>>? _applicationsSnap;
+  QuerySnapshot<Map<String, dynamic>>? _uploadsSnap;
+  QuerySnapshot<Map<String, dynamic>>? _paymentsSnap;
+  QuerySnapshot<Map<String, dynamic>>? _priorWinnersSnap;
+  QuerySnapshot<Map<String, dynamic>>? _plotsSnap;
+  DocumentSnapshot<Map<String, dynamic>>? _configSnap;
 
   BallotingLiveStatus status = BallotingLiveStatus.ready;
   double progress = 0.0;
@@ -115,236 +132,359 @@ class BallotingViewModel extends BaseAdminViewModel {
     return availablePlotsByScheme[scheme.documentId] ?? 0;
   }
 
+  // ------------------------------------------------------------
+  // REAL-TIME LOADING
+  // ------------------------------------------------------------
+
+  Future<void> _cancelSubs() async {
+    for (final s in _subs) {
+      await s.cancel();
+    }
+    _subs.clear();
+  }
+
+  bool get _allReady =>
+      _schemesSnap != null &&
+          _applicantsSnap != null &&
+          _applicationsSnap != null &&
+          _uploadsSnap != null &&
+          _paymentsSnap != null &&
+          _priorWinnersSnap != null &&
+          _plotsSnap != null &&
+          _configSnap != null;
+
+  void _listenQuery(
+      Query<Map<String, dynamic>> query,
+      void Function(QuerySnapshot<Map<String, dynamic>>) store,
+      Completer<void> first, {
+        bool isStats = true,
+      }) {
+    _subs.add(
+      query.snapshots().listen(
+            (snap) {
+          store(snap);
+          _rebuild(first, statsChanged: isStats, configChanged: false);
+        },
+        onError: (e) => _onError(e, first),
+      ),
+    );
+  }
+
+  void _onError(Object e, Completer<void> first) {
+    debugPrint('ERROR LOADING BALLOTING DATA: $e');
+    errorMessage = 'Could not load balloting data. Please tap Retry.';
+    isLoading = false;
+    notifyListeners();
+    if (!first.isCompleted) first.complete();
+  }
+
+  void _rebuild(
+      Completer<void> first, {
+        required bool statsChanged,
+        required bool configChanged,
+      }) {
+    // Pehle saari collections ka pehla data aane do, warna counts adhoore aate.
+    if (!_allReady) return;
+
+    try {
+      if (!_initialized || statsChanged) _computeStats();
+      if (!_initialized || configChanged) _applyConfig();
+      _initialized = true;
+      errorMessage = null;
+    } catch (e) {
+      debugPrint('ERROR LOADING BALLOTING DATA: $e');
+      errorMessage = 'Could not load balloting data. Please tap Retry.';
+    }
+
+    isLoading = false;
+    notifyListeners();
+    if (!first.isCompleted) first.complete();
+  }
+
   @override
   Future<void> load() async {
+    await _cancelSubs();
+
+    _schemesSnap = null;
+    _applicantsSnap = null;
+    _applicationsSnap = null;
+    _uploadsSnap = null;
+    _paymentsSnap = null;
+    _priorWinnersSnap = null;
+    _plotsSnap = null;
+    _configSnap = null;
+    _initialized = false;
+
     isLoading = true;
     errorMessage = null;
     notifyListeners();
 
-    try {
-      // =========================================================
-      // 1. LOAD SCHEMES
-      // =========================================================
+    final first = Completer<void>();
 
-      final schemesSnapshot =
-      await _firestore.collection('schemes').get();
+    _listenQuery(_firestore.collection('schemes'),
+            (s) => _schemesSnap = s, first);
+    _listenQuery(_firestore.collection('applicants'),
+            (s) => _applicantsSnap = s, first);
+    _listenQuery(_firestore.collection('applications'),
+            (s) => _applicationsSnap = s, first);
+    _listenQuery(_firestore.collection('uploads'),
+            (s) => _uploadsSnap = s, first);
+    _listenQuery(_firestore.collection('payments'),
+            (s) => _paymentsSnap = s, first);
+    _listenQuery(
+        _firestore
+            .collection('ballot_results')
+            .where('isSelected', isEqualTo: true),
+            (s) => _priorWinnersSnap = s,
+        first);
+    _listenQuery(_firestore.collection('plots'),
+            (s) => _plotsSnap = s, first);
 
-      schemes = schemesSnapshot.docs
-          .map(
-            (doc) => SchemeModel.fromMap(
-          doc.data(),
-          doc.id,
-        ),
-      )
-          .toList();
+    _subs.add(
+      _firestore.collection('ballot_config').doc('main').snapshots().listen(
+            (doc) {
+          _configSnap = doc;
+          _rebuild(first, statsChanged: false, configChanged: true);
+        },
+        onError: (e) => _onError(e, first),
+      ),
+    );
 
-      filteredSchemes = List.from(schemes);
+    // Pehla data aane tak RefreshIndicator / spinner chalta rahe
+    await first.future;
+  }
 
-      // =========================================================
-      // 2. LOAD APPLICANTS
-      // =========================================================
+  // ------------------------------------------------------------
+  // COUNTS (pehle load() ke andar the, logic bilkul wahi)
+  // ------------------------------------------------------------
 
-      final applicantsSnapshot =
-      await _firestore.collection('applicants').get();
+  void _computeStats() {
+    final schemesSnapshot = _schemesSnap!;
+    final applicantsSnapshot = _applicantsSnap!;
+    final applicationsSnapshot = _applicationsSnap!;
+    final uploadsSnapshot = _uploadsSnap!;
+    final paymentsSnapshot = _paymentsSnap!;
+    final priorWinnersSnapshot = _priorWinnersSnap!;
+    final plotsSnapshot = _plotsSnap!;
 
-      totalApplicants = applicantsSnapshot.docs.length;
+    // =========================================================
+    // 1. SCHEMES
+    // =========================================================
 
-      // =========================================================
-      // 3. LOAD APPLICATIONS
-      // =========================================================
+    schemes = schemesSnapshot.docs
+        .map(
+          (doc) => SchemeModel.fromMap(
+        doc.data(),
+        doc.id,
+      ),
+    )
+        .toList();
 
-      final applicationsSnapshot =
-      await _firestore.collection('applications').get();
+    _applySearch();
 
-      // =========================================================
-      // 4. LOAD UPLOADS
-      // =========================================================
+    // =========================================================
+    // 2. APPLICANTS
+    // =========================================================
 
-      final uploadsSnapshot =
-      await _firestore.collection('uploads').get();
+    totalApplicants = applicantsSnapshot.docs.length;
 
-      final verifiedUploads = <String>{};
+    // =========================================================
+    // 4. UPLOADS
+    // =========================================================
 
-      for (final doc in uploadsSnapshot.docs) {
-        final data = doc.data();
+    final verifiedUploads = <String>{};
 
-        final verificationStatus =
-            data['verificationStatus']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-                '';
+    for (final doc in uploadsSnapshot.docs) {
+      final data = doc.data();
 
-        if (verificationStatus == 'verified') {
-          final applicantId =
-          data['applicantId']?.toString();
+      final verificationStatus =
+          data['verificationStatus']
+              ?.toString()
+              .trim()
+              .toLowerCase() ??
+              '';
 
-          if (applicantId != null &&
-              applicantId.isNotEmpty) {
-            verifiedUploads.add(applicantId);
-          }
+      if (verificationStatus == 'verified') {
+        final applicantId =
+        data['applicantId']?.toString();
+
+        if (applicantId != null &&
+            applicantId.isNotEmpty) {
+          verifiedUploads.add(applicantId);
         }
       }
+    }
 
-      // =========================================================
-      // 5. LOAD PAYMENTS
-      // =========================================================
+    // =========================================================
+    // 5. PAYMENTS
+    // =========================================================
 
-      final paymentsSnapshot =
-      await _firestore.collection('payments').get();
+    final verifiedPayments = <String>{};
 
-      final verifiedPayments = <String>{};
+    for (final doc in paymentsSnapshot.docs) {
+      final data = doc.data();
 
-      for (final doc in paymentsSnapshot.docs) {
-        final data = doc.data();
+      final paymentStatus =
+          data['status']
+              ?.toString()
+              .trim()
+              .toLowerCase() ??
+              '';
 
-        final paymentStatus =
-            data['status']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-                '';
+      if (paymentStatus == 'verified') {
+        final applicantId =
+        data['applicantId']?.toString();
 
-        if (paymentStatus == 'verified') {
-          final applicantId =
-          data['applicantId']?.toString();
-
-          if (applicantId != null &&
-              applicantId.isNotEmpty) {
-            verifiedPayments.add(applicantId);
-          }
+        if (applicantId != null &&
+            applicantId.isNotEmpty) {
+          verifiedPayments.add(applicantId);
         }
       }
+    }
 
-      // =========================================================
-      // 6. FIND APPROVED APPLICATIONS
-      // =========================================================
+    // =========================================================
+    // 6. APPROVED APPLICATIONS
+    // =========================================================
 
-      final approvedApplications = <String>{};
+    final approvedApplications = <String>{};
+
+    for (final doc in applicationsSnapshot.docs) {
+      final data = doc.data();
+
+      final applicationStatus =
+          data['status']
+              ?.toString()
+              .trim()
+              .toLowerCase() ??
+              '';
+
+      if (applicationStatus == 'verified') {
+        final applicantId =
+        data['applicantId']?.toString();
+
+        if (applicantId != null &&
+            applicantId.isNotEmpty) {
+          approvedApplications.add(applicantId);
+        }
+      }
+    }
+
+    // =========================================================
+    // 7. OVERALL ELIGIBLE APPLICANTS
+    // =========================================================
+
+    final eligibleApplicants = approvedApplications
+        .intersection(verifiedUploads)
+        .intersection(verifiedPayments);
+
+    verifiedApplicants = eligibleApplicants.length;
+
+    // =========================================================
+    // 8. SCHEME-WISE ELIGIBLE APPLICANTS
+    // =========================================================
+
+    eligibleApplicantsByScheme.clear();
+
+    // FIX (bug — matches the balloting engine): builds a quick
+    // applicantId -> CNIC lookup so this count can be deduplicated the
+    // same way BallotingProcessingViewModel dedupes before shuffling.
+    // Without this, a person with two applicant records (e.g. an
+    // accidental duplicate registration) would be counted twice here,
+    // showing an "Eligible" number on the scheme card that doesn't
+    // match how many people can actually be drawn.
+    final applicantCnicById = <String, String>{};
+    for (final doc in applicantsSnapshot.docs) {
+      final data = doc.data();
+      applicantCnicById[doc.id] = (data['cnic']?.toString() ??
+          data['cnicDigits']?.toString() ??
+          '').trim();
+    }
+
+    // FIX (missing feature — real-world fairness rule): "one plot per
+    // person, across the whole society" — so this card's count also
+    // excludes anyone who has already won a plot in a previous
+    // balloting for ANY scheme, matching the balloting engine's rule.
+    final priorWinnerCnics = <String>{};
+    for (final doc in priorWinnersSnapshot.docs) {
+      final cnic = (doc.data()['cnic'] ?? '').toString().trim();
+      if (cnic.isNotEmpty) {
+        priorWinnerCnics.add(cnic);
+      }
+    }
+
+    for (final scheme in schemes) {
+      final schemeSize =
+      _extractPlotSize(scheme.size);
+
+      final seenCnics = <String>{};
+      int count = 0;
 
       for (final doc in applicationsSnapshot.docs) {
         final data = doc.data();
 
-        final applicationStatus =
-            data['status']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-                '';
+        final applicantId =
+            data['applicantId']?.toString() ?? '';
 
-        if (applicationStatus == 'verified') {
-          final applicantId =
-          data['applicantId']?.toString();
+        // Applicant must already be fully eligible.
+        if (!eligibleApplicants.contains(applicantId)) {
+          continue;
+        }
 
-          if (applicantId != null &&
-              applicantId.isNotEmpty) {
-            approvedApplications.add(applicantId);
-          }
+        final applicationPlotType =
+            data['plotType']?.toString() ?? '';
+
+        final applicationSize =
+        _extractPlotSize(applicationPlotType);
+
+        if (applicationPlotType.isNotEmpty &&
+            applicationSize != schemeSize) {
+          continue;
+        }
+        final cnic = applicantCnicById[applicantId] ?? '';
+
+        if (cnic.isNotEmpty && priorWinnerCnics.contains(cnic)) {
+          continue;
+        }
+
+        if (cnic.isEmpty || seenCnics.add(cnic)) {
+          count++;
         }
       }
 
-      // =========================================================
-      // 7. FIND OVERALL ELIGIBLE APPLICANTS
-      // =========================================================
+      eligibleApplicantsByScheme[
+      scheme.documentId
+      ] = count;
+    }
 
-      final eligibleApplicants = approvedApplications
-          .intersection(verifiedUploads)
-          .intersection(verifiedPayments);
+    // =========================================================
+    // 9. PLOTS
+    // =========================================================
 
-      verifiedApplicants = eligibleApplicants.length;
+    // Overall available plots
+    availablePlots = plotsSnapshot.docs.where((doc) {
+      final data = doc.data();
 
-      // =========================================================
-      // 8. SCHEME-WISE ELIGIBLE APPLICANTS
-      // =========================================================
+      final plotStatus =
+          data['status']
+              ?.toString()
+              .trim()
+              .toLowerCase() ??
+              '';
 
-      eligibleApplicantsByScheme.clear();
+      return plotStatus == 'available';
+    }).length;
 
-      // FIX (bug — matches the balloting engine): builds a quick
-      // applicantId -> CNIC lookup so this count can be deduplicated the
-      // same way BallotingProcessingViewModel dedupes before shuffling.
-      // Without this, a person with two applicant records (e.g. an
-      // accidental duplicate registration) would be counted twice here,
-      // showing an "Eligible" number on the scheme card that doesn't
-      // match how many people can actually be drawn.
-      final applicantCnicById = <String, String>{};
-      for (final doc in applicantsSnapshot.docs) {
-        final data = doc.data();
-        applicantCnicById[doc.id] = (data['cnic']?.toString() ??
-            data['cnicDigits']?.toString() ??
-            '').trim();
-      }
+    // =========================================================
+    // 10. SCHEME-WISE AVAILABLE PLOTS
+    // =========================================================
 
-      // FIX (missing feature — real-world fairness rule): "one plot per
-      // person, across the whole society" — so this card's count also
-      // excludes anyone who has already won a plot in a previous
-      // balloting for ANY scheme, matching the balloting engine's rule.
-      final priorWinnersSnapshot = await _firestore
-          .collection('ballot_results')
-          .where('isSelected', isEqualTo: true)
-          .get();
+    availablePlotsByScheme.clear();
 
-      final priorWinnerCnics = <String>{};
-      for (final doc in priorWinnersSnapshot.docs) {
-        final cnic = (doc.data()['cnic'] ?? '').toString().trim();
-        if (cnic.isNotEmpty) {
-          priorWinnerCnics.add(cnic);
-        }
-      }
+    for (final scheme in schemes) {
+      final schemeSize =
+      _extractPlotSize(scheme.size);
 
-      for (final scheme in schemes) {
-        final schemeSize =
-        _extractPlotSize(scheme.size);
-
-        final seenCnics = <String>{};
-        int count = 0;
-
-        for (final doc in applicationsSnapshot.docs) {
-          final data = doc.data();
-
-          final applicantId =
-              data['applicantId']?.toString() ?? '';
-
-          // Applicant must already be fully eligible.
-          if (!eligibleApplicants.contains(applicantId)) {
-            continue;
-          }
-
-          final applicationPlotType =
-              data['plotType']?.toString() ?? '';
-
-          final applicationSize =
-          _extractPlotSize(applicationPlotType);
-
-          // Match application plot type with scheme size.
-          if (applicationSize != schemeSize) {
-            continue;
-          }
-
-          final cnic = applicantCnicById[applicantId] ?? '';
-
-          if (cnic.isNotEmpty && priorWinnerCnics.contains(cnic)) {
-            continue;
-          }
-
-          if (cnic.isEmpty || seenCnics.add(cnic)) {
-            count++;
-          }
-        }
-
-        eligibleApplicantsByScheme[
-        scheme.documentId
-        ] = count;
-      }
-
-      // =========================================================
-      // 9. LOAD PLOTS
-      // =========================================================
-
-      final plotsSnapshot =
-      await _firestore.collection('plots').get();
-
-      // Overall available plots
-      availablePlots = plotsSnapshot.docs.where((doc) {
+      final count = plotsSnapshot.docs.where((doc) {
         final data = doc.data();
 
         final plotStatus =
@@ -354,146 +494,125 @@ class BallotingViewModel extends BaseAdminViewModel {
                 .toLowerCase() ??
                 '';
 
-        return plotStatus == 'available';
+        final plotSize =
+            data['plotSize']?.toString() ?? '';
+
+        final plotSchemeId =
+            data['schemeId']?.toString() ?? '';
+
+        return plotStatus == 'available' &&
+            plotSchemeId == scheme.documentId &&
+            _extractPlotSize(plotSize) == schemeSize;
       }).length;
 
-      // =========================================================
-      // 10. SCHEME-WISE AVAILABLE PLOTS
-      // =========================================================
-
-      availablePlotsByScheme.clear();
-
-      for (final scheme in schemes) {
-        final schemeSize =
-        _extractPlotSize(scheme.size);
-
-        final count = plotsSnapshot.docs.where((doc) {
-          final data = doc.data();
-
-          final plotStatus =
-              data['status']
-                  ?.toString()
-                  .trim()
-                  .toLowerCase() ??
-                  '';
-
-          final plotSize =
-              data['plotSize']?.toString() ?? '';
-
-          return plotStatus == 'available' &&
-              _extractPlotSize(plotSize) == schemeSize;
-        }).length;
-
-        availablePlotsByScheme[
-        scheme.documentId
-        ] = count;
-      }
-
-      // =========================================================
-      // 11. LOAD CURRENT BALLOT CONFIG
-      // =========================================================
-
-      final ballotConfigDoc =
-      await _firestore
-          .collection('ballot_config')
-          .doc('main')
-          .get();
-
-      if (ballotConfigDoc.exists) {
-        final data = ballotConfigDoc.data() ?? {};
-
-        currentSchemeName =
-            data['projectName']?.toString() ?? '';
-
-        currentSchemeSize =
-            data['block']?.toString() ?? '';
-
-        currentBallotingStatus =
-            data['status']?.toString() ?? 'Ready';
-
-        selectedApplications =
-            (data['selectedApplications'] as num?)
-                ?.toInt() ??
-                0;
-
-        notSelectedApplications =
-            (data['notSelectedApplications'] as num?)
-                ?.toInt() ??
-                0;
-
-        progress =
-            (data['progress'] as num?)
-                ?.toDouble() ??
-                0.0;
-
-        switch (
-        currentBallotingStatus.toLowerCase()) {
-          case 'live':
-            status = BallotingLiveStatus.running;
-            break;
-
-          case 'paused':
-            status = BallotingLiveStatus.paused;
-            break;
-
-          case 'completed':
-            status = BallotingLiveStatus.completed;
-            break;
-
-          case 'stopped':
-            status = BallotingLiveStatus.stopped;
-            break;
-
-          default:
-            status = BallotingLiveStatus.ready;
-        }
-      } else {
-        selectedApplications = 0;
-        notSelectedApplications = 0;
-        progress = 0.0;
-
-        currentSchemeName = '';
-        currentSchemeSize = '';
-        currentBallotingStatus = 'Ready';
-
-        status = BallotingLiveStatus.ready;
-      }
-    } catch (e) {
-      debugPrint('ERROR LOADING BALLOTING DATA: $e');
-      errorMessage =
-      'Could not load balloting data. Please tap Retry.';
+      availablePlotsByScheme[
+      scheme.documentId
+      ] = count;
     }
-
-    isLoading = false;
-    notifyListeners();
   }
 
-  @override
-  void search(String value) {
-    final normalized = value.trim().toLowerCase();
+  // =========================================================
+  // 11. CURRENT BALLOT CONFIG
+  // =========================================================
 
-    if (normalized.isEmpty) {
+  void _applyConfig() {
+    final ballotConfigDoc = _configSnap!;
+
+    if (ballotConfigDoc.exists) {
+      final data = ballotConfigDoc.data() ?? {};
+
+      currentSchemeName =
+          data['projectName']?.toString() ?? '';
+
+      currentSchemeSize =
+          data['block']?.toString() ?? '';
+
+      currentBallotingStatus =
+          data['status']?.toString() ?? 'Ready';
+
+      selectedApplications =
+          (data['selectedApplications'] as num?)
+              ?.toInt() ??
+              0;
+
+      notSelectedApplications =
+          (data['notSelectedApplications'] as num?)
+              ?.toInt() ??
+              0;
+
+      progress =
+          (data['progress'] as num?)
+              ?.toDouble() ??
+              0.0;
+
+      switch (
+      currentBallotingStatus.toLowerCase()) {
+        case 'live':
+          status = BallotingLiveStatus.running;
+          break;
+
+        case 'paused':
+          status = BallotingLiveStatus.paused;
+          break;
+
+        case 'completed':
+          status = BallotingLiveStatus.completed;
+          break;
+
+        case 'stopped':
+          status = BallotingLiveStatus.stopped;
+          break;
+
+        default:
+          status = BallotingLiveStatus.ready;
+      }
+    } else {
+      selectedApplications = 0;
+      notSelectedApplications = 0;
+      progress = 0.0;
+
+      currentSchemeName = '';
+      currentSchemeSize = '';
+      currentBallotingStatus = 'Ready';
+
+      status = BallotingLiveStatus.ready;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // SEARCH
+  // ------------------------------------------------------------
+
+  // Real-time update aane par bhi current search filter barqarar rahe.
+  void _applySearch() {
+    if (_searchText.isEmpty) {
       filteredSchemes = List.from(schemes);
     } else {
       filteredSchemes = schemes.where((scheme) {
         return scheme.name
             .toLowerCase()
-            .contains(normalized) ||
+            .contains(_searchText) ||
             scheme.size
                 .toLowerCase()
-                .contains(normalized) ||
+                .contains(_searchText) ||
             scheme.status
                 .toLowerCase()
-                .contains(normalized);
+                .contains(_searchText);
       }).toList();
     }
+  }
 
+  @override
+  void search(String value) {
+    _searchText = value.trim().toLowerCase();
+    _applySearch();
     notifyListeners();
   }
 
   @override
   void clearSearch() {
-    filteredSchemes = List.from(schemes);
+    _searchText = '';
+    _applySearch();
     notifyListeners();
   }
 
@@ -523,5 +642,14 @@ class BallotingViewModel extends BaseAdminViewModel {
     status = BallotingLiveStatus.completed;
     progress = 1.0;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    for (final s in _subs) {
+      s.cancel();
+    }
+    _subs.clear();
+    super.dispose();
   }
 }
