@@ -4,18 +4,20 @@ import '../../models/plot_model.dart';
 import '../../theme/admin_theme.dart';
 
 class PlotCard extends StatelessWidget {
-final PlotModel plot;
-final VoidCallback onEdit;
-final VoidCallback onDelete;
-final int index;
+  final PlotModel plot;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final int index;
+  final String schemeName;
 
-const PlotCard({
-super.key,
-required this.plot,
-required this.onEdit,
-required this.onDelete,
-this.index = 0,
-});
+  const PlotCard({
+    super.key,
+    required this.plot,
+    required this.onEdit,
+    required this.onDelete,
+    this.index = 0,
+    this.schemeName = '',
+  });
 
 static const List<String> _plotImages = [
 'assets/images/admin_realestate.png',
@@ -261,6 +263,11 @@ fontWeight: FontWeight.w900,
 Widget _buildPlotDetails() {
 return Column(
 children: [
+  _infoRow(
+    icon: Icons.domain_rounded,
+    text: schemeName.isEmpty ? 'No scheme assigned' : schemeName,
+  ),
+  const SizedBox(height: 8),
 _infoRow(
 icon: Icons.location_on_outlined,
 text: plot.location,

@@ -8,6 +8,7 @@ class PlotModel {
   final String location;
   final String description;
   final String status;
+  final String schemeId;
   final Timestamp createdAt;
   final Timestamp updatedAt;
 
@@ -21,6 +22,7 @@ class PlotModel {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.schemeId = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +33,7 @@ class PlotModel {
       'location': location,
       'description': description,
       'status': status,
+      'schemeId': schemeId,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
@@ -47,6 +50,7 @@ class PlotModel {
       location: map['location'] ?? '',
       description: map['description'] ?? '',
       status: map['status'] ?? 'Available',
+      schemeId: map['schemeId']?.toString() ?? '',
       createdAt: map['createdAt'] ?? Timestamp.now(),
       updatedAt: map['updatedAt'] ?? Timestamp.now(),
     );

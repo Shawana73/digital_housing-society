@@ -623,6 +623,17 @@ class AdminShell extends StatelessWidget {
           final initial = name.trim().isNotEmpty
               ? name.trim()[0].toUpperCase()
               : 'A';
+          final roleRaw = (data?['role'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase()
+              .replaceAll(' ', '')
+              .replaceAll('_', '');
+
+          final bool isSuperAdmin =
+              data?['isSuperAdmin'] == true || roleRaw == 'superadmin';
+
+          final String roleLabel = isSuperAdmin ? 'Super Admin' : 'Admin';
 
           return Container(
             padding: const EdgeInsets.fromLTRB(
@@ -711,9 +722,9 @@ class AdminShell extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 5),
-                          const Text(
-                            'Super Admin',
-                            style: TextStyle(
+                          Text(
+                            roleLabel,
+                            style: const TextStyle(
                               color: AdminColors.greyText,
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,

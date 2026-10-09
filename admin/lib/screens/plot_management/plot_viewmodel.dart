@@ -1,11 +1,17 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/plot_model.dart';
+import '../../models/scheme_model.dart';
 import '../../viewmodels/admin_view_models.dart'; // for BaseAdminViewModel
 
 class PlotManagementViewModel extends BaseAdminViewModel {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _plotsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _schemesSub;
+
   List<PlotModel> plots = [];
+  List<SchemeModel> schemes = [];
   int get totalPlots {
     return plots.length;
   }
@@ -35,18 +41,46 @@ class PlotManagementViewModel extends BaseAdminViewModel {
 
   @override
   Future<void> load() async {
+    // Purani listeners band karein (pull-to-refresh par dobara load() call hota ha)
+    await _plotsSub?.cancel();
+    await _schemesSub?.cancel();
+
     isLoading = true;
     notifyListeners();
 
-    try {
-      final snapshot = await _firestore.collection('plots').get();
-      plots = snapshot.docs.map((doc) => PlotModel.fromMap(doc.data(), doc.id)).toList();
-    } catch (e) {
-      print('ERROR LOADING PLOTS: $e');
-    }
+    final firstLoad = Completer<void>();
 
-    isLoading = false;
-    notifyListeners();
+    _plotsSub = _firestore.collection('plots').snapshots().listen(
+          (snapshot) {
+        plots = snapshot.docs
+            .map((doc) => PlotModel.fromMap(doc.data(), doc.id))
+            .toList();
+        isLoading = false;
+        notifyListeners();
+        if (!firstLoad.isCompleted) firstLoad.complete();
+      },
+      onError: (e) {
+        print('ERROR LOADING PLOTS: $e');
+        isLoading = false;
+        notifyListeners();
+        if (!firstLoad.isCompleted) firstLoad.complete();
+      },
+    );
+
+    _schemesSub = _firestore.collection('schemes').snapshots().listen(
+          (snapshot) {
+        schemes = snapshot.docs
+            .map((doc) => SchemeModel.fromMap(doc.data(), doc.id))
+            .toList();
+        notifyListeners();
+      },
+      onError: (e) {
+        print('ERROR LOADING SCHEMES: $e');
+      },
+    );
+
+    // Pehla data aane tak RefreshIndicator ghoomta rahe
+    await firstLoad.future;
   }
 
   void setFilter(String value) {
@@ -61,7 +95,23 @@ class PlotManagementViewModel extends BaseAdminViewModel {
         'updatedAt': Timestamp.now(),
       }
       );
-      await load();
+      return true;
+    } catch (e) {
+      print('Error updating plot: $e');
+      return false;
+    }
+  }
+  Future<bool> updatePlot(
+      PlotModel plot, {
+        required String status,
+        required String schemeId,
+      }) async {
+    try {
+      await _firestore.collection('plots').doc(plot.documentId).update({
+        'status': status,
+        'schemeId': schemeId,
+        'updatedAt': Timestamp.now(),
+      });
       return true;
     } catch (e) {
       print('Error updating plot: $e');
@@ -79,5 +129,12 @@ class PlotManagementViewModel extends BaseAdminViewModel {
       print('Error deleting plot: $e');
       return false;
     }
+  }
+
+  @override
+  void dispose() {
+    _plotsSub?.cancel();
+    _schemesSub?.cancel();
+    super.dispose();
   }
 }

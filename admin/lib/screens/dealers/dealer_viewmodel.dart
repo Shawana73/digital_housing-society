@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-
 import '../../models/admin_models.dart';
-import '../../viewModels/admin_view_models.dart';
+import '../../viewmodels/admin_view_models.dart';
 
 class DealerVerificationViewModel extends BaseAdminViewModel {
   final List<Dealer> dealers = [];
+
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _dealersSub;
 
   String selectedFilter = 'All';
 
@@ -39,34 +42,53 @@ class DealerVerificationViewModel extends BaseAdminViewModel {
 
   @override
   Future<void> load() async {
+    // Purani listener band karein (refresh par dobara load() call hota ha)
+    await _dealersSub?.cancel();
+
     isLoading = true;
     notifyListeners();
 
-    try {
-      final QuerySnapshot<Map<String, dynamic>> snapshot =
-      await FirebaseFirestore.instance
-          .collection('dealer_registrations')
-          .get();
+    final first = Completer<void>();
 
-      dealers.clear();
+    _dealersSub = FirebaseFirestore.instance
+        .collection('dealer_registrations')
+        .snapshots()
+        .listen(
+          (QuerySnapshot<Map<String, dynamic>> snapshot) {
+        try {
+          dealers.clear();
 
-      for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
-      in snapshot.docs) {
-        final data = doc.data();
-        dealers.add(Dealer.fromFirestore(doc));
-      }
+          for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+          in snapshot.docs) {
+            final data = doc.data();
+            dealers.add(Dealer.fromFirestore(doc));
+          }
 
-      debugPrint(
-        'Loaded ${dealers.length} dealers from Firestore',
-      );
-    } catch (e) {
-      debugPrint(
-        'Error loading dealers: $e',
-      );
-    }
+          debugPrint(
+            'Loaded ${dealers.length} dealers from Firestore',
+          );
+        } catch (e) {
+          debugPrint(
+            'Error loading dealers: $e',
+          );
+        }
 
-    isLoading = false;
-    notifyListeners();
+        isLoading = false;
+        notifyListeners();
+        if (!first.isCompleted) first.complete();
+      },
+      onError: (e) {
+        debugPrint(
+          'Error loading dealers: $e',
+        );
+        isLoading = false;
+        notifyListeners();
+        if (!first.isCompleted) first.complete();
+      },
+    );
+
+    // Pehla data aane tak spinner / RefreshIndicator chalta rahe
+    await first.future;
   }
 
   VerificationStatus _getStatus(String? status) {
@@ -89,49 +111,41 @@ class DealerVerificationViewModel extends BaseAdminViewModel {
     notifyListeners();
   }
 
-  Future<void> approve(Dealer dealer) async {
+  Future<bool> approve(Dealer dealer) async {
     try {
       await FirebaseFirestore.instance
           .collection('dealer_registrations')
           .doc(dealer.id)
-          .update({
-        'verificationStatus': 'Approved',
-      });
+          .update({'verificationStatus': 'Approved'});
 
       dealer.status = VerificationStatus.verified;
-
       notifyListeners();
-
-      debugPrint(
-        'Dealer ${dealer.id} approved',
-      );
+      return true;
     } catch (e) {
-      debugPrint(
-        'Error approving dealer: $e',
-      );
+      debugPrint('Error approving dealer: $e');
+      return false;
     }
   }
 
-  Future<void> reject(Dealer dealer) async {
+  Future<bool> reject(Dealer dealer) async {
     try {
       await FirebaseFirestore.instance
           .collection('dealer_registrations')
           .doc(dealer.id)
-          .update({
-        'verificationStatus': 'Rejected',
-      });
+          .update({'verificationStatus': 'Rejected'});
 
       dealer.status = VerificationStatus.rejected;
-
       notifyListeners();
-
-      debugPrint(
-        'Dealer ${dealer.id} rejected',
-      );
+      return true;
     } catch (e) {
-      debugPrint(
-        'Error rejecting dealer: $e',
-      );
+      debugPrint('Error rejecting dealer: $e');
+      return false;
     }
+  }
+
+  @override
+  void dispose() {
+    _dealersSub?.cancel();
+    super.dispose();
   }
 }

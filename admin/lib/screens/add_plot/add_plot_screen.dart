@@ -27,13 +27,20 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
   @override
   void initState() {
     super.initState();
+    _viewModel.addListener(_onViewModelChanged);
+    _viewModel.loadSchemes();
     Future.delayed(const Duration(milliseconds: 350), () {
       if (mounted) setState(() => _isLoading = false);
     });
   }
 
+  void _onViewModelChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _viewModel.removeListener(_onViewModelChanged);
     _viewModel.dispose();
     _searchController.dispose();
     super.dispose();
@@ -59,6 +66,11 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    final schemeError = _viewModel.validateSchemeSize();
+    if (schemeError != null) {
+      showAdminSnack(context, schemeError);
       return;
     }
 
@@ -118,6 +130,7 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
                       subtitle: 'Add premium inventory to society map',
                     ),
                   ),
+
                   if (_searchQuery.isEmpty ||
                       _matchesSearch('Plot ID') ||
                       _matchesSearch('Plot Size') ||
@@ -141,6 +154,31 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
                       label: 'Plot Size',
                       icon: Icons.aspect_ratio_rounded,
                       validator: _required,
+                    ),
+                  ),
+                  Offstage(
+                    offstage: !_matchesSearch('Scheme'),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey(_viewModel.selectedSchemeId ?? 'none'),
+                        initialValue: _viewModel.selectedSchemeId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Scheme',
+                          prefixIcon: Icon(Icons.domain_rounded),
+                        ),
+                        items: _viewModel.schemes
+                            .map((s) => DropdownMenuItem<String>(
+                          value: s.documentId,
+                          child: Text('${s.name} (${s.size})',
+                              overflow: TextOverflow.ellipsis),
+                        ))
+                            .toList(),
+                        onChanged: _viewModel.selectScheme,
+                        validator: (v) =>
+                        v == null ? 'Please select a scheme' : null,
+                      ),
                     ),
                   ),
                   Offstage(

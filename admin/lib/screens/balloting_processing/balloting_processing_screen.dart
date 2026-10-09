@@ -60,13 +60,29 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
   }
 
   Future<void> _start() async {
-    if (widget.schemeDate != null && DateTime.now().isBefore(widget.schemeDate!)) {
-      showAdminSnack(
-        context,
-        'This balloting is scheduled for ${_formatScheduledDate(widget.schemeDate!)}. '
-            'It cannot be started early.',
-      );
-      return;
+    if (widget.schemeDate != null) {
+      final d = widget.schemeDate!;
+      final now = DateTime.now();
+      final dayStart = DateTime(d.year, d.month, d.day);
+      final dayEnd = DateTime(d.year, d.month, d.day, 23, 59, 59);
+
+      if (now.isBefore(dayStart)) {
+        showAdminSnack(
+          context,
+          'This balloting is scheduled for ${_formatScheduledDate(d)}. '
+              'It cannot be started early.',
+        );
+        return;
+      }
+
+      if (now.isAfter(dayEnd)) {
+        showAdminSnack(
+          context,
+          'The scheduled date (${_formatScheduledDate(d)}) for this balloting '
+              'has passed. It has expired and can no longer be started.',
+        );
+        return;
+      }
     }
 
     final confirmed = await showDialog<bool>(
@@ -197,7 +213,16 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
           child: Row(children: [
             IconButton(
               icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                if (_viewModel.isProcessing) {
+                  showAdminSnack(
+                    context,
+                    'A draw is in progress. Please stop it before leaving.',
+                  );
+                  return;
+                }
+                Navigator.pop(context);
+              },
             ),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -583,20 +608,22 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 800;
 
-    return Scaffold(
-      backgroundColor: AdminColors.background,
-      body: Column(
-        children: [
-          _buildTopBar(context),
-          Expanded(
-            child: isWide ? _buildWideLayout() : _buildCompactLayout(),
-          ),
-        ],
+    return PopScope(
+      canPop: !_viewModel.isProcessing,
+      child: Scaffold(
+        backgroundColor: AdminColors.background,
+        body: Column(
+          children: [
+            _buildTopBar(context),
+            Expanded(
+              child: isWide ? _buildWideLayout() : _buildCompactLayout(),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -7,6 +9,8 @@ import '../../viewmodels/admin_view_models.dart';
 
 class ResultViewModel extends BaseAdminViewModel {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _resultsSub;
 
   List<BallotingResult> results = [];
 
@@ -72,47 +76,79 @@ class ResultViewModel extends BaseAdminViewModel {
   /// are shown, preserving the previous "overview" behavior.
   @override
   Future<void> load({String? schemeId, String? schemeName}) async {
+    // Purani listener band karein (refresh par dobara load() call hota ha)
+    await _resultsSub?.cancel();
+
     isLoading = true;
     errorMessage = null;
     currentSchemeId = schemeId;
     currentSchemeName = schemeName;
     notifyListeners();
 
-    try {
-      Query<Map<String, dynamic>> resultsQuery =
-      _firestore.collection('ballot_results');
+    final first = Completer<void>();
 
-      if (schemeId != null && schemeId.isNotEmpty) {
-        resultsQuery = resultsQuery.where('schemeId', isEqualTo: schemeId);
-      }
+    Query<Map<String, dynamic>> resultsQuery =
+    _firestore.collection('ballot_results');
 
-      final snapshot = await resultsQuery.get();
-
-      results = snapshot.docs.map((doc) {
-        final data = doc.data();
-
-        return BallotingResult(
-          applicantId: data['applicantId']?.toString() ?? doc.id,
-          applicationId: data['applicationId']?.toString() ?? '',
-          applicantName: data['fullName']?.toString() ?? '',
-          cnic: data['cnic']?.toString() ?? '',
-          plotNo: data['plotNumber']?.toString() ?? '',
-          category: data['plotType']?.toString() ?? '',
-          plotLocation: data['plotLocation']?.toString() ?? '',
-          serialNumber: data['serialNumber']?.toString() ?? '',
-          selected: data['isSelected'] == true,
-          ballotingDate: data['ballotingDate'] is Timestamp
-              ? (data['ballotingDate'] as Timestamp).toDate()
-              : null,
-        );
-      }).toList();
-    } catch (e) {
-      debugPrint('ERROR LOADING BALLOT RESULTS: $e');
-      errorMessage = 'Could not load results. Pull down to retry.';
+    if (schemeId != null && schemeId.isNotEmpty) {
+      resultsQuery = resultsQuery.where('schemeId', isEqualTo: schemeId);
     }
 
-    isLoading = false;
-    notifyListeners();
+    _resultsSub = resultsQuery.snapshots().listen(
+          (snapshot) {
+        try {
+          results = snapshot.docs.map((doc) {
+            final data = doc.data();
+
+            return BallotingResult(
+              applicantId: data['applicantId']?.toString() ?? doc.id,
+              applicationId: data['applicationId']?.toString() ?? '',
+              applicantName: data['fullName']?.toString() ?? '',
+              cnic: data['cnic']?.toString() ?? '',
+              plotNo: data['plotNumber']?.toString() ?? '',
+              category: data['plotType']?.toString() ?? '',
+              plotLocation: data['plotLocation']?.toString() ?? '',
+              serialNumber: data['serialNumber']?.toString() ?? '',
+              selected: data['isSelected'] == true,
+              ballotingDate: data['ballotingDate'] is Timestamp
+                  ? (data['ballotingDate'] as Timestamp).toDate()
+                  : null,
+            );
+          }).toList();
+          // Winners first, in draw order (serial 1, 2, 3...), then the
+          // not-selected applicants sorted by name.
+          results.sort((a, b) {
+            if (a.selected != b.selected) return a.selected ? -1 : 1;
+            if (a.selected) {
+              final sa = int.tryParse(a.serialNumber) ?? (1 << 30);
+              final sb = int.tryParse(b.serialNumber) ?? (1 << 30);
+              return sa.compareTo(sb);
+            }
+            return a.applicantName
+                .toLowerCase()
+                .compareTo(b.applicantName.toLowerCase());
+          });
+          errorMessage = null;
+        } catch (e) {
+          debugPrint('ERROR LOADING BALLOT RESULTS: $e');
+          errorMessage = 'Could not load results. Pull down to retry.';
+        }
+
+        isLoading = false;
+        notifyListeners();
+        if (!first.isCompleted) first.complete();
+      },
+      onError: (e) {
+        debugPrint('ERROR LOADING BALLOT RESULTS: $e');
+        errorMessage = 'Could not load results. Pull down to retry.';
+        isLoading = false;
+        notifyListeners();
+        if (!first.isCompleted) first.complete();
+      },
+    );
+
+    // Pehla data aane tak spinner / RefreshIndicator chalta rahe
+    await first.future;
   }
 
   void setFilter(String value) {
@@ -142,5 +178,11 @@ class ResultViewModel extends BaseAdminViewModel {
     } catch (e) {
       debugPrint('Failed to write export audit log: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _resultsSub?.cancel();
+    super.dispose();
   }
 }

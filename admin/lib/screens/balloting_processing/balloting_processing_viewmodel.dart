@@ -15,7 +15,8 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   bool isRunning = false;
   bool isPaused = false;
   bool isProcessing = false;
-
+  int _runId = 0;
+  int _cancelledRun = -1;
   String? errorMessage;
 
   // FIX (missing feature — live transparency): every draw event (a winner
@@ -99,11 +100,31 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   }) async {
     if (isProcessing) return false;
 
-    if (scheduledDate != null && DateTime.now().isBefore(scheduledDate)) {
-      errorMessage =
-      'This balloting is scheduled for ${_formatScheduledDate(scheduledDate)}. '
-          'It cannot be started before that date.';
-      return false;
+    // Balloting can only be started on its own scheduled day
+    // (00:00 to 23:59). Before that day it is too early; after it, the
+    // balloting has expired.
+    if (scheduledDate != null) {
+      final now = DateTime.now();
+      final dayStart = DateTime(
+        scheduledDate.year, scheduledDate.month, scheduledDate.day,
+      );
+      final dayEnd = DateTime(
+        scheduledDate.year, scheduledDate.month, scheduledDate.day, 23, 59, 59,
+      );
+
+      if (now.isBefore(dayStart)) {
+        errorMessage =
+        'This balloting is scheduled for ${_formatScheduledDate(scheduledDate)}. '
+            'It cannot be started before that date.';
+        return false;
+      }
+
+      if (now.isAfter(dayEnd)) {
+        errorMessage =
+        'The scheduled date (${_formatScheduledDate(scheduledDate)}) for this '
+            'balloting has passed. It has expired and can no longer be started.';
+        return false;
+      }
     }
 
     // FIX (bug — re-run prevention): check the SCHEME's own document
@@ -157,6 +178,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
 
     try {
       errorMessage = null;
+      final myRun = ++_runId;
 
       isProcessing = true;
       isRunning = true;
@@ -431,6 +453,13 @@ class BallotingProcessingViewModel extends ChangeNotifier {
         availablePlots = matchingPlots;
       }
 
+      // Plots belong to a scheme: only this scheme's own plots are used.
+      if (schemeId != null && schemeId.isNotEmpty) {
+        availablePlots = availablePlots
+            .where((plot) => plot.schemeId == schemeId)
+            .toList();
+      }
+
       if (availablePlots.isEmpty) {
         throw Exception(
           'No available plots found for this balloting.',
@@ -501,8 +530,8 @@ class BallotingProcessingViewModel extends ChangeNotifier {
           await Future.delayed(const Duration(milliseconds: 300));
         }
 
-        // STOP: if admin stopped, exit the loop before drawing the next winner.
-        if (!isProcessing) {
+        // STOP: if admin stopped THIS run, exit before the next winner.
+        if (_cancelledRun == myRun || !isProcessing) {
           break;
         }
 
@@ -585,7 +614,14 @@ class BallotingProcessingViewModel extends ChangeNotifier {
       // The partial ballot_live_results entries already written stay as
       // history (per the agreed behavior), and ballot_config is marked
       // 'stopped' so the applicant-facing live screen reflects it too.
-      if (drawnCount < winners.length) {
+      final wasCancelled = _cancelledRun == myRun;
+
+      if (wasCancelled || drawnCount < winners.length) {
+        // A newer run has already started: don't touch its state.
+        if (myRun != _runId) {
+          return false;
+        }
+
         await _firestore.collection('ballot_config').doc('main').set({
           'status': 'stopped',
           'stage': 'stopped',
@@ -826,6 +862,7 @@ class BallotingProcessingViewModel extends ChangeNotifier {
   void stop() {
     if (!isProcessing) return;
 
+    _cancelledRun = _runId;
     isProcessing = false;
     isRunning = false;
     isPaused = false;

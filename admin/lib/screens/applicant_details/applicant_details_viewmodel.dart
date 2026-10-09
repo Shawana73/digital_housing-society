@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -5,6 +7,12 @@ import '../../models/admin_models.dart';
 import '../../viewmodels/admin_view_models.dart'; // for BaseAdminViewModel
 class ApplicantDetailsViewModel extends BaseAdminViewModel {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Real-time listeners
+  final List<StreamSubscription> _subs = [];       // applicant doc
+  final List<StreamSubscription> _childSubs = [];  // application, payment, activity, uploads
+  final Set<String> _pending = {};
+  String? _childKey;
 
   Applicant? applicant;
   Map<String, dynamic>? applicantData;
@@ -53,10 +61,40 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
       'description': description,
       'type': type,
       'timestamp': FieldValue.serverTimestamp(),
+      'adminEmail': FirebaseAuth.instance.currentUser?.email ?? 'unknown',
     });
   }
 
+  // ------------------------------------------------------------
+  // REAL-TIME LISTENERS
+  // ------------------------------------------------------------
+
+  Future<void> _cancelAll() async {
+    for (final s in _subs) {
+      await s.cancel();
+    }
+    _subs.clear();
+    _cancelChildren();
+  }
+
+  void _cancelChildren() {
+    for (final s in _childSubs) {
+      s.cancel();
+    }
+    _childSubs.clear();
+  }
+
+  // Sab collections ka pehla data aane par hi loading band hoti ha
+  void _markReady(String key, Completer<void> first) {
+    _pending.remove(key);
+    if (_pending.isEmpty) isLoading = false;
+    notifyListeners();
+    if (_pending.isEmpty && !first.isCompleted) first.complete();
+  }
+
   Future<void> loadApplicant(Applicant selectedApplicant) async {
+    await _cancelAll();
+
     isLoading = true;
     notifyListeners();
 
@@ -67,75 +105,156 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
     documents = [];
     notes = [];
     activityLogs = [];
+    _childKey = null;
+    _pending
+      ..clear()
+      ..add('applicant');
 
-    try {
-      QuerySnapshot<Map<String, dynamic>> applicantSnapshot;
+    final first = Completer<void>();
 
-      if (selectedApplicant.cnic.trim().isNotEmpty) {
-        applicantSnapshot = await _firestore
-            .collection('applicants')
-            .where('cnic', isEqualTo: selectedApplicant.cnic.trim())
-            .limit(1)
-            .get();
-      } else {
-        applicantSnapshot = await _firestore
-            .collection('applicants')
-            .where('uid', isEqualTo: selectedApplicant.id)
-            .limit(1)
-            .get();
+    Query<Map<String, dynamic>> applicantQuery;
+
+    if (selectedApplicant.cnic.trim().isNotEmpty) {
+      applicantQuery = _firestore
+          .collection('applicants')
+          .where('cnic', isEqualTo: selectedApplicant.cnic.trim())
+          .limit(1);
+    } else {
+      applicantQuery = _firestore
+          .collection('applicants')
+          .where('uid', isEqualTo: selectedApplicant.id)
+          .limit(1);
+    }
+
+    _subs.add(
+      applicantQuery.snapshots().listen(
+            (snapshot) {
+          try {
+            _onApplicantSnapshot(snapshot, selectedApplicant, first);
+          } catch (e, stackTrace) {
+            debugPrint('Error loading applicant details: $e');
+            debugPrintStack(stackTrace: stackTrace);
+            _markReady('applicant', first);
+          }
+        },
+        onError: (e, stackTrace) {
+          debugPrint('Error loading applicant details: $e');
+          debugPrintStack(stackTrace: stackTrace);
+          _markReady('applicant', first);
+        },
+      ),
+    );
+
+    // Pehla data aane tak loading chalti rahe
+    await first.future;
+  }
+
+  void _onApplicantSnapshot(
+      QuerySnapshot<Map<String, dynamic>> applicantSnapshot,
+      Applicant selectedApplicant,
+      Completer<void> first,
+      ) {
+    if (applicantSnapshot.docs.isNotEmpty) {
+      final applicantDoc = applicantSnapshot.docs.first;
+      applicantData = applicantDoc.data();
+      final rawNotes = applicantData?['verificationNotes'];
+
+      notes = [];
+      if (rawNotes is List) {
+        notes = rawNotes
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+
+        notes.sort((a, b) {
+          final aTime = a['createdAt'];
+          final bTime = b['createdAt'];
+
+          if (aTime is Timestamp && bTime is Timestamp) {
+            return bTime.compareTo(aTime);
+          }
+
+          return 0;
+        });
       }
+    } else {
+      applicantData = null;
+      notes = [];
+    }
 
-      if (applicantSnapshot.docs.isNotEmpty) {
-        final applicantDoc = applicantSnapshot.docs.first;
-        applicantData = applicantDoc.data();
-        final rawNotes = applicantData?['verificationNotes'];
+    final uid = applicantData?['uid']?.toString().trim();
+    final applicantId =
+        applicantData?['uid']?.toString() ?? selectedApplicant.id;
 
-        if (rawNotes is List) {
-          notes = rawNotes
-              .whereType<Map>()
-              .map((item) => Map<String, dynamic>.from(item))
-              .toList();
+    // Baqi listeners sirf tab dobara lagti hain jab uid badle
+    final key = '${uid ?? ''}|$applicantId';
+    if (key != _childKey) {
+      _childKey = key;
+      _cancelChildren();
+      applicationData = null;
+      paymentData = null;
+      activityLogs = [];
+      documents = [];
 
-          notes.sort((a, b) {
-            final aTime = a['createdAt'];
-            final bTime = b['createdAt'];
+      if (uid != null && uid.isNotEmpty) {
+        _listenApplication(uid, first);
+        _listenPayment(uid, first);
+        _listenActivity(uid, first);
+      }
+      _listenUploads(applicantId, selectedApplicant, first);
+    }
 
-            if (aTime is Timestamp && bTime is Timestamp) {
-              return bTime.compareTo(aTime);
-            }
+    _markReady('applicant', first);
+  }
 
-            return 0;
-          });
-        }
-        final uid = applicantData?['uid']?.toString().trim();
+  void _listenApplication(String uid, Completer<void> first) {
+    _pending.add('application');
+    _childSubs.add(
+      _firestore
+          .collection('applications')
+          .where('applicantId', isEqualTo: uid)
+          .limit(1)
+          .snapshots()
+          .listen(
+            (snap) {
+          applicationData =
+          snap.docs.isNotEmpty ? snap.docs.first.data() : null;
+          _markReady('application', first);
+        },
+        onError: (e) {
+          debugPrint('Error loading application: $e');
+          _markReady('application', first);
+        },
+      ),
+    );
+  }
 
-        if (uid != null && uid.isNotEmpty) {
-          final applicationSnapshot = await _firestore
-              .collection('applications')
-              .where('applicantId', isEqualTo: uid)
-              .limit(1)
-              .get();
+  void _listenPayment(String uid, Completer<void> first) {
+    _pending.add('payment');
+    _childSubs.add(
+      _firestore.collection('payments').doc(uid).snapshots().listen(
+            (snap) {
+          paymentData = snap.exists ? snap.data() : null;
+          _markReady('payment', first);
+        },
+        onError: (e) {
+          debugPrint('Error loading payment: $e');
+          _markReady('payment', first);
+        },
+      ),
+    );
+  }
 
-          if (applicationSnapshot.docs.isNotEmpty) {
-            applicationData = applicationSnapshot.docs.first.data();
-          }
-
-          final paymentSnapshot = await _firestore
-              .collection('payments')
-              .doc(uid)
-              .get();
-
-          if (paymentSnapshot.exists) {
-            paymentData = paymentSnapshot.data();
-          }
-          final activitySnapshot = await _firestore
-              .collection('activity_logs')
-              .where('applicantId', isEqualTo: uid)
-              .get();
-
-          activityLogs = activitySnapshot.docs
-              .map((doc) => doc.data())
-              .toList();
+  void _listenActivity(String uid, Completer<void> first) {
+    _pending.add('activity');
+    _childSubs.add(
+      _firestore
+          .collection('activity_logs')
+          .where('applicantId', isEqualTo: uid)
+          .snapshots()
+          .listen(
+            (snap) {
+          activityLogs = snap.docs.map((doc) => doc.data()).toList();
 
           activityLogs.sort((a, b) {
             final aTime = a['timestamp'];
@@ -147,70 +266,84 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
 
             return 0;
           });
-        }
-      }
+          _markReady('activity', first);
+        },
+        onError: (e) {
+          debugPrint('Error loading activity logs: $e');
+          _markReady('activity', first);
+        },
+      ),
+    );
+  }
 
-      documents = [];
+  void _listenUploads(
+      String applicantId,
+      Applicant selectedApplicant,
+      Completer<void> first,
+      ) {
+    debugPrint('SELECTED APPLICANT ID: ${selectedApplicant.id}');
+    debugPrint('SELECTED APPLICANT CNIC: ${selectedApplicant.cnic}');
+    debugPrint('APPLICANT FIRESTORE UID: ${applicantData?['uid']}');
+    debugPrint('UPLOAD DOC ID USED: $applicantId');
 
-      final applicantId =
-          applicantData?['uid']?.toString() ?? selectedApplicant.id;
-      debugPrint('SELECTED APPLICANT ID: ${selectedApplicant.id}');
-      debugPrint('SELECTED APPLICANT CNIC: ${selectedApplicant.cnic}');
-      debugPrint('APPLICANT FIRESTORE UID: ${applicantData?['uid']}');
-      debugPrint('UPLOAD DOC ID USED: $applicantId');
+    _pending.add('uploads');
+    _childSubs.add(
+      _firestore.collection('uploads').doc(applicantId).snapshots().listen(
+            (uploadDoc) {
+          try {
+            documents = [];
+            debugPrint('ADMIN UPLOAD UID: $applicantId');
+            debugPrint('ADMIN UPLOAD EXISTS: ${uploadDoc.exists}');
+            debugPrint('ADMIN UPLOAD DATA: ${uploadDoc.data()}');
+            if (uploadDoc.exists) {
+              final uploadData = uploadDoc.data() as Map<String, dynamic>;
+              final rawDocuments = uploadData['documents'];
 
-      final uploadDoc = await _firestore
-          .collection('uploads')
-          .doc(applicantId)
-          .get();
-      debugPrint('ADMIN UPLOAD UID: $applicantId');
-      debugPrint('ADMIN UPLOAD EXISTS: ${uploadDoc.exists}');
-      debugPrint('ADMIN UPLOAD DATA: ${uploadDoc.data()}');
-      if (uploadDoc.exists) {
-        final uploadData = uploadDoc.data() as Map<String, dynamic>;
-        final rawDocuments = uploadData['documents'];
+              if (rawDocuments is List) {
+                documents = rawDocuments.map<ApplicantDocument>((item) {
+                  if (item is Map<String, dynamic>) {
+                    final fileName = item['fileName']?.toString() ?? 'Unknown Document';
+                    final fileType = item['fileType']?.toString().toLowerCase() ?? '';
+                    final fileSize = item['fileSize']?.toString() ?? '';
+                    final serialNumber = item['serialNumber']?.toString() ?? '';
+                    final status = item['status']?.toString() ?? 'pending';
 
-        if (rawDocuments is List) {
-          documents = rawDocuments.map<ApplicantDocument>((item) {
-            if (item is Map<String, dynamic>) {
-              final fileName = item['fileName']?.toString() ?? 'Unknown Document';
-              final fileType = item['fileType']?.toString().toLowerCase() ?? '';
-              final fileSize = item['fileSize']?.toString() ?? '';
-              final serialNumber = item['serialNumber']?.toString() ?? '';
-              final status = item['status']?.toString() ?? 'pending';
-
-              return ApplicantDocument(
-                title: fileName,
-                number: serialNumber,
-                fileSize: fileSize,
-                fileType: fileType,
-                fileUrl: item['fileUrl']?.toString() ?? '',
-                status: status,
-                icon: _getDocumentIcon(fileType),
-                verified: status.toLowerCase() == 'verified',
-              );
+                    return ApplicantDocument(
+                      title: fileName,
+                      number: serialNumber,
+                      fileSize: fileSize,
+                      fileType: fileType,
+                      fileUrl: item['fileUrl']?.toString() ?? '',
+                      status: status,
+                      icon: _getDocumentIcon(fileType),
+                      verified: status.toLowerCase() == 'verified',
+                    );
+                  }
+                  return const ApplicantDocument(
+                    title: 'Unknown Document',
+                    number: '',
+                    fileSize: '',
+                    fileType: '',
+                    fileUrl: '',
+                    status: 'pending',
+                    icon: Icons.insert_drive_file_rounded,
+                    verified: false,
+                  );
+                }).toList();
+              }
             }
-            return const ApplicantDocument(
-              title: 'Unknown Document',
-              number: '',
-              fileSize: '',
-              fileType: '',
-              fileUrl: '',
-              status: 'pending',
-              icon: Icons.insert_drive_file_rounded,
-              verified: false,
-            );
-          }).toList();
-        }
-      }
-
-    } catch (e, stackTrace) {
-      debugPrint('Error loading applicant details: $e');
-      debugPrintStack(stackTrace: stackTrace);
-    }
-
-    isLoading = false;
-    notifyListeners();
+          } catch (e, stackTrace) {
+            debugPrint('Error loading applicant details: $e');
+            debugPrintStack(stackTrace: stackTrace);
+          }
+          _markReady('uploads', first);
+        },
+        onError: (e) {
+          debugPrint('Error loading uploads: $e');
+          _markReady('uploads', first);
+        },
+      ),
+    );
   }
 
   IconData _getDocumentIcon(String fileType) {
@@ -361,7 +494,8 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
         type: 'verification',
       );
 
-      notes.insert(0, note);
+      // notes.insert(0, note) hata diya: ab real-time listener khud nayi
+      // note list mein daal deta ha. Rehne se note do baar nazar aata.
 
       notifyListeners();
     } catch (e, stackTrace) {
@@ -538,5 +672,15 @@ class ApplicantDetailsViewModel extends BaseAdminViewModel {
   String _monthName(int month) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[month - 1];
+  }
+
+  @override
+  void dispose() {
+    for (final s in _subs) {
+      s.cancel();
+    }
+    _subs.clear();
+    _cancelChildren();
+    super.dispose();
   }
 }

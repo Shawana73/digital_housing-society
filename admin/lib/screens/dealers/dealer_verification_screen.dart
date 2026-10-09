@@ -54,26 +54,28 @@ class _DealerVerificationScreenState extends State<DealerVerificationScreen> {
   }
 
   Future<void> _approve(Dealer dealer) async {
-    await _viewModel.approve(dealer);
-
+    final ok = await _viewModel.approve(dealer);
     if (!mounted) return;
 
-    setState(() {
-      _reviewingDealers.remove(dealer.id);
-    });
+    if (!ok) {
+      showAdminSnack(context, 'Could not update ${dealer.name}. Please try again.');
+      return;
+    }
 
+    setState(() => _reviewingDealers.remove(dealer.id));
     showAdminSnack(context, '${dealer.name} approved');
   }
 
   Future<void> _reject(Dealer dealer) async {
-    await _viewModel.reject(dealer);
-
+    final ok = await _viewModel.reject(dealer);
     if (!mounted) return;
 
-    setState(() {
-      _reviewingDealers.remove(dealer.id);
-    });
+    if (!ok) {
+      showAdminSnack(context, 'Could not update ${dealer.name}. Please try again.');
+      return;
+    }
 
+    setState(() => _reviewingDealers.remove(dealer.id));
     showAdminSnack(context, '${dealer.name} rejected');
   }
 
