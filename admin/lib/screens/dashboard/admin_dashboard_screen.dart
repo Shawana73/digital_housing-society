@@ -235,7 +235,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 else
                   ..._viewModel.filteredActivities.map((a) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: DashboardActivityTile(activity: a, onTap: () => showAdminSnack(context, a.title)),
+                    child: DashboardActivityTile(
+                      activity: a,
+                      onTap: () {
+                        if (a.route != null) {
+                          _open(a.route!);
+                        } else {
+                          showAdminSnack(context, a.title);
+                        }
+                      },
+                    ),
                   )),
                 const SizedBox(height: 24),
                 DashboardNotificationCard(

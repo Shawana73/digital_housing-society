@@ -354,7 +354,6 @@ class DashboardNotificationCard extends StatelessWidget {
         const SizedBox(height: 12),
         ...notifications.take(3).map((n) => ListTile(
           contentPadding: EdgeInsets.zero,
-          onTap: () => showAdminSnack(context, n.title),
           leading: Icon(n.icon, color: AdminColors.primary),
           title: Text(n.title, style: const TextStyle(color: AdminColors.darkText, fontWeight: FontWeight.w900, fontSize: 14)),
           subtitle: Text(n.message, maxLines: 1, overflow: TextOverflow.ellipsis,

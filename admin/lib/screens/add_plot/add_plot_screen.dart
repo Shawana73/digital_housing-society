@@ -18,6 +18,13 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
   bool _isLoading = true;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   String _searchQuery = '';
+  static const List<String> _plotSizes = [
+    '2 Marla',
+    '5 Marla',
+    '10 Marla',
+    '15 Marla',
+    '20 Marla',
+  ];
 
   bool _matchesSearch(String label) {
     if (_searchQuery.isEmpty) return true;
@@ -149,11 +156,34 @@ class _AddPlotScreenState extends State<AddPlotScreen> {
                   ),
                   Offstage(
                     offstage: !_matchesSearch('Plot Size'),
-                    child: AddPlotField(
-                      controller: _viewModel.plotSize,
-                      label: 'Plot Size',
-                      icon: Icons.aspect_ratio_rounded,
-                      validator: _required,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey(_viewModel.plotSize.text.isEmpty
+                            ? 'none'
+                            : _viewModel.plotSize.text),
+                        initialValue: _viewModel.plotSize.text.isEmpty
+                            ? null
+                            : _viewModel.plotSize.text,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Plot Size',
+                          prefixIcon: Icon(Icons.aspect_ratio_rounded),
+                        ),
+                        items: _plotSizes
+                            .map((size) => DropdownMenuItem<String>(
+                          value: size,
+                          child: Text(size),
+                        ))
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _viewModel.plotSize.text = value ?? '';
+                          });
+                        },
+                        validator: (v) =>
+                        v == null ? 'Please select a plot size' : null,
+                      ),
                     ),
                   ),
                   Offstage(

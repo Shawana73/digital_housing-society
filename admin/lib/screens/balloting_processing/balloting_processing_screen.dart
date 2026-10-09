@@ -514,34 +514,6 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
     );
   }
 
-  Widget _buildSecureFooter() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.06), borderRadius: BorderRadius.circular(16)),
-      child: Row(children: [
-        Container(
-          height: 42,
-          width: 42,
-          decoration: BoxDecoration(color: AdminColors.primary.withOpacity(0.12), borderRadius: BorderRadius.circular(14)),
-          child: const Icon(Icons.verified_user_rounded, color: AdminColors.primary, size: 22),
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Secure  •  Transparent  •  Fair',
-                  style: TextStyle(color: AdminColors.primary, fontWeight: FontWeight.w800, fontSize: 12)),
-              SizedBox(height: 3),
-              Text('Our digital balloting system ensures complete fairness and transparency.',
-                  style: TextStyle(color: AdminColors.greyText, fontWeight: FontWeight.w600, fontSize: 11, height: 1.4)),
-            ],
-          ),
-        ),
-      ]),
-    );
-  }
-
   // ============================================================
   // LAYOUTS
   // ============================================================
@@ -575,8 +547,6 @@ class _BallotingProcessingScreenState extends State<BallotingProcessingScreen> w
             ),
             const SizedBox(height: 16),
             _buildCompleteButton(),
-            const SizedBox(height: 14),
-            _buildSecureFooter(),
           ],
         ),
       ),

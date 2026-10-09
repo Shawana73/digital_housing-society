@@ -412,6 +412,7 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
           time: time,
           positive: positive,
           icon: _activityIcon(type),
+          route: _activityRoute(type, action, description),
         );
       }).toList();
       notifyListeners();
@@ -622,6 +623,26 @@ class AdminDashboardViewModel extends BaseAdminViewModel {
       default:
         return Icons.notifications_rounded;
     }
+  }
+  /// Decides which screen an activity belongs to. Type and action are
+  /// checked first; the description is only a fallback, because it can
+  /// contain file names (e.g. "plot_map.png") that would match wrongly.
+  String? _activityRoute(String type, String action, String description) {
+    String? match(String text) {
+      final t = text.toLowerCase();
+      if (t.contains('payment')) return AdminRoutes.payments;
+      if (t.contains('dealer')) return AdminRoutes.dealers;
+      if (t.contains('ballot')) return AdminRoutes.balloting;
+      if (t.contains('plot')) return AdminRoutes.plots;
+      if (t.contains('applicant') ||
+          t.contains('document') ||
+          t.contains('verification')) {
+        return AdminRoutes.applicants;
+      }
+      return null;
+    }
+
+    return match('$type $action') ?? match(description);
   }
 
   String _formatAmount(double amount) {

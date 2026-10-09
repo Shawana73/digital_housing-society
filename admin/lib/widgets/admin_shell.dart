@@ -1,5 +1,4 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,11 +20,6 @@ class _AdminNavItem {
     required this.route,
   });
 }
-
-// Layered wave used as a decorative, light-toned base behind the
-// sidebar's profile card — purely cosmetic, no state or logic.
-// Two clippers with different curve shapes/phases are stacked to
-// give a soft parallax "hill" look instead of one flat curve.
 class _SidebarWaveClipperBack extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

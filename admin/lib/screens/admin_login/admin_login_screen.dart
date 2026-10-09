@@ -345,16 +345,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   ),
 
                   SizedBox(height: 4),
-
-                  Text(
-                    'All admin actions are monitored and logged for security and transparency.',
-                    style: TextStyle(
-                      color: AdminColors.greyText,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
                 ],
               ),
             ),

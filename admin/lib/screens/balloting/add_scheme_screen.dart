@@ -27,7 +27,13 @@ class _AddSchemeScreenState extends State<AddSchemeScreen> {
   TimeOfDay? _selectedTime;
 
   bool _saving = false;
-
+  static const List<String> _plotSizes = [
+    '2 Marla',
+    '5 Marla',
+    '10 Marla',
+    '15 Marla',
+    '20 Marla',
+  ];
   @override
   void dispose() {
     _nameController.dispose();
@@ -509,18 +515,34 @@ class _AddSchemeScreenState extends State<AddSchemeScreen> {
 
                         const SizedBox(height: 8),
 
-                        TextFormField(
-                          controller: _sizeController,
+                        DropdownButtonFormField<String>(
+                          initialValue: _sizeController.text.isEmpty
+                              ? null
+                              : _sizeController.text,
+                          isExpanded: true,
                           style: const TextStyle(
                             color: AdminColors.darkText,
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
                           decoration: _inputDecoration(
-                            'e.g. 5 Marla Villa',
+                            'Select plot size',
                             prefixIcon: Icons.square_foot_rounded,
                           ),
-                          validator: _validateSize,
+                          items: _plotSizes
+                              .map((size) => DropdownMenuItem<String>(
+                            value: size,
+                            child: Text(size),
+                          ))
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _sizeController.text = value ?? '';
+                            });
+                          },
+                          validator: (v) => v == null
+                              ? 'Please select a plot size'
+                              : _validateSize(v),
                         ),
 
                         const SizedBox(height: 8),

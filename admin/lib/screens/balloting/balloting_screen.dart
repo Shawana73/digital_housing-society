@@ -193,7 +193,7 @@ class _BallotingScreenState
       selectedIndex: 2,
       searchController: _searchController,
       searchHint:
-      'Search balloting sessions...',
+      'Search...',
       onSearchChanged: _viewModel.search,
       onSearchClear: () {
         _searchController.clear();

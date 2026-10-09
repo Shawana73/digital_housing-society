@@ -120,6 +120,7 @@ class ActivityItem {
   final String time;
   final IconData icon;
   final bool positive;
+  final String? route;
 
   const ActivityItem({
     required this.title,
@@ -127,6 +128,7 @@ class ActivityItem {
     required this.time,
     required this.icon,
     required this.positive,
+    this.route,
   });
 }
 

@@ -336,18 +336,34 @@ class FirestoreService {
   Future<DocumentSnapshot?> getResultForApplicant(
       String applicantId,
       ) async {
-    final direct =
-    await _db.collection('ballot_results').doc(applicantId).get();
-    if (direct.exists) return direct;
-
     final snap = await _db
         .collection('ballot_results')
         .where('applicantId', isEqualTo: applicantId)
-        .limit(1)
         .get();
 
-    if (snap.docs.isEmpty) return null;
-    return snap.docs.first;
+    // Naye documents (schemeId_applicantId) na milen to purane tareeqe
+    // (doc ID = applicantId) par wapas jao.
+    if (snap.docs.isEmpty) {
+      final direct =
+      await _db.collection('ballot_results').doc(applicantId).get();
+      return direct.exists ? direct : null;
+    }
+
+    // Agar applicant kisi scheme mein winner hai to wohi result dikhao,
+    // warna sab se naya result.
+    final winners =
+    snap.docs.where((d) => d.data()['isSelected'] == true).toList();
+    final pool = winners.isNotEmpty ? winners : [...snap.docs];
+
+    DateTime dateOf(Map<String, dynamic> d) {
+      final v = d['ballotingDate'];
+      return v is Timestamp
+          ? v.toDate()
+          : DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    pool.sort((a, b) => dateOf(b.data()).compareTo(dateOf(a.data())));
+    return pool.first;
   }
 
   Stream<QuerySnapshot> getNotifications(String uid) {

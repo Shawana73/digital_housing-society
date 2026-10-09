@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/admin_theme.dart';
+import '../../app_routes.dart';
 import '../../widgets/premium_widgets.dart';
 import '../../models/admin_models.dart';
 import 'dashboard_widgets.dart';
@@ -21,6 +22,23 @@ class AllActivitiesScreen extends StatelessWidget {
       default:
         return Icons.notifications_rounded;
     }
+  }
+  String? _activityRoute(String type, String action, String description) {
+    String? match(String text) {
+      final t = text.toLowerCase();
+      if (t.contains('payment')) return AdminRoutes.payments;
+      if (t.contains('dealer')) return AdminRoutes.dealers;
+      if (t.contains('ballot')) return AdminRoutes.balloting;
+      if (t.contains('plot')) return AdminRoutes.plots;
+      if (t.contains('applicant') ||
+          t.contains('document') ||
+          t.contains('verification')) {
+        return AdminRoutes.applicants;
+      }
+      return null;
+    }
+
+    return match('$type $action') ?? match(description);
   }
 
   @override
@@ -81,6 +99,7 @@ class AllActivitiesScreen extends StatelessWidget {
               time: time,
               positive: positive,
               icon: _activityIcon(type),
+              route: _activityRoute(type, action, description),
             );
           }).toList();
 
@@ -89,7 +108,15 @@ class AllActivitiesScreen extends StatelessWidget {
             itemCount: activities.length,
             itemBuilder: (context, i) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: DashboardActivityTile(activity: activities[i], onTap: () {}),
+              child: DashboardActivityTile(
+                activity: activities[i],
+                onTap: () {
+                  final route = activities[i].route;
+                  if (route != null) {
+                    Navigator.pushNamed(context, route);
+                  }
+                },
+              ),
             ),
           );
         },
