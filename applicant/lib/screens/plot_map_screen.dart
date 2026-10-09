@@ -146,26 +146,6 @@ class _PlotMapScreenState extends State<PlotMapScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _PlotSearchBar(
-                      hintText: searchHint,
-                      controller: _searchController,
-                      query: _searchQuery,
-                      resultCount: displayedPlots.length,
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                          if (value.trim().isNotEmpty) {
-                            _phase = 'All';
-                            _block = 'All';
-                          }
-                        });
-                      },
-                      onClear: () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = '');
-                      },
-                    ),
-                    const SizedBox(height: 12),
                     _MapLegend(
                       statuses: displayedPlots.map((plot) => plot.status),
                     ),

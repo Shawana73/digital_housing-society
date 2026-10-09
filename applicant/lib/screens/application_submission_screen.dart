@@ -182,10 +182,12 @@ class _ApplicationSubmissionScreenState extends State<ApplicationSubmissionScree
         appBar: desktop ? AppBar(
           title: const Text('Housing Application'),
           backgroundColor: const Color(0xFFF8F6FD),
-          actions: [const NotificationBell(), Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: InitialsAvatar(name: _applicant?.fullName ?? 'Applicant'),
-          )],
+          foregroundColor: const Color(0xFF1E1B4B),
+          titleTextStyle: const TextStyle(
+            color: Color(0xFF1E1B4B),
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
         ) : null,
         body: _profileLoading
             ? const Center(child: CircularProgressIndicator(
