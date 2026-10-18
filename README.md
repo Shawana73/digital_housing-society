@@ -46,11 +46,10 @@ This project is being developed as a Final Year Project by a team of BS Informat
 - Shawana Gohar
 - Sonia Saleem
 - Memoona Akram
-  
+
 ## Documentation
 
-- [Download Final Year Project Report (Word)](docs/Final_FYP_Report.docx)
-
+- [Download Final Year Project Documentation (Word)](./Final%20Documentation%208th%20Sem.docx)
   
   ##  Project Status
 
