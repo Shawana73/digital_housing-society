@@ -47,6 +47,11 @@ This project is being developed as a Final Year Project by a team of BS Informat
 - Sonia Saleem
 - Memoona Akram
   
+## Documentation
+
+- [Download Final Year Project Report (Word)](docs/Final_FYP_Report.docx)
+
+  
   ##  Project Status
 
  This project has been completed as a Final Year Project (FYP) by a team of BS Information Technology students.
