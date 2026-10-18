@@ -35,6 +35,7 @@ A Flutter-based mobile application for modern housing society management.
 - Resident portal
 - Complaint management
 - Visitor management
+- dealer separate dashboard
 - Enhanced reporting and analytics
   
   ##  Team
