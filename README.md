@@ -10,8 +10,10 @@ A Flutter-based mobile application for modern housing society management.
 
 - Secure user authentication
 - Applicant management
+- payment verification
 - Plot management
 - Plot visualization
+- dealer verification
 - Digital balloting system
 - Admin dashboard
 - Reports and analytics
@@ -46,6 +48,4 @@ This project is being developed as a Final Year Project by a team of BS Informat
 - Sonia Saleem
 - Memoona Akram
   
-  ##  Project Status
 
- This project is currently under development as part of a BS Information Technology Final Year Project.
