@@ -5,13 +5,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Digital Housing Society - Flutter Final Year Project">
+
   <title>Digital Housing Society | FYP</title>
+
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       background: #f7f6ff;
       color: #24213d;
       line-height: 1.7;
@@ -26,55 +30,149 @@
 
     header h1 {
       font-size: 38px;
-      margin: 0 0 10px;
+      line-height: 1.25;
+      margin: 0 0 12px;
     }
 
-    header p { margin: 5px 0; }
+    header p {
+      margin: 5px 0;
+    }
 
     main {
+      width: 100%;
       max-width: 850px;
-      margin: 30px auto;
+      margin: 32px auto;
       padding: 0 18px;
     }
 
     section {
       background: white;
       padding: 25px;
-      margin-bottom: 20px;
+      margin-bottom: 22px;
       border-radius: 16px;
-      box-shadow: 0 5px 20px #24213d0d;
+      box-shadow: 0 5px 20px rgba(36, 33, 61, 0.06);
+      overflow-wrap: anywhere;
     }
 
-    h2 { color: #7b4dff; }
+    h2 {
+      color: #7b4dff;
+      font-size: 23px;
+      margin: 0 0 12px;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul {
+      padding-left: 22px;
+      margin-bottom: 0;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-top: 18px;
+    }
 
     .button {
-      display: inline-block;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 44px;
+      padding: 11px 18px;
       background: #7b4dff;
       color: white;
       text-decoration: none;
-      padding: 11px 17px;
-      margin: 5px 5px 5px 0;
-      border-radius: 8px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+      border: 1px solid #7b4dff;
+      border-radius: 9px;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .button:hover {
+      background: #6538e8;
+      border-color: #6538e8;
+      transform: translateY(-1px);
+    }
+
+    .button:focus-visible {
+      outline: 3px solid #c6b5ff;
+      outline-offset: 3px;
     }
 
     .secondary {
       background: white;
       color: #7b4dff;
-      border: 1px solid #7b4dff;
+    }
+
+    .secondary:hover {
+      background: #f1edff;
+      color: #6538e8;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 5px 12px;
+      margin-top: 8px;
+      border-radius: 20px;
+      background: #eee9ff;
+      color: #6538e8;
+      font-size: 14px;
+      font-weight: 600;
     }
 
     footer {
       text-align: center;
-      padding: 25px;
+      padding: 25px 18px;
       color: #777;
+      font-size: 14px;
     }
 
     @media (max-width: 600px) {
-      header h1 { font-size: 29px; }
-      section { padding: 20px; }
+      header {
+        padding: 42px 18px;
+      }
+
+      header h1 {
+        font-size: 29px;
+      }
+
+      main {
+        margin: 22px auto;
+        padding: 0 14px;
+      }
+
+      section {
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+
+      h2 {
+        font-size: 21px;
+      }
+
+      .button-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .button {
+        width: 100%;
+      }
     }
   </style>
 </head>
+
 <body>
 
   <header>
@@ -84,6 +182,7 @@
   </header>
 
   <main>
+
     <section>
       <h2>About the Project</h2>
       <p>
@@ -118,20 +217,31 @@
     <section>
       <h2>Project Documentation</h2>
       <p>Explore the final year project report.</p>
-      <section>
-<a class="button"
-   href="https://github.com/Shawana73/digital_housing-society/blob/final-separate-apps/Updated%20%27Final%20Documentation%208th%20Sem.docx">
-  View / Download Report
-</a>
+
+      <div class="button-group">
+        <a
+          class="button"
+          href="https://github.com/Shawana73/digital_housing-society/blob/final-separate-apps/Updated%20%27Final%20Documentation%208th%20Sem.docx"
+          target="_blank"
+          rel="noopener noreferrer">
+          View / Download Report
+        </a>
+      </div>
     </section>
 
     <section>
       <h2>Source Code</h2>
       <p>Explore the source code and implementation on GitHub.</p>
-      <a class="button secondary"
-         href="https://github.com/Shawana73/digital_housing-society/tree/final-separate-apps">
-        View GitHub Repository
-      </a>
+
+      <div class="button-group">
+        <a
+          class="button secondary"
+          href="https://github.com/Shawana73/digital_housing-society/tree/final-separate-apps"
+          target="_blank"
+          rel="noopener noreferrer">
+          View GitHub Repository
+        </a>
+      </div>
     </section>
 
     <section>
@@ -141,8 +251,10 @@
         <li>Sonia Saleem</li>
         <li>Memoona Akram</li>
       </ul>
-      <p><strong>Project Status:</strong> Completed</p>
+      <p><strong>Project Status:</strong></p>
+      <span class="status">Completed</span>
     </section>
+
   </main>
 
   <footer>
