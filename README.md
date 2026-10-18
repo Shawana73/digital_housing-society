@@ -4,7 +4,8 @@ A Flutter-based mobile application for modern housing society management.
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)
 ![Dart](https://img.shields.io/badge/Dart-3.x-blue?logo=dart)
-![Status](https://img.shields.io/badge/Status-In%20Progress-orange)
+![Status](https://img.shields.io/badge/Status-Completed-brightgreen)
+
 
 ##  Features
 
@@ -48,4 +49,4 @@ This project is being developed as a Final Year Project by a team of BS Informat
   
   ##  Project Status
 
- This project is currently under development as part of a BS Information Technology Final Year Project.
+ This project has been completed as a Final Year Project (FYP) by a team of BS Information Technology students.
