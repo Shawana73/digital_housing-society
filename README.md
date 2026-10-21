@@ -16,8 +16,8 @@ A Flutter-based mobile application for modern housing society management.
 - Admin dashboard
 - Reports and analytics
 - Responsive and modern UI
+  
   ## My Contribution
-
 I primarily worked on the Admin module of the Digital Housing Society project.
 
 My contributions included:
