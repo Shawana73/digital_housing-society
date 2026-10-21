@@ -26,7 +26,7 @@ My contributions included:
 - Working on applicant verification and applicant details screens.
 - Implementing plot management and plot-related functionality.
 - Working with Firebase Authentication and Cloud Firestore for backend integration.
-- Organizing the application using the MVVM architecture and Provider for state management.
+- Organizing the application using the MVVM architecture.
 - Contributing to the integration and testing of the housing society application.
   
   ##  Tech Stack
